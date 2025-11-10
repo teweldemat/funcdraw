@@ -58,8 +58,25 @@ module.exports = {
   ],
   devtool: 'source-map',
   devServer: {
-    historyApiFallback: true,
+    historyApiFallback: {
+      rewrites: [
+        {
+          from: /^\/docs\/([^/?]+)\.md$/,
+          to: (context) => `/docs/${context.match[1]}.html`
+        },
+        {
+          from: /^\/docs\/.*$/,
+          to: (context) => context.parsedUrl.pathname
+        }
+      ]
+    },
     hot: true,
-    port: 5184
+    port: 5184,
+    static: [
+      {
+        directory: path.resolve(__dirname, '..', 'docs', 'site'),
+        publicPath: '/docs'
+      }
+    ]
   }
 };

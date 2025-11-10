@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Getting Started · FuncDraw Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1.5rem;
+    }
+    header h1 { margin: 0 0 0.25rem 0; font-size: 1.75rem; }
+    nav a {
+      color: #f8fafc;
+      margin-right: 1rem;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    nav a:hover { text-decoration: underline; }
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    article {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    article h1:first-child { margin-top: 0; }
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; }
+    a { color: var(--accent); }
+    @media (max-width: 640px) {
+      article { padding: 1.25rem; }
+      header { padding: 1rem; }
+      nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FuncDraw Documentation</h1>
+    <nav><a href="/docs/index.html">FuncDraw Docs</a><a href="/docs/getting-started.html">Getting Started</a><a href="/docs/primitives-reference.html">Primitives Reference</a><a href="/docs/programming-model.html">Programming Model</a></nav>
+  </header>
+  <main>
+    <article>
+      <h1>Getting Started</h1>
+<h2>1. Launch the hosted FuncDraw Player</h2>
+<ul>
+<li>Open <strong><a href="https://funcdraw.app">https://funcdraw.app</a></strong> in your browser. The hosted build always runs the latest renderer, reference docs, and sample workspaces.</li>
+</ul>
+<h2>2. Load a sample workspace</h2>
+<ul>
+<li>Click the <strong>Example</strong> button (the blue book icon) in the toolbar. Pick a collection such as <strong>Bicycle City</strong> or <strong>Showcase</strong> and the player will load every tab for you—no manual file browsing required.</li>
+</ul>
+<h2>3. Iterate on expressions</h2>
+<ul>
+<li>Edit any tab right in the browser. As soon as the <code>graphics</code> tab returns a new value, the canvas re-renders.</li>
+<li>Need a reminder on primitive shapes? Open the <strong>Reference</strong> dialog (question‑mark icon) for inline docs and a link back to the full FuncDraw documentation.</li>
+</ul>
+<h2>4. Download your workspace</h2>
+<ul>
+<li>Use the <strong>Download Workspace</strong> button to grab a <code>.fdmodel</code> archive. That archive mirrors the folders you see in the player, so you can re-import it later or feed it to the CLI (<code>fd-cli --root ./workspace --expression graphics/main</code>).</li>
+</ul>
+<h2>5. Export SVG snapshots</h2>
+<ul>
+<li>Select <strong>Export SVG</strong> to capture a deterministic vector snapshot at any time value. SVG exports land in your downloads folder and can be opened in Illustrator, Figma, or version control.</li>
+</ul>
+<h2>6. Reuse helpers by importing into a collection</h2>
+<ul>
+<li>Whenever you download a workspace—or receive one from a teammate—you can bring specific helpers into your own project. Choose <strong>Import Library</strong>, pick the <code>.fdmodel</code> file, and select which folders or tabs to merge. The player creates a custom collection so those helpers stay organized alongside your work.</li>
+</ul>
+<p>With <a href="https://funcdraw.app">https://funcdraw.app</a> plus the CLI you can iterate, download, share, and re-import FuncDraw scenes without touching local environment setup.</p>
+
+    </article>
+  </main>
+</body>
+</html>

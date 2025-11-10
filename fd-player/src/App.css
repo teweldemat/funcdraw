@@ -412,10 +412,14 @@
   font-size: 0.9rem;
 }
 
+
 .dialog-reference-link {
   margin: 0;
   font-size: 0.85rem;
   color: rgba(226, 232, 240, 0.75);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .dialog-reference-link a {

@@ -15,8 +15,13 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "build:fd-player": "npm run build --workspace fd-player",
-    "dev:fd-player": "npm run dev --workspace fd-player",
+    "docs:build": "node ./scripts/render-doc-previews.mjs && node ./scripts/build-docs.mjs",
+    "copy-docs": "npm run docs:build && node ./scripts/copy-docs.mjs",
+    "build:fd-player": "npm run build --workspace fd-player && npm run copy-docs",
+    "dev:fd-player": "npm run docs:build && npm run dev --workspace fd-player",
     "vercel-build": "npm run build:fd-player"
+  },
+  "dependencies": {
+    "marked": "^17.0.0"
   }
 }

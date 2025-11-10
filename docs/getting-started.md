@@ -1,19 +1,22 @@
 # Getting Started
 
 ## 1. Launch the hosted FuncDraw Player
-- Open **https://teweldemat.github.io/funcscript/player/** to use the official hosted build.
-- Working offline? Download the site from the FuncScript documentation portal and open `player/index.html` locally to get the same experience.
+- Open **https://funcdraw.app** in your browser. The hosted build always runs the latest renderer, reference docs, and sample workspaces.
 
-## 2. Pick an example workspace
-- The player ships with curated example workspaces. Use the file tree on the left side of the UI to load one, e.g. **Bicycle City** (`examples/bicycle_city/main.fs`).
-- Each `.fs` file is a FuncScript expression. Clicking a file tab opens its source in the editor panes.
+## 2. Load a sample workspace
+- Click the **Example** button (the blue book icon) in the toolbar. Pick a collection such as **Bicycle City** or **Showcase** and the player will load every tab for you—no manual file browsing required.
 
-## 3. Fiddle with the code
-- Modify expressions directly in the browser: change constants, tweak helper functions, or add new primitives. The canvas re-renders automatically whenever the main `graphics` expression returns a new list of primitives.
-- Use the built-in [Reference] button to recall primitive shapes, or keep the [Primitives Reference](primitives-reference.md) page open for quick field definitions.
+## 3. Iterate on expressions
+- Edit any tab right in the browser. As soon as the `graphics` tab returns a new value, the canvas re-renders.
+- Need a reminder on primitive shapes? Open the **Reference** dialog (question‑mark icon) for inline docs and a link back to the full FuncDraw documentation.
 
-## 4. Save (or export) your workspace
-- Press **Download Workspace** in the player toolbar to export every edited `.fs` file as a `.fdmodel` archive (a zip that mirrors the folder hierarchy). Import that archive back into the player or point `fd-cli` at it to render on the command line.
-- Alternatively, share the `.fdmodel` archive with teammates so they can load it directly in the hosted player.
+## 4. Download your workspace
+- Use the **Download Workspace** button to grab a `.fdmodel` archive. That archive mirrors the folders you see in the player, so you can re-import it later or feed it to the CLI (`fd-cli --root ./workspace --expression graphics/main`).
 
-With the hosted player plus the CLI (`fd-cli --root ./workspace --expression graphics/main`) you can iterate on FuncDraw scenes completely in the open.
+## 5. Export SVG snapshots
+- Select **Export SVG** to capture a deterministic vector snapshot at any time value. SVG exports land in your downloads folder and can be opened in Illustrator, Figma, or version control.
+
+## 6. Reuse helpers by importing into a collection
+- Whenever you download a workspace—or receive one from a teammate—you can bring specific helpers into your own project. Choose **Import Library**, pick the `.fdmodel` file, and select which folders or tabs to merge. The player creates a custom collection so those helpers stay organized alongside your work.
+
+With https://funcdraw.app plus the CLI you can iterate, download, share, and re-import FuncDraw scenes without touching local environment setup.

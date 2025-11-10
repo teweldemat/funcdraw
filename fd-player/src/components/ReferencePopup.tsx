@@ -137,11 +137,14 @@ export function ReferencePopup({ open, selection, onSelect, onClose }: Reference
               )}
             </div>
           </div>
-          <p className="dialog-reference-link">
+          <div className="dialog-reference-link">
+            <a href="/docs/index.html" target="_blank" rel="noopener noreferrer">
+              FuncDraw Documentation
+            </a>
             <a href="https://teweldemat.github.io/funcscript/" target="_blank" rel="noopener noreferrer">
               Open the full FuncScript language reference on GitHub
             </a>
-          </p>
+          </div>
         </div>
         <footer className="dialog-footer">
           <button type="button" className="control-button" onClick={onClose}>

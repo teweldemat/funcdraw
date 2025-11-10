@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Primitives Reference · FuncDraw Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1.5rem;
+    }
+    header h1 { margin: 0 0 0.25rem 0; font-size: 1.75rem; }
+    nav a {
+      color: #f8fafc;
+      margin-right: 1rem;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    nav a:hover { text-decoration: underline; }
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    article {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    article h1:first-child { margin-top: 0; }
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; }
+    a { color: var(--accent); }
+    @media (max-width: 640px) {
+      article { padding: 1.25rem; }
+      header { padding: 1rem; }
+      nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FuncDraw Documentation</h1>
+    <nav><a href="/docs/index.html">FuncDraw Docs</a><a href="/docs/getting-started.html">Getting Started</a><a href="/docs/primitives-reference.html">Primitives Reference</a><a href="/docs/programming-model.html">Programming Model</a></nav>
+  </header>
+  <main>
+    <article>
+      <h1>Primitives Reference</h1>
+<p>FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a <code>graphics</code> expression. Each primitive is an object with a <code>type</code> string and a <code>data</code> record containing the fields listed below. Validation and defaults match the logic used by the hosted FuncDraw Player and the <code>fd-cli</code> renderer.</p>
+<h2>Shared rules</h2>
+<ul>
+<li>Coordinates are 2-element arrays <code>[x, y]</code> expressed in the same units as your <code>view</code> extent.</li>
+<li><code>stroke</code> and <code>fill</code> fields take CSS color strings (<code>#rrggbb</code>, <code>rgb()</code>, etc.). When omitted, defaults described below kick in.</li>
+<li><code>width</code> values are expressed in world units, not pixels; the renderer scales them to the canvas resolution at draw time.</li>
+</ul>
+<h2><code>line</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>from</code></td>
+<td>point</td>
+<td>Required start coordinate.</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td>point</td>
+<td>Required end coordinate.</td>
+</tr>
+<tr>
+<td><code>stroke</code></td>
+<td>string</td>
+<td>Defaults to <code>#38bdf8</code> if missing.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>number</td>
+<td>Defaults to <code>0.25</code>.</td>
+</tr>
+<tr>
+<td><code>dash</code></td>
+<td>number[]</td>
+<td>Optional stroke dash pattern; ignored unless every entry is <code>&gt;= 0</code>.</td>
+</tr>
+</tbody></table>
+<h2><code>rect</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>position</code></td>
+<td>point</td>
+<td>Required lower-left corner.</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>point</td>
+<td>Required <code>[width, height]</code>.</td>
+</tr>
+<tr>
+<td><code>fill</code></td>
+<td>string</td>
+<td>Optional; no fill when omitted.</td>
+</tr>
+<tr>
+<td><code>stroke</code></td>
+<td>string</td>
+<td>Optional outline color.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>number</td>
+<td>Stroke width; defaults to <code>0.25</code>.</td>
+</tr>
+</tbody></table>
+<h2><code>circle</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>center</code></td>
+<td>point</td>
+<td>Required.</td>
+</tr>
+<tr>
+<td><code>radius</code></td>
+<td>number</td>
+<td>Required positive value.</td>
+</tr>
+<tr>
+<td><code>fill</code></td>
+<td>string</td>
+<td>Optional interior color.</td>
+</tr>
+<tr>
+<td><code>stroke</code></td>
+<td>string</td>
+<td>Optional outline color.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>number</td>
+<td>Stroke width (default <code>0.25</code>).</td>
+</tr>
+</tbody></table>
+<h2><code>polygon</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>points</code></td>
+<td>point[]</td>
+<td>Required list of ≥3 points; renderer closes the path automatically.</td>
+</tr>
+<tr>
+<td><code>fill</code></td>
+<td>string</td>
+<td>Optional.</td>
+</tr>
+<tr>
+<td><code>stroke</code></td>
+<td>string</td>
+<td>Optional.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>number</td>
+<td>Stroke width (default <code>0.25</code>).</td>
+</tr>
+</tbody></table>
+<h2><code>text</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>position</code></td>
+<td>point</td>
+<td>Required baseline anchor.</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>string</td>
+<td>Required content.</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>Defaults to <code>#e2e8f0</code>.</td>
+</tr>
+<tr>
+<td><code>fontSize</code></td>
+<td>number</td>
+<td>Defaults to <code>1</code> world unit (scaled in the player so it never renders smaller than 12px).</td>
+</tr>
+<tr>
+<td><code>align</code></td>
+<td>`&#39;left&#39;</td>
+<td>&#39;center&#39;</td>
+</tr>
+</tbody></table>
+<h3>Layered output</h3>
+<p>Returning a list of primitives or a list-of-lists is valid. Each nested list is treated as a layer, preserving draw order. Anything that isn&#39;t recognized as one of the five <code>type</code> strings is ignored and reported in the player warning sidebar.</p>
+
+    </article>
+  </main>
+</body>
+</html>

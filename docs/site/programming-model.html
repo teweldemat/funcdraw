@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Programming Model · FuncDraw Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1.5rem;
+    }
+    header h1 { margin: 0 0 0.25rem 0; font-size: 1.75rem; }
+    nav a {
+      color: #f8fafc;
+      margin-right: 1rem;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    nav a:hover { text-decoration: underline; }
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    article {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    article h1:first-child { margin-top: 0; }
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; }
+    a { color: var(--accent); }
+    @media (max-width: 640px) {
+      article { padding: 1.25rem; }
+      header { padding: 1rem; }
+      nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FuncDraw Documentation</h1>
+    <nav><a href="/docs/index.html">FuncDraw Docs</a><a href="/docs/getting-started.html">Getting Started</a><a href="/docs/primitives-reference.html">Primitives Reference</a><a href="/docs/programming-model.html">Programming Model</a></nav>
+  </header>
+  <main>
+    <article>
+      <h1>Programming Model</h1>
+<p>A FuncDraw project is just a collection of pure expressions that describe what to render and how to frame it. Understanding how the player breaks those expressions into <strong>main</strong>, <strong>view</strong>, <strong>collections</strong>, and <strong>modules</strong> makes it easy to reuse components or render the same model from the CLI.</p>
+<h2>Model anatomy</h2>
+<ul>
+<li><strong>Main expression</strong> – the entry point which when evaluated emits the list (or lists) of primitives you want on screen. The player evaluates this tab every time you edit.</li>
+<li><strong>View expression</strong> – an expression that defines the extent of the viewable coordinates in the form <code>{ minX, minY, maxX, maxY }</code>, giving the renderer deterministic camera bounds. </li>
+<li><strong>Collections</strong> – gather expressions, other collections, or modules into a single namespace. Everything inside can be referenced with dot syntax (<code>collections.hero</code>, <code>collections.metrics.cards</code>, etc.), making it easy to wire helpers together.</li>
+<li><strong>Modules</strong> – act like callable helpers. Each module exposes a single expression named <code>eval</code>; referencing the module runs <code>eval</code>, which can use any private expressions in that folder before yielding a value.</li>
+</ul>
+<p>The examples below come from <code>docs/examples/programming-model/</code>. Each PNG was rendered with:</p>
+<pre><code>fd-cli --root docs/examples/programming-model --view view --expression &lt;name&gt; --format png --out docs/assets/programming-model/&lt;name&gt;.png
+</code></pre>
+<h2>Simple main + view example</h2>
+<p>A minimal pair of expressions is all you need to render a scene. The <code>view</code> tab fixes the camera, while <code>main</code> composes a few reusable helpers. The JavaScript equivalents live next to these files in <code>docs/examples/programming-model/</code> if you prefer writing <code>return</code> statements.</p>
+<h3>View (FuncScript)</h3>
+<pre><code>{
+  eval {
+    minX: -40;
+    minY: -28;
+    maxX: 40;
+    maxY: 32;
+  };
+}
+</code></pre>
+<h3>Main (FuncScript)</h3>
+<pre><code>{
+  palette: modules.palette;
+  canvas:{
+    type:&#39;rect&#39;;
+    data:{
+      position:[-38,-26];
+      size:[76,52];
+      fill: palette.background;
+      stroke: palette.accent;
+      width:0.6;
+    };
+  };
+  grid:{
+    type:&#39;rect&#39;;
+    data:{
+      position:[-36,-24];
+      size:[72,48];
+      fill:&#39;transparent&#39;;
+      stroke: palette.muted;
+      width:0.3;
+    };
+  };
+  eval [canvas, grid, collections.hero, collections.metrics];
+}
+</code></pre>
+<p><img src="assets/programming-model/main.png" alt="Rendered main expression"></p>
+<div class="doc-caption">Rendered with <code>fd-cli --expression main --view view</code></div>
+
+<p>Need a richer composition? The packaged project under <code>docs/examples/programming-model/</code> layers additional helpers (hero banners, metric cards, etc.) that you can inspect or run as-is.</p>
+<h2>Collections</h2>
+<p>Collections turn folders into reusable namespaces for expressions, other collections, or modules. In this sample, the <code>collections</code> folder automatically exposes <code>hero</code> (the banner) and <code>metrics</code> (the row of cards) simply because tabs with those names live inside the folder—no extra aggregator needed. Importing a <code>.fdmodel</code> archive merges those folders into your workspace so you can reuse helpers without copy/pasting tabs by hand. For deeper hierarchies (nested folders, multiple previews), explore the packaged project under <code>docs/examples/programming-model/collections/</code>.</p>
+<p><img src="assets/programming-model/collections.png" alt="Collections preview"></p>
+<div class="doc-caption">Rendered with <code>fd-cli --expression collections_preview</code></div>
+
+<div class="doc-tabs">
+  <div class="doc-tab">
+    <input type="radio" name="collections-example" id="collections-funcscript" checked>
+    <label for="collections-funcscript">FuncScript</label>
+    <div class="doc-tab-panel">
+<pre><code>// collections/hero.fs
+{
+  palette: modules.palette;
+  heroPanel:{
+    type:'rect';
+    data:{
+      position:[-34,6];
+      size:[68,30];
+      fill: palette.surface;
+      stroke: palette.accent;
+      width:0.6;
+    };
+  };
+  heroStripe:{
+    type:'rect';
+    data:{
+      position:[-34,18];
+      size:[68,4];
+      fill: palette.accent;
+    };
+  };
+  heroBadge:{
+    type:'rect';
+    data:{
+      position:[-30,10];
+      size:[32,6];
+      fill: palette.highlight;
+    };
+  };
+  eval [heroPanel, heroStripe, heroBadge];
+}
+
+<p>// collections/metrics.fs
+{
+  palette: modules.palette;
+  cardOne:{
+    type:&#39;rect&#39;;
+    data:{
+      position:[-26,-16];
+      size:[18,12];
+      fill: palette.surface;
+      stroke: palette.muted;
+      width:0.4;
+    };
+  };
+  cardTwo:{
+    type:&#39;rect&#39;;
+    data:{
+      position:[-5,-16];
+      size:[18,12];
+      fill: palette.surface;
+      stroke: palette.muted;
+      width:0.4;
+    };
+  };
+  cardThree:{
+    type:&#39;rect&#39;;
+    data:{
+      position:[16,-16];
+      size:[18,12];
+      fill: palette.surface;
+      stroke: palette.muted;
+      width:0.4;
+    };
+  };
+  eval [cardOne, cardTwo, cardThree];
+}
+</code></pre>
+    </div>
+  </div>
+  <div class="doc-tab">
+    <input type="radio" name="collections-example" id="collections-js">
+    <label for="collections-js">JavaScript</label>
+    <div class="doc-tab-panel"></p>
+<pre><code>// collections/hero.js
+export default () => {
+  const palette = modules.palette;
+  const panel = {
+    type: 'rect',
+    data: {
+      position: [-34, 6],
+      size: [68, 30],
+      fill: palette.surface,
+      stroke: palette.accent,
+      width: 0.6
+    }
+  };
+  const stripe = {
+    type: 'rect',
+    data: {
+      position: [-34, 18],
+      size: [68, 4],
+      fill: palette.accent
+    }
+  };
+  const badge = {
+    type: 'rect',
+    data: {
+      position: [-30, 10],
+      size: [32, 6],
+      fill: palette.highlight
+    }
+  };
+  return [panel, stripe, badge];
+};
+
+// collections/metrics.js
+export default () => {
+  const palette = modules.palette;
+  const shared = {
+    type: 'rect',
+    data: {
+      size: [18, 12],
+      fill: palette.surface,
+      stroke: palette.muted,
+      width: 0.4
+    }
+  };
+  return [
+    { ...shared, data: { ...shared.data, position: [-26, -16] } },
+    { ...shared, data: { ...shared.data, position: [-5, -16] } },
+    { ...shared, data: { ...shared.data, position: [16, -16] } }
+  ];
+};
+</code></pre>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+</div>
+
+<h2>Modules</h2>
+<p>Modules gather constants—palettes, spacing, reusable helper shapes—behind a callable folder. Each module exposes one expression named <code>eval</code>, and referencing the module (<code>modules.palette</code>) simply runs <code>eval</code>. Any additional expressions in the module stay private to that folder, so outside callers can’t reach them directly; <code>eval</code> wires everything together on their behalf. Inside the folder, those private expressions are still available by name, so <code>eval</code> can build complex results without leaking the intermediate pieces. The packaged module examples under <code>docs/examples/programming-model/modules/</code> add more layers if you want to inspect a multi-file setup.</p>
+<p><img src="assets/programming-model/modules.png" alt="Modules preview"></p>
+<div class="doc-caption">Rendered with <code>fd-cli --expression modules_preview</code></div>
+
+<div class="doc-tabs">
+  <div class="doc-tab">
+    <input type="radio" name="modules-example" id="modules-funcscript" checked>
+    <label for="modules-funcscript">FuncScript</label>
+    <div class="doc-tab-panel">
+<pre><code>// modules/palette/eval.fs
+{
+  shades: shades;
+  accents:{
+    primary:'#38bdf8';
+    secondary:'#facc15';
+  };
+  eval {
+    background: shades.background;
+    surface: shades.surface;
+    accent: accents.primary;
+    muted: shades.muted;
+    highlight: accents.secondary;
+    text: '#f8fafc';
+  };
+}
+
+<p>// modules/palette/shades.fs
+{
+  eval {
+    background: &#39;#0f172a&#39;;
+    surface: &#39;#1f2937&#39;;
+    muted: &#39;#94a3b8&#39;;
+  };
+}
+</code></pre>
+    </div>
+  </div>
+  <div class="doc-tab">
+    <input type="radio" name="modules-example" id="modules-js">
+    <label for="modules-js">JavaScript</label>
+    <div class="doc-tab-panel"></p>
+<pre><code>// modules/palette/eval.js
+export default () => ({
+  background: shades.background,
+  surface: shades.surface,
+  accent: '#38bdf8',
+  muted: shades.muted,
+  highlight: '#facc15',
+  text: '#f8fafc'
+});
+
+// modules/palette/shades.js
+export default {
+  background: '#0f172a',
+  surface: '#1f2937',
+  muted: '#94a3b8'
+};
+</code></pre>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+</div>
+
+<p>With these four building blocks, you can download <code>.fdmodel</code> archives from <a href="https://funcdraw.app">https://funcdraw.app</a>, re-import specific collections, and render the exact same model from the CLI for PNG or SVG exports.</p>
+
+    </article>
+  </main>
+</body>
+</html>

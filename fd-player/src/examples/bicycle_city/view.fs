@@ -1,4 +1,4 @@
 {
   state: model;
-  return state.viewBounds;
+  eval state.viewBounds;
 }

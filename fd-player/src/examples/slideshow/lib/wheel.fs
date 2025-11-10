@@ -3,7 +3,7 @@
   n: 12;
   lines: range(0, n) map (i) => {
     theta: (angle ?? 0) + i * (2 * math.pi / n);
-    return {
+    eval {
       type: 'line',
       data: {
         from: [
@@ -19,7 +19,7 @@
       }
     };
   };
-  return [
+  eval [
     lines,
     {
       type: 'circle',

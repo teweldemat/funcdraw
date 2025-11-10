@@ -41,7 +41,7 @@
           align: 'left';
         };
       };
-      return [dot, text];
+      eval [dot, text];
     };
   bulletParts: bulletEntries reduce (acc, entry) => acc + entry ~ [];
 
@@ -84,5 +84,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + bulletParts + [guideLine, guideLine2, arrowHead] + footerParts;
+  eval headerParts + bulletParts + [guideLine, guideLine2, arrowHead] + footerParts;
 }

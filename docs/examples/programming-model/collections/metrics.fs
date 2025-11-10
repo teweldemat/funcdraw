@@ -38,5 +38,5 @@
       fill: palette.accent;
     };
   };
-  return [cardOne, cardTwo, cardThree, accent];
+  eval [cardOne, cardTwo, cardThree, accent];
 }

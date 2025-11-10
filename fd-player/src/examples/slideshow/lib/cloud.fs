@@ -42,7 +42,7 @@
     safeIndex:
       if (puff.shadeIndex < puffPalette.length) then puff.shadeIndex else (puffPalette.length - 1);
     shade: puffPalette[safeIndex];
-    return {
+    eval {
       type: 'circle';
       data: {
         center: [center[0] + puff.dx * sizeScale, center[1] + puff.dy * sizeScale];
@@ -65,5 +65,5 @@
     };
   };
 
-  return [shadow, softGlow, puffs, highlight];
+  eval [shadow, softGlow, puffs, highlight];
 };

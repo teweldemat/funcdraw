@@ -50,5 +50,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + [closingText] + wheelParts + birdParts + footerParts;
+  eval headerParts + [closingText] + wheelParts + birdParts + footerParts;
 }

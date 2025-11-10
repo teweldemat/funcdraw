@@ -79,7 +79,7 @@
     };
   };
 
-  return {
+  eval {
     graphics: [
       backgroundPanel,
       skySample,

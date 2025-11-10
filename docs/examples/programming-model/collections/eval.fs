@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     hero: hero;
     metrics: metrics;
   };

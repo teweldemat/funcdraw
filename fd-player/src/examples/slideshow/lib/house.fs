@@ -106,7 +106,7 @@
   windowRect: (centerX, bottomY) => {
     windowWidth: 2 * scale;
     windowHeight: 2 * scale;
-    return {
+    eval {
       type: 'rect';
       data: {
         position: [centerX - windowWidth / 2, bottomY];
@@ -142,5 +142,5 @@
       windowRect(bodyLeft + bodyWidth - 2.4 * scale, bodyBottom + 2.4 * scale)
     ];
 
-  return [body, roof, doorway, windows];
+  eval [body, roof, doorway, windows];
 };

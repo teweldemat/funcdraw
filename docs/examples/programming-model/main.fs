@@ -20,5 +20,5 @@
       width:0.3;
     };
   };
-  return [canvas, grid, collections.hero, collections.metrics];
+  eval [canvas, grid, collections.hero, collections.metrics];
 }

@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     header: header,
     footer: footer
   };

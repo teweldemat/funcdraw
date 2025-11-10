@@ -41,7 +41,7 @@
           align: 'left';
         };
       };
-      return [dot, text];
+      eval [dot, text];
     };
   bulletParts: bulletEntries reduce (acc, entry) => acc + entry ~ [];
 
@@ -69,5 +69,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + bulletParts + [decorativeSun, orbitRing] + footerParts;
+  eval headerParts + bulletParts + [decorativeSun, orbitRing] + footerParts;
 }

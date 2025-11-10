@@ -19,7 +19,7 @@
 
   normalizeShift: (value, span) => {
     wrapped: value - math.floor(value / span) * span;
-    return wrapped;
+    eval wrapped;
   };
 
   shift: normalizeShift(rawShift, tileSpan);
@@ -40,7 +40,7 @@
       if (entry.kind = 'tree')
         then lib.tree(anchor, size)
         else lib.house(anchor, size, houseKind);
-    return element;
+    eval element;
   };
 
   skylineElements:
@@ -48,8 +48,8 @@
       tileX: base[0] + shift - tileSpan + tileIndex * tileSpan;
       tileShapes:
         range(0, layoutCount) map (entryIndex) => buildElement(tileX, entryIndex);
-      return acc + tileShapes;
+      eval acc + tileShapes;
     } ~ [];
 
-  return skylineElements;
+  eval skylineElements;
 };

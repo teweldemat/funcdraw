@@ -20,5 +20,5 @@
     type:'rect';
     data:{ position:[36,-6]; size:[12,12]; fill: palette.highlight; stroke:'#0f172a'; width:0.4; };
   };
-  return [swatchOne, swatchTwo, swatchThree, swatchFour, swatchFive];
+  eval [swatchOne, swatchTwo, swatchThree, swatchFour, swatchFive];
 }

@@ -1,3 +1,3 @@
 {
-  return model.graphics;
+  eval model.graphics;
 }

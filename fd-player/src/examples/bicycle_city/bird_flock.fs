@@ -14,8 +14,8 @@
   birds:
     birdConfigs map (config) => {
       center: [base[0] + config.offset[0], base[1] + config.offset[1]];
-      return lib.bird(center, config.size, timeSeconds + config.flap);
+      eval lib.bird(center, config.size, timeSeconds + config.flap);
     };
 
-  return birds;
+  eval birds;
 };

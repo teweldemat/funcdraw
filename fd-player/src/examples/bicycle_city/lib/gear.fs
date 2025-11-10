@@ -11,13 +11,13 @@
            center[1] + math.cos(angle + halfStep) * radius];
     apex: [center[0] + math.sin(angle) * (radius + toothSize),
           center[1] + math.cos(angle) * (radius + toothSize)];
-    return [
+    eval [
       { type: 'line', data: { from: base1, to: base2, stroke: '#38bdf8', width: 0.3 } },
       { type: 'line', data: { from: base2, to: apex, stroke: '#38bdf8', width: 0.3 } },
       { type: 'line', data: { from: apex, to: base1, stroke: '#38bdf8', width: 0.3 } }
     ];
   };
-  return [
+  eval [
     teethLines,
     {
       type: 'circle',

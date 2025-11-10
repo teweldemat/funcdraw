@@ -7,7 +7,7 @@
 
   normalizeShift: (value, span) => {
     normalized: value - math.floor(value / span) * span;
-    return normalized;
+    eval normalized;
   };
 
   shift: normalizeShift(rawShift, tileWidth);
@@ -17,7 +17,7 @@
   tilePositions: range(0, repeatCount) map (index) => startX + index * tileWidth;
 
   buildGroundRect: (baseX) => {
-    return {
+    eval {
       type: 'rect';
       data: {
         position: [baseX, origin[1]];
@@ -33,7 +33,7 @@
   roadY: origin[1] + groundHeight * 0.35;
 
   buildRoadRect: (baseX) => {
-    return {
+    eval {
       type: 'rect';
       data: {
         position: [baseX, roadY];
@@ -51,9 +51,9 @@
   dashWidth: tileWidth / (dashCount * (1 + dashGapRatio));
   dashGap: dashWidth * dashGapRatio;
   buildLaneDashes: (baseX) => {
-    return range(0, dashCount) map (index) => {
+    eval range(0, dashCount) map (index) => {
       dashX: baseX + index * (dashWidth + dashGap);
-      return {
+      eval {
         type: 'rect';
         data: {
           position: [dashX, laneCenterY - 0.25];
@@ -71,5 +71,5 @@
   laneSegments: tilePositions map buildLaneDashes;
   flattenedLaneSegments: laneSegments reduce (acc, segment) => acc + segment ~ [];
 
-  return groundRects + roadRects + flattenedLaneSegments;
+  eval groundRects + roadRects + flattenedLaneSegments;
 };

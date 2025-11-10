@@ -59,5 +59,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + [titleBlock, subtitleBlock, tagline, wavePath] + footerParts;
+  eval headerParts + [titleBlock, subtitleBlock, tagline, wavePath] + footerParts;
 }

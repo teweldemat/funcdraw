@@ -34,7 +34,7 @@
       center[1] + math.sin(angle) * rayLength
     ];
     color: if (variant = 0) then '#fde047' else '#fef9c3';
-    return {
+    eval {
       type: 'line';
       data: {
         from: start;
@@ -56,5 +56,5 @@
     };
   };
 
-  return [glow, rays, core];
+  eval [glow, rays, core];
 };

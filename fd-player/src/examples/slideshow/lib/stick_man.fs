@@ -8,7 +8,7 @@
   desiredHand2: hand2LocationParam ?? [butt[0] + scale * 1.4, butt[1] + scale * 2.5];
 
   clamp: (value, minValue, maxValue) => {
-    return if (value < minValue) then minValue else if (value > maxValue) then maxValue else value;
+    eval if (value < minValue) then minValue else if (value > maxValue) then maxValue else value;
   };
 
   vectorLength: (vec) => math.sqrt(vec[0] * vec[0] + vec[1] * vec[1]);
@@ -33,7 +33,7 @@
       origin[0] + dir[0] * clampedDistance,
       origin[1] + dir[1] * clampedDistance
     ];
-    return { joint; effector };
+    eval { joint; effector };
   };
 
   torsoLength: scale * 4.2;
@@ -81,7 +81,7 @@
     };
   };
 
-  return [
+  eval [
     leg1Upper,
     leg1Lower,
     leg2Upper,

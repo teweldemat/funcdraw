@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     slide0: slide0,
     slide1: slide1,
     slide2: slide2,

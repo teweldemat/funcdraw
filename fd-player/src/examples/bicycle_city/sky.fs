@@ -38,11 +38,11 @@
   cloudElements: cloudLayouts map (layout) => {
     center: makeWorldPoint(layout.ux, layout.uy);
     width: areaWidth * layout.widthRatio;
-    return lib.cloud({
+    eval lib.cloud({
       center;
       width;
     });
   };
 
-  return [skyPlane, sunElement, cloudElements];
+  eval [skyPlane, sunElement, cloudElements];
 };

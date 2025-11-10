@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     palette: palette;
   };
 }

@@ -47,7 +47,7 @@
   handleRise: 0.8;
   handleEnd: [fTop[0] + handleLen, fTop[1] + handleRise];
 
-  return [
+  eval [
     // slanted rear column
     { type: 'line', data: { from: rear, to: rTop, stroke: frameColor, width: 0.6 } },
 

@@ -66,7 +66,7 @@ bikeFrame,
 drivetrain.pedal2
 ];
 
-return {
+eval {
 graphics,
 pedalAngle,
 wheelAngle,

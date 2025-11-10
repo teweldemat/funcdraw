@@ -13,7 +13,7 @@
   canopyBaseY: base[1] + trunkHeight;
   canopyApexY: canopyBaseY + canopyHeight;
 
-  return [
+  eval [
     {
       type: 'rect',
       data: {

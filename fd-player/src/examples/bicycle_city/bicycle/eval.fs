@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     bicycle: bicycle,
     chain: chain,
     drive: drive,

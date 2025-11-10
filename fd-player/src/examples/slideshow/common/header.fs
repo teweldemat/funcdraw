@@ -81,5 +81,5 @@
     };
   };
 
-  return [background, spotlight, accentBar, titleText, subtitleText];
+  eval [background, spotlight, accentBar, titleText, subtitleText];
 }

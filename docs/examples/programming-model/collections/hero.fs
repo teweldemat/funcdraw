@@ -26,5 +26,5 @@
       fill: palette.highlight;
     };
   };
-  return [heroPanel, heroStripe, heroBadge];
+  eval [heroPanel, heroStripe, heroBadge];
 }

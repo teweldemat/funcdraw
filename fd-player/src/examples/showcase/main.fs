@@ -24,7 +24,7 @@
       ratio: if (lineCount <= 1) then 0 else (index * 1.0) / (lineCount - 1);
       y: viewBounds.minY + padding + ratio * verticalRange;
       strength: 0.2 + 0.8 * ratio;
-      return {
+      eval {
         type: 'line';
         data: {
           from: [viewBounds.minX + padding, y];
@@ -75,5 +75,5 @@
 
   graphics: horizontalLines + [exampleRect, exampleCircle, originMarker];
 
-  return graphics;
+  eval graphics;
 }

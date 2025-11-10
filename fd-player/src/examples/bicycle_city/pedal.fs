@@ -98,7 +98,7 @@
   };
 
   // drawing order depending on isRight
-  return (if isLeft then 
+  eval (if isLeft then 
      [baseCircle, jointCircle, footRest, footOutline, armPolygon, armOutline]
    else 
      [ baseCircle, armPolygon, armOutline, footRest, footOutline,jointCircle]);

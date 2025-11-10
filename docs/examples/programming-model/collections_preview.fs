@@ -9,5 +9,5 @@
       width:0.4;
     };
   };
-  return [backdrop, collections.metrics];
+  eval [backdrop, collections.metrics];
 }

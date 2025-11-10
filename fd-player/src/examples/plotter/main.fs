@@ -14,7 +14,7 @@
     // generate (x, f(x)) pairs
     data:range(0,n) map (i)=>{
         x:x1 + (x2 - x1) * i / n;
-        return [x,f(x)];
+        eval [x,f(x)];
     };
 
     // x-axis styled as a green line
@@ -29,6 +29,6 @@
         type:'line',data:{from:data[i],to:data[i+1],stroke:'#38bdf8',width:0.2}
     };
 
-    // return elements to render
-    return [xAxis,yAxis,curve];
+    // eval elements to render
+    eval [xAxis,yAxis,curve];
 }

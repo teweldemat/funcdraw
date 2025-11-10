@@ -26,7 +26,7 @@
   markerFirstX: math.floor((bounds.minX - roadPadding) / markerStep) * markerStep;
   laneMarkers: range(0, markerCount) map (index) => {
     startX: markerFirstX + index * markerStep;
-    return {
+    eval {
       type: 'rect';
       data: {
         position: [startX, roadY + roadWidth / 2 - markerHeight / 2];
@@ -38,5 +38,5 @@
     };
   };
 
-  return [asphalt, laneMarkers];
+  eval [asphalt, laneMarkers];
 };

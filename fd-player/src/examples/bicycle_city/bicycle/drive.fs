@@ -19,7 +19,7 @@
   pedal1: pedal(frontCenter, pedalAngle, pedalLength,true);
   pedal2: pedal(frontCenter, pedalAngle + math.pi, pedalLength,false);
   
-  return {
+  eval {
     chain1,
     chain2,
     pedal1,

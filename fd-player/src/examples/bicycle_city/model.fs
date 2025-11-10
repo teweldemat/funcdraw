@@ -44,7 +44,7 @@
 
   wrapShift: (value, span) => {
     wrapped: value - math.floor(value / span) * span;
-    return wrapped;
+    eval wrapped;
   };
 
   skylineShift: -wrapShift(timeSeconds * skylineSpeed, skyHeight * 2);
@@ -136,7 +136,7 @@
     bicycleLayer +
     riderLayer;
 
-  return {
+  eval {
     graphics,
     viewBounds
   };

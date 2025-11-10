@@ -18,7 +18,7 @@ raw: range(0, segments) map (i) => {
   aw: wrap(a);
   bw: wrap(b);
   crossed: bw < aw;
-  return (if (crossed) then [] else
+  eval (if (crossed) then [] else
    {
     type: 'line';
     data: {
@@ -31,5 +31,5 @@ raw: range(0, segments) map (i) => {
 };
 
 lines: raw filter (x)=> x != null;
-return lines;
+eval lines;
 };

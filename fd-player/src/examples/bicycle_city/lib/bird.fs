@@ -12,7 +12,7 @@
   rotate: (v, a) => {
     c: math.cos(a);
     s: math.sin(a);
-    return [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
+    eval [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
   };
 
   flapHz: 2.1;
@@ -100,7 +100,7 @@
       };
     };
 
-    return { mainTri; tipTri };
+    eval { mainTri; tipTri };
   };
 
   leftWingAnchor:  [bodyCenter[0] - 0.55 * scale, bodyCenter[1] + 0.22 * scale];
@@ -124,7 +124,7 @@
     };
   };
 
-  return [
+  eval [
     rightWing.tipTri,
     rightWing.mainTri,
     tail,

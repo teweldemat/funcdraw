@@ -21,3 +21,5 @@ yarn-error.log*
 # OS metadata
 .DS_Store
 Thumbs.db
+fd-player/.npm-cache
+artifacts

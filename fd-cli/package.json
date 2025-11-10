@@ -1,0 +1,40 @@
+{
+  "name": "@tewelde/fd-cli",
+  "version": "0.1.0",
+  "description": "Command line interface for FuncDraw workspaces backed by the filesystem.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "fd-cli": "./bin/fd-cli.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "build": "echo 'fd-cli uses plain Node.js sources'",
+    "start": "node ./bin/fd-cli.js",
+    "test": "node ./bin/fd-cli.js --help"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teweldemat/funcdraw",
+    "directory": "fd-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/teweldemat/funcdraw/issues"
+  },
+  "homepage": "https://github.com/teweldemat/funcdraw/tree/main/fd-cli#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@tewelde/fs-cli": "^0.2.0",
+    "@tewelde/funcdraw": "workspace:*",
+    "@tewelde/funcscript": "0.2.0"
+  }
+}

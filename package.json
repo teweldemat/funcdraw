@@ -9,6 +9,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "build:fd-player": "npm run build --workspace fd-player",
+    "dev:fd-player": "npm run dev --workspace fd-player",
+    "vercel-build": "npm run build:fd-player"
   }
 }

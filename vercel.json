@@ -1,5 +1,4 @@
 {
-  "framework": "static",
   "buildCommand": "npm run vercel-build",
   "devCommand": "npm run dev:fd-player",
   "outputDirectory": "fd-player/dist",

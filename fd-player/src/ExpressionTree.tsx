@@ -120,8 +120,8 @@ const ViewIcon = () => (
   </svg>
 );
 
-const ReturnIcon = () => (
-  <span className="expression-tab-return-arrow" aria-hidden="true">
+const EvalIcon = () => (
+  <span className="expression-tab-eval-arrow" aria-hidden="true">
     =&gt;
   </span>
 );
@@ -168,19 +168,19 @@ export const ExpressionTree = ({
     if (!entries || entries.length === 0) {
       return [];
     }
-    const returnEntries: ExpressionEntry[] = [];
+    const evalEntries: ExpressionEntry[] = [];
     const others: ExpressionEntry[] = [];
     for (const entry of entries) {
       if (
         entry.kind === 'tab' &&
-        entry.tab.name.trim().toLowerCase() === 'return'
+        entry.tab.name.trim().toLowerCase() === 'eval'
       ) {
-        returnEntries.push(entry);
+        evalEntries.push(entry);
       } else {
         others.push(entry);
       }
     }
-    return [...returnEntries, ...others];
+    return [...evalEntries, ...others];
   }, []);
   const orderedRootEntries = orderEntries(rootEntries);
 
@@ -612,12 +612,12 @@ export const ExpressionTree = ({
       .filter(Boolean)
       .join(' ');
     const normalizedName = tab.name.trim().toLowerCase();
-    const isReturnTab = normalizedName === 'return';
-    const icon = isReturnTab ? <ReturnIcon /> : null;
-    const labelClassName = ['expression-tab-label', isReturnTab ? 'expression-tab-return-label' : '']
+    const isEvalTab = normalizedName === 'eval';
+    const icon = isEvalTab ? <EvalIcon /> : null;
+    const labelClassName = ['expression-tab-label', isEvalTab ? 'expression-tab-eval-label' : '']
       .filter(Boolean)
       .join(' ');
-    const buttonClassName = [baseButtonClass, isReturnTab ? 'expression-tab-return' : '']
+    const buttonClassName = [baseButtonClass, isEvalTab ? 'expression-tab-eval' : '']
       .filter(Boolean)
       .join(' ');
 
@@ -710,8 +710,8 @@ export const ExpressionTree = ({
     const folderRenaming = renameTarget?.type === 'folder' && renameTarget.id === folder.id;
     const isDraftingInFolder = tabNameDraft !== null && tabDraftFolderId === folder.id;
     const isCollapsed = !folderRenaming && collapsedFolders.has(folder.id);
-    const folderHasReturnTab = childEntries.some(
-      (entry) => entry.kind === 'tab' && entry.tab.name.trim().toLowerCase() === 'return'
+    const folderHasEvalTab = childEntries.some(
+      (entry) => entry.kind === 'tab' && entry.tab.name.trim().toLowerCase() === 'eval'
     );
 
     const folderMenuId = `folder-menu-${folder.id}`;
@@ -734,7 +734,7 @@ export const ExpressionTree = ({
       }
     ];
 
-    if (!folderHasReturnTab) {
+    if (!folderHasEvalTab) {
       folderActions.push({
         key: 'import',
         label: 'Import library',

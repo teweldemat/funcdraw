@@ -63,6 +63,7 @@ const VIEW_PADDING = 0;
 const MAIN_TAB_ID = 'main';
 const VIEW_TAB_ID = 'view';
 const MODEL_ARCHIVE_ACCEPT = `${MODEL_ARCHIVE_EXTENSION},${MODEL_ARCHIVE_MIME},application/zip`;
+const MOBILE_BREAKPOINT = 900;
 
 export type RenameTarget = { type: 'tab' | 'folder'; id: string };
 
@@ -80,6 +81,8 @@ type LibraryImportState = {
   targetFolderName: string;
   result: WorkspaceImportResult;
 };
+
+type MobileTab = 'expressions' | 'graphics';
 
 const createWorkspaceStateFromDefinitions = (
   definitions?: ExampleWorkspaceDefinition | null
@@ -613,6 +616,54 @@ const App = (): JSX.Element => {
   const [treeDragging, setTreeDragging] = useState(false);
   const expressionLayoutRef = useRef<HTMLDivElement | null>(null);
   const [previewMode, setPreviewMode] = useState<'graphics' | 'json'>('graphics');
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('graphics');
+  const [treeDrawerOpen, setTreeDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const handleChange = () => setIsMobile(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setActiveMobileTab('graphics');
+      setTreeDrawerOpen(false);
+      return;
+    }
+    setActiveMobileTab('expressions');
+    setTreeDrawerOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (activeMobileTab !== 'expressions') {
+      setTreeDrawerOpen(false);
+    }
+  }, [activeMobileTab]);
+
+  useEffect(() => {
+    if (isMobile && previewMode !== 'graphics') {
+      setPreviewMode('graphics');
+    }
+  }, [isMobile, previewMode]);
+
+  const handleMobileTabChange = useCallback((next: MobileTab) => {
+    setActiveMobileTab(next);
+    if (next === 'graphics') {
+      setPreviewMode(next);
+    }
+  }, []);
+
+  const handleOpenTreeDrawer = useCallback(() => {
+    setTreeDrawerOpen(true);
+  }, []);
+
+  const handleCloseTreeDrawer = useCallback(() => {
+    setTreeDrawerOpen(false);
+  }, []);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
     const persisted = persistedStateRef.current;
     if (!persisted?.customFolders || persisted.customFolders.length === 0) {
@@ -851,6 +902,9 @@ const App = (): JSX.Element => {
   }, [applyWidthFromClientX]);
 
   const clampTreeWidth = useCallback(() => {
+    if (isMobile) {
+      return;
+    }
     const container = expressionLayoutRef.current;
     if (!container) {
       return;
@@ -858,10 +912,13 @@ const App = (): JSX.Element => {
     const rect = container.getBoundingClientRect();
     const maxWidth = Math.max(MIN_TREE_WIDTH, rect.width - MIN_EDITOR_WIDTH);
     setTreeWidth((current) => clamp(current, MIN_TREE_WIDTH, maxWidth));
-  }, []);
+  }, [isMobile]);
 
   const applyTreeWidthFromClientX = useCallback(
     (clientX: number) => {
+      if (isMobile) {
+        return;
+      }
       const container = expressionLayoutRef.current;
       if (!container) {
         return;
@@ -872,7 +929,7 @@ const App = (): JSX.Element => {
       const nextWidth = clamp(relative, MIN_TREE_WIDTH, maxWidth);
       setTreeWidth(nextWidth);
     },
-    []
+    [isMobile]
   );
 
   useEffect(() => {
@@ -915,22 +972,31 @@ const App = (): JSX.Element => {
   }, [applyTreeWidthFromClientX, treeDragging]);
 
   const handleTreeSplitterMouseDown = useCallback(() => {
+    if (isMobile) {
+      return;
+    }
     setTreeDragging(true);
-  }, []);
+  }, [isMobile]);
 
   const handleTreeSplitterTouchStart = useCallback(
     (event: ReactTouchEvent<HTMLDivElement>) => {
       event.preventDefault();
+      if (isMobile) {
+        return;
+      }
       setTreeDragging(true);
       if (event.touches.length > 0) {
         applyTreeWidthFromClientX(event.touches[0].clientX);
       }
     },
-    [applyTreeWidthFromClientX]
+    [applyTreeWidthFromClientX, isMobile]
   );
 
   const handleTreeSplitterKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
+      if (isMobile) {
+        return;
+      }
       const container = expressionLayoutRef.current;
       if (!container) {
         return;
@@ -948,7 +1014,7 @@ const App = (): JSX.Element => {
         setTreeWidth((current) => clamp(current + delta, MIN_TREE_WIDTH, maxWidth));
       }
     },
-    []
+    [isMobile]
   );
 
   const handleToggleFolderCollapse = useCallback((folderId: string) => {
@@ -2036,340 +2102,469 @@ const App = (): JSX.Element => {
 
   const isMainTabActive = activeExpressionTab === MAIN_TAB_ID;
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
-  const showGraphicsPreview = previewMode === 'graphics';
+  const showGraphicsPreview = isMobile ? true : previewMode === 'graphics';
+  const activeExpressionLabel = useMemo(() => {
+    if (activeExpressionTab === MAIN_TAB_ID) {
+      return 'Main';
+    }
+    if (activeExpressionTab === VIEW_TAB_ID) {
+      return 'View';
+    }
+    const customTab = customTabs.find((tab) => tab.id === activeExpressionTab);
+    return customTab?.name ?? 'Expression';
+  }, [activeExpressionTab, customTabs]);
+
   const displayProjectName = useMemo(() => sanitizeProjectName(projectName), [projectName]);
 
+  const renderTopControls = () => (
+    <div className="top-controls">
+      <div className="app-title-group">
+        <span className="app-icon" aria-hidden="true">
+          <span className="app-icon-triangle" />
+          <span className="app-icon-circle" />
+          <span className="app-icon-line" />
+        </span>
+        <h1 className="app-title" aria-label="FuncDraw application title">
+          <span className="app-title-func">Func</span>
+          <span className="app-title-draw">Draw</span>
+        </h1>
+        <div className="project-name-chip" aria-label={`Project name: ${displayProjectName}`}>
+          <span className="project-name-chip-label">Project</span>
+          <span className="project-name-chip-value">{displayProjectName}</span>
+        </div>
+      </div>
+      <div className="top-controls-actions" role="group" aria-label="Workspace actions">
+        <button
+          type="button"
+          className="icon-button"
+          onClick={handleClear}
+          aria-label="Reset workspace"
+          data-tooltip="Reset workspace"
+        >
+          <span aria-hidden="true">🆕</span>
+        </button>
+        <div className="icon-button-group" role="group" aria-label="Model import and save">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleWorkspaceImportClick}
+            aria-label="Upload model"
+            data-tooltip="Upload model"
+          >
+            <span aria-hidden="true">📂</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleDownloadWorkspace}
+            aria-label="Save model"
+            data-tooltip="Save model"
+          >
+            <span aria-hidden="true">💾</span>
+          </button>
+        </div>
+        <div className="icon-button-group" role="group" aria-label="Exports and examples">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleExportSvg}
+            aria-label="Export SVG"
+            data-tooltip="Export SVG"
+          >
+            <span aria-hidden="true">🖋️</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleExampleOpen}
+            aria-haspopup="dialog"
+            aria-expanded={exampleOpen}
+            aria-label="Load example"
+            data-tooltip="Load example"
+          >
+            <span aria-hidden="true">📘</span>
+          </button>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={handleReferenceOpen}
+          aria-haspopup="dialog"
+          aria-expanded={referenceOpen}
+          aria-label="Open reference"
+          data-tooltip="Open reference"
+        >
+          <span aria-hidden="true">❔</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderExpressionTree = () => (
+    <ExpressionTree
+      mainTabId={MAIN_TAB_ID}
+      viewTabId={VIEW_TAB_ID}
+      isMainTabActive={isMainTabActive}
+      isViewTabActive={isViewTabActive}
+      activeExpressionTab={activeExpressionTab}
+      entriesByParent={entriesByParent}
+      tabEvaluations={customTabEvaluations}
+      tabNameDraft={tabNameDraft}
+      tabDraftFolderId={tabDraftFolderId}
+      tabNameDraftError={tabNameDraftError}
+      newTabInputRef={newTabInputRef}
+      getButtonId={getExpressionTabButtonId}
+      getPanelId={getExpressionTabPanelId}
+      collapsedFolders={collapsedFolders}
+      onSelectTab={handleExpressionTabSelect}
+      onAddTab={handleAddTabClick}
+      onAddFolder={handleAddFolderClick}
+      onTabDraftChange={handleTabNameDraftChange}
+      onTabDraftKeyDown={handleTabNameDraftKeyDown}
+      onTabDraftBlur={handleTabNameDraftBlur}
+      onCancelTabDraft={handleCancelTabDraft}
+      onRenameTab={handleRenameTab}
+      onRenameFolder={handleRenameFolder}
+      onRemoveTab={handleRemoveTab}
+      onRemoveFolder={handleRemoveFolder}
+      onToggleFolderCollapse={handleToggleFolderCollapse}
+      onEnsureFolderExpanded={handleEnsureFolderExpanded}
+      onExpandAllFolders={handleExpandAllFolders}
+      onCollapseAllFolders={handleCollapseAllFolders}
+      onImportLibrary={handleFolderImportClick}
+    />
+  );
+
+  const renderExpressionPanels = (extraClass?: string) => (
+    <div className={`expression-tab-panels${extraClass ? ` ${extraClass}` : ''}`}>
+      <div
+        role="tabpanel"
+        id={getExpressionTabPanelId(MAIN_TAB_ID)}
+        aria-labelledby={getExpressionTabButtonId(MAIN_TAB_ID)}
+        hidden={activeExpressionTab !== MAIN_TAB_ID}
+        className="expression-tab-panel"
+      >
+        <div
+          className="editor-container editor-container-fill"
+          data-editor-id={MAIN_TAB_ID}
+          id="main-expression-editor"
+          aria-label="Main expression editor"
+        >
+          <ExpressionEditor
+            value={graphicsExpression}
+            language={graphicsLanguage}
+            onChange={handleGraphicsExpressionChange}
+            onLanguageChange={handleGraphicsLanguageChange}
+            minHeight={0}
+            ariaLabel="Main expression editor"
+          />
+        </div>
+        <StatusMessage
+          error={graphicsEvaluation.error}
+          warning={graphicsInterpretation.warning ?? unknownTypesWarning}
+          info={preparedGraphics.warnings.concat(renderWarnings)}
+          success={preparedGraphics.layers.length > 0 ? 'Main ready.' : null}
+        />
+      </div>
+      <div
+        role="tabpanel"
+        id={getExpressionTabPanelId(VIEW_TAB_ID)}
+        aria-labelledby={getExpressionTabButtonId(VIEW_TAB_ID)}
+        hidden={activeExpressionTab !== VIEW_TAB_ID}
+        className="expression-tab-panel"
+      >
+        <div
+          className="editor-container editor-container-fill"
+          data-editor-id={VIEW_TAB_ID}
+          id="view-expression-editor"
+          aria-label="View expression editor"
+        >
+          <ExpressionEditor
+            value={viewExpression}
+            language={viewLanguage}
+            onChange={handleViewExpressionChange}
+            onLanguageChange={handleViewLanguageChange}
+            minHeight={0}
+            ariaLabel="View expression editor"
+          />
+        </div>
+        <StatusMessage
+          error={viewEvaluation.error}
+          warning={viewInterpretation.warning}
+          success={viewInterpretation.extent ? 'Extent ready.' : null}
+        />
+      </div>
+      {customTabs.map((tab) => {
+        const panelId = getExpressionTabPanelId(tab.id);
+        const buttonId = getExpressionTabButtonId(tab.id);
+        const evaluation = customTabEvaluations.get(tab.id);
+        return (
+          <div
+            key={tab.id}
+            role="tabpanel"
+            id={panelId}
+            aria-labelledby={buttonId}
+            hidden={activeExpressionTab !== tab.id}
+            className="expression-tab-panel"
+          >
+            <div
+              className="editor-container editor-container-fill"
+              data-editor-id={tab.id}
+              id={`custom-expression-editor-${tab.id}`}
+              aria-label={`${tab.name} expression editor`}
+            >
+              <ExpressionEditor
+                value={tab.expression}
+                language={tab.language ?? 'funcscript'}
+                onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
+                onLanguageChange={(lang) => handleCustomTabLanguageChange(tab.id, lang)}
+                minHeight={0}
+                ariaLabel={`${tab.name} expression editor`}
+              />
+            </div>
+            <StatusMessage
+              error={evaluation?.error ?? null}
+              success={!evaluation?.error ? 'Value ready.' : null}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
   return (
     <>
-      <div ref={containerRef} className="app" aria-label="FuncScript graphics workspace">
-        <section className="panel panel-left" style={{ width: `${leftWidth}px` }}>
-          <div className="panel-body panel-body-right">
-            <div className="top-controls">
-              <div className="app-title-group">
-                <span className="app-icon" aria-hidden="true">
-                  <span className="app-icon-triangle" />
-                  <span className="app-icon-circle" />
-                  <span className="app-icon-line" />
-                </span>
-                <h1 className="app-title" aria-label="FuncDraw application title">
-                  <span className="app-title-func">Func</span>
-                  <span className="app-title-draw">Draw</span>
-                </h1>
-                <div className="project-name-chip" aria-label={`Project name: ${displayProjectName}`}>
-                  <span className="project-name-chip-label">Project</span>
-                  <span className="project-name-chip-value">{displayProjectName}</span>
-                </div>
-              </div>
-              <div className="top-controls-actions" role="group" aria-label="Workspace actions">
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={handleClear}
-                  aria-label="Reset workspace"
-                  data-tooltip="Reset workspace"
-                >
-                  <span aria-hidden="true">🆕</span>
-                </button>
-                <div className="icon-button-group" role="group" aria-label="Model import and save">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={handleWorkspaceImportClick}
-                    aria-label="Upload model"
-                    data-tooltip="Upload model"
-                  >
-                    <span aria-hidden="true">📂</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={handleDownloadWorkspace}
-                    aria-label="Save model"
-                    data-tooltip="Save model"
-                  >
-                    <span aria-hidden="true">💾</span>
-                  </button>
-                </div>
-                <div className="icon-button-group" role="group" aria-label="Exports and examples">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={handleExportSvg}
-                    aria-label="Export SVG"
-                    data-tooltip="Export SVG"
-                  >
-                    <span aria-hidden="true">🖋️</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={handleExampleOpen}
-                    aria-haspopup="dialog"
-                    aria-expanded={exampleOpen}
-                    aria-label="Load example"
-                    data-tooltip="Load example"
-                  >
-                    <span aria-hidden="true">📘</span>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={handleReferenceOpen}
-                  aria-haspopup="dialog"
-                  aria-expanded={referenceOpen}
-                  aria-label="Open reference"
-                  data-tooltip="Open reference"
-                >
-                  <span aria-hidden="true">❔</span>
-                </button>
-              </div>
-            </div>
-
-            <div
-              className="expression-tabs"
-              ref={expressionLayoutRef}
-              style={{ gridTemplateColumns: `${Math.round(treeWidth)}px 12px 1fr` }}
-            >
-              <ExpressionTree
-                mainTabId={MAIN_TAB_ID}
-                viewTabId={VIEW_TAB_ID}
-                isMainTabActive={isMainTabActive}
-                isViewTabActive={isViewTabActive}
-                activeExpressionTab={activeExpressionTab}
-                entriesByParent={entriesByParent}
-                tabEvaluations={customTabEvaluations}
-                tabNameDraft={tabNameDraft}
-                tabDraftFolderId={tabDraftFolderId}
-                tabNameDraftError={tabNameDraftError}
-                newTabInputRef={newTabInputRef}
-                getButtonId={getExpressionTabButtonId}
-                getPanelId={getExpressionTabPanelId}
-                collapsedFolders={collapsedFolders}
-                onSelectTab={handleExpressionTabSelect}
-                onAddTab={handleAddTabClick}
-                onAddFolder={handleAddFolderClick}
-                onTabDraftChange={handleTabNameDraftChange}
-                onTabDraftKeyDown={handleTabNameDraftKeyDown}
-                onTabDraftBlur={handleTabNameDraftBlur}
-                onCancelTabDraft={handleCancelTabDraft}
-                onRenameTab={handleRenameTab}
-                onRenameFolder={handleRenameFolder}
-                onRemoveTab={handleRemoveTab}
-                onRemoveFolder={handleRemoveFolder}
-                onToggleFolderCollapse={handleToggleFolderCollapse}
-                onEnsureFolderExpanded={handleEnsureFolderExpanded}
-                onExpandAllFolders={handleExpandAllFolders}
-                onCollapseAllFolders={handleCollapseAllFolders}
-                onImportLibrary={handleFolderImportClick}
-              />
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize tree"
-                tabIndex={0}
-                className={`expression-inner-splitter${
-                  treeDragging ? ' expression-inner-splitter-dragging' : ''
+      <div
+        ref={containerRef}
+        className={`app${isMobile ? ' app-mobile' : ''}`}
+        aria-label="FuncScript graphics workspace"
+      >
+        {isMobile ? (
+          <>
+            {renderTopControls()}
+            <div className="mobile-tab-bar" role="tablist" aria-label="Workspace panels">
+              <button
+                type="button"
+                role="tab"
+                className={`mobile-tab-button${
+                  activeMobileTab === 'graphics' ? ' mobile-tab-button-active' : ''
                 }`}
-                onMouseDown={handleTreeSplitterMouseDown}
-                onTouchStart={handleTreeSplitterTouchStart}
-                onKeyDown={handleTreeSplitterKeyDown}
-              />
-              <div className="expression-tab-panels">
-                <div
-                  role="tabpanel"
-                  id={getExpressionTabPanelId(MAIN_TAB_ID)}
-                  aria-labelledby={getExpressionTabButtonId(MAIN_TAB_ID)}
-                  hidden={activeExpressionTab !== MAIN_TAB_ID}
-                  className="expression-tab-panel"
-                >
-                  <div
-                    className="editor-container editor-container-fill"
-                    data-editor-id={MAIN_TAB_ID}
-                    id="main-expression-editor"
-                    aria-label="Main expression editor"
-                  >
-                    <ExpressionEditor
-                      value={graphicsExpression}
-                      language={graphicsLanguage}
-                      onChange={handleGraphicsExpressionChange}
-                      onLanguageChange={handleGraphicsLanguageChange}
-                      minHeight={0}
-                      ariaLabel="Main expression editor"
-                    />
-                  </div>
-                    <StatusMessage
-                      error={graphicsEvaluation.error}
-                      warning={graphicsInterpretation.warning ?? unknownTypesWarning}
-                      info={preparedGraphics.warnings.concat(renderWarnings)}
-                      success={preparedGraphics.layers.length > 0 ? 'Main ready.' : null}
-                    />
-                </div>
-                <div
-                  role="tabpanel"
-                  id={getExpressionTabPanelId(VIEW_TAB_ID)}
-                  aria-labelledby={getExpressionTabButtonId(VIEW_TAB_ID)}
-                  hidden={activeExpressionTab !== VIEW_TAB_ID}
-                  className="expression-tab-panel"
-                >
-                  <div
-                    className="editor-container editor-container-fill"
-                    data-editor-id={VIEW_TAB_ID}
-                    id="view-expression-editor"
-                    aria-label="View expression editor"
-                  >
-                    <ExpressionEditor
-                      value={viewExpression}
-                      language={viewLanguage}
-                      onChange={handleViewExpressionChange}
-                      onLanguageChange={handleViewLanguageChange}
-                      minHeight={0}
-                      ariaLabel="View expression editor"
-                    />
-                  </div>
-                  <StatusMessage
-                    error={viewEvaluation.error}
-                    warning={viewInterpretation.warning}
-                    success={viewInterpretation.extent ? 'Extent ready.' : null}
-                  />
-                </div>
-                {customTabs.map((tab) => {
-                  const panelId = getExpressionTabPanelId(tab.id);
-                  const buttonId = getExpressionTabButtonId(tab.id);
-                  const evaluation = customTabEvaluations.get(tab.id);
-                  return (
-                    <div
-                      key={tab.id}
-                      role="tabpanel"
-                      id={panelId}
-                      aria-labelledby={buttonId}
-                      hidden={activeExpressionTab !== tab.id}
-                      className="expression-tab-panel"
+                aria-selected={activeMobileTab === 'graphics'}
+                aria-controls="mobile-panel-preview"
+                onClick={() => handleMobileTabChange('graphics')}
+              >
+                Graphics
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={`mobile-tab-button${
+                  activeMobileTab === 'expressions' ? ' mobile-tab-button-active' : ''
+                }`}
+                aria-selected={activeMobileTab === 'expressions'}
+                aria-controls="mobile-panel-expressions"
+                onClick={() => handleMobileTabChange('expressions')}
+              >
+                Expressions
+              </button>
+            </div>
+          </>
+        ) : null}
+        {!isMobile || activeMobileTab === 'expressions' ? (
+          <section
+            id={isMobile ? 'mobile-panel-expressions' : undefined}
+            className={`panel panel-left${isMobile ? ' panel-mobile' : ''}`}
+            style={!isMobile ? { width: `${leftWidth}px` } : undefined}
+          >
+            <div className="panel-body panel-body-right">
+              {!isMobile ? renderTopControls() : null}
+              {isMobile ? (
+                <>
+                  <div className="expression-mobile-header">
+                    <button
+                      type="button"
+                      className="mobile-tree-button"
+                      onClick={handleOpenTreeDrawer}
+                      aria-expanded={treeDrawerOpen}
+                      aria-controls="expression-tree-drawer"
+                      aria-label="Open expression tree"
                     >
-                      <div
-                        className="editor-container editor-container-fill"
-                        data-editor-id={tab.id}
-                        id={`custom-expression-editor-${tab.id}`}
-                        aria-label={`${tab.name} expression editor`}
-                      >
-                        <ExpressionEditor
-                          value={tab.expression}
-                          language={tab.language ?? 'funcscript'}
-                          onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
-                          onLanguageChange={(lang) => handleCustomTabLanguageChange(tab.id, lang)}
-                          minHeight={0}
-                          ariaLabel={`${tab.name} expression editor`}
-                        />
-                      </div>
-                      <StatusMessage
-                        error={evaluation?.error ?? null}
-                        success={!evaluation?.error ? 'Value ready.' : null}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize panels"
-          tabIndex={0}
-          className={`splitter${dragging ? ' splitter-dragging' : ''}`}
-          onMouseDown={handleSplitterMouseDown}
-          onTouchStart={handleSplitterTouchStart}
-          onKeyDown={handleSplitterKeyDown}
-        />
-
-        <section className="panel panel-right">
-          <div className="panel-body panel-body-left">
-            <div className="panel-header-controls">
-              <div className="panel-header-left">
-                <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
-                  <button
-                    type="button"
-                    className={`preview-mode-button${previewMode === 'graphics' ? ' preview-mode-button-active' : ''}`}
-                    onClick={() => setPreviewMode('graphics')}
-                    aria-pressed={previewMode === 'graphics'}
-                    data-tooltip="Show graphics preview"
-                  >
-                    Graphics
-                  </button>
-                  <button
-                    type="button"
-                    className={`preview-mode-button${previewMode === 'json' ? ' preview-mode-button-active' : ''}`}
-                    onClick={() => setPreviewMode('json')}
-                    aria-pressed={previewMode === 'json'}
-                    data-tooltip="View prepared JSON"
-                  >
-                    JSON
-                  </button>
+                      <span aria-hidden="true">☰</span>
+                    </button>
+                    <span className="expression-mobile-active-label">{activeExpressionLabel}</span>
+                  </div>
+                  {renderExpressionPanels('expression-tab-panels-mobile')}
+                </>
+              ) : (
+                <div
+                  className="expression-tabs"
+                  ref={expressionLayoutRef}
+                  style={{ gridTemplateColumns: `${Math.round(treeWidth)}px 12px 1fr` }}
+                >
+                  {renderExpressionTree()}
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize tree"
+                    tabIndex={0}
+                    className={`expression-inner-splitter${
+                      treeDragging ? ' expression-inner-splitter-dragging' : ''
+                    }`}
+                    onMouseDown={handleTreeSplitterMouseDown}
+                    onTouchStart={handleTreeSplitterTouchStart}
+                    onKeyDown={handleTreeSplitterKeyDown}
+                  />
+                  {renderExpressionPanels()}
                 </div>
-                <div className="panel-meta">
-                  <span>Primitives: {totalPrimitives}</span>
-                  <span className="time-display">t = {time.toFixed(2)}s</span>
-                </div>
-              </div>
-              <div className="animation-controls">
-                <div className="animation-buttons">
-                  <button
-                    type="button"
-                    className="control-button"
-                    onClick={handlePlay}
-                    disabled={isPlaying}
-                    aria-label="Play"
-                    data-tooltip="Play animation"
-                  >
-                    ▶
-                  </button>
-                  <button
-                    type="button"
-                    className="control-button"
-                    onClick={handlePause}
-                    disabled={!isPlaying}
-                    aria-label="Pause"
-                    data-tooltip="Pause animation"
-                  >
-                    ⏸
-                  </button>
-                  <button
-                    type="button"
-                    className="control-button"
-                    onClick={handleReset}
-                    aria-label="Reset"
-                    data-tooltip="Reset time"
-                  >
-                    ⟲
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div
-              ref={canvasWrapperRef}
-              className={`canvas-wrapper${showGraphicsPreview ? '' : ' canvas-wrapper-json'}`}
-            >
-              <canvas
-                ref={canvasRef}
-                className={`preview-canvas${showGraphicsPreview ? '' : ' preview-canvas-hidden'}`}
-                aria-hidden={!showGraphicsPreview}
-              />
-              {showGraphicsPreview ? null : (
-                <pre className="preview-json" aria-label="Prepared graphics JSON" tabIndex={0}>
-                  {preparedGraphicsJson}
-                </pre>
               )}
-              {!canvasReady && showGraphicsPreview ? (
-                <div className="canvas-notice">
-                  <p>Awaiting view extent and primitive output.</p>
-                </div>
-              ) : null}
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
+
+        {!isMobile ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panels"
+            tabIndex={0}
+            className={`splitter${dragging ? ' splitter-dragging' : ''}`}
+            onMouseDown={handleSplitterMouseDown}
+            onTouchStart={handleSplitterTouchStart}
+            onKeyDown={handleSplitterKeyDown}
+          />
+        ) : null}
+
+        {!isMobile || activeMobileTab !== 'expressions' ? (
+          <section
+            id={isMobile ? 'mobile-panel-preview' : undefined}
+            className={`panel panel-right${isMobile ? ' panel-mobile' : ''}`}
+          >
+            <div className="panel-body panel-body-left">
+              <div className="panel-header-controls">
+                <div className="panel-header-left">
+                  {!isMobile ? (
+                    <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
+                      <button
+                        type="button"
+                        className={`preview-mode-button${
+                          previewMode === 'graphics' ? ' preview-mode-button-active' : ''
+                        }`}
+                        onClick={() => setPreviewMode('graphics')}
+                        aria-pressed={previewMode === 'graphics'}
+                        data-tooltip="Show graphics preview"
+                      >
+                        Graphics
+                      </button>
+                      <button
+                        type="button"
+                        className={`preview-mode-button${
+                          previewMode === 'json' ? ' preview-mode-button-active' : ''
+                        }`}
+                        onClick={() => setPreviewMode('json')}
+                        aria-pressed={previewMode === 'json'}
+                        data-tooltip="View prepared JSON"
+                      >
+                        JSON
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="preview-mode-label">Graphics preview</div>
+                  )}
+                  <div className="panel-meta">
+                    <span>Primitives: {totalPrimitives}</span>
+                    <span className="time-display">t = {time.toFixed(2)}s</span>
+                  </div>
+                </div>
+                <div className="animation-controls">
+                  <div className="animation-buttons">
+                    <button
+                      type="button"
+                      className="control-button"
+                      onClick={handlePlay}
+                      disabled={isPlaying}
+                      aria-label="Play"
+                      data-tooltip="Play animation"
+                    >
+                      ▶
+                    </button>
+                    <button
+                      type="button"
+                      className="control-button"
+                      onClick={handlePause}
+                      disabled={!isPlaying}
+                      aria-label="Pause"
+                      data-tooltip="Pause animation"
+                    >
+                      ⏸
+                    </button>
+                    <button
+                      type="button"
+                      className="control-button"
+                      onClick={handleReset}
+                      aria-label="Reset"
+                      data-tooltip="Reset time"
+                    >
+                      ⟲
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                ref={canvasWrapperRef}
+                className={`canvas-wrapper${showGraphicsPreview ? '' : ' canvas-wrapper-json'}`}
+              >
+                <canvas
+                  ref={canvasRef}
+                  className={`preview-canvas${showGraphicsPreview ? '' : ' preview-canvas-hidden'}`}
+                  aria-hidden={!showGraphicsPreview}
+                />
+                {showGraphicsPreview ? null : (
+                  <pre className="preview-json" aria-label="Prepared graphics JSON" tabIndex={0}>
+                    {preparedGraphicsJson}
+                  </pre>
+                )}
+                {!canvasReady && showGraphicsPreview ? (
+                  <div className="canvas-notice">
+                    <p>Awaiting view extent and primitive output.</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {isMobile && activeMobileTab === 'expressions' ? (
+          <>
+            <div
+              id="expression-tree-drawer"
+              className={`expression-tree-drawer${treeDrawerOpen ? ' expression-tree-drawer-open' : ''}`}
+              role="dialog"
+              aria-modal="true"
+              aria-hidden={!treeDrawerOpen}
+              aria-label="Expression tree"
+            >
+              <div className="expression-tree-drawer-header">
+                <span>Expressions</span>
+                <button
+                  type="button"
+                  className="mobile-tree-close"
+                  onClick={handleCloseTreeDrawer}
+                  aria-label="Close expression tree"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="expression-tree-drawer-body">{renderExpressionTree()}</div>
+            </div>
+            <div
+              className={`expression-tree-drawer-backdrop${
+                treeDrawerOpen ? ' expression-tree-drawer-backdrop-visible' : ''
+              }`}
+              aria-hidden="true"
+              onClick={handleCloseTreeDrawer}
+            />
+          </>
+        ) : null}
       </div>
       <ReferencePopup
         open={referenceOpen}

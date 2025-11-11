@@ -252,6 +252,55 @@ const getTypedValue = (provider: FsDataProvider, name: string): TypedValue | nul
 
 const JS_VALUE_SENTINEL = Symbol.for('funcdraw.js.value');
 
+export class PlayerFsDataProvider extends DefaultFsDataProvider {
+  private jsValues = new Map<string, { marker: symbol; value: unknown }>();
+
+  setJsValue(name: string, value: unknown) {
+    if (typeof name !== 'string') {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (value === undefined) {
+      this.jsValues.delete(key);
+      return;
+    }
+    this.jsValues.set(key, { marker: JS_VALUE_SENTINEL, value });
+  }
+
+  clearJsValue(name: string) {
+    if (typeof name !== 'string') {
+      return;
+    }
+    const key = name.trim().toLowerCase();
+    if (!key) {
+      return;
+    }
+    this.jsValues.delete(key);
+  }
+
+  getJsValue(name: string) {
+    if (typeof name !== 'string') {
+      return undefined;
+    }
+    const key = name.trim().toLowerCase();
+    if (!key) {
+      return undefined;
+    }
+    if (this.jsValues.has(key)) {
+      return this.jsValues.get(key);
+    }
+    const parent = this.parent;
+    if (parent && typeof (parent as { getJsValue?: (identifier: string) => unknown }).getJsValue === 'function') {
+      return (parent as { getJsValue: (identifier: string) => unknown }).getJsValue(name);
+    }
+    return undefined;
+  }
+}
+
 const getBuiltinGlobal = (prop: PropertyKey): unknown => {
   if (typeof prop !== 'string') {
     return undefined;
@@ -293,7 +342,14 @@ const createJavaScriptScope = (provider: FsDataProvider) => {
       if (getBuiltinGlobal(prop) !== undefined) {
         return true;
       }
-      return typeof prop === 'string' ? isDefinedInProvider(provider, prop) : false;
+      if (typeof prop === 'string') {
+        const jsBinding = tryGetJsBinding(provider, prop);
+        if (jsBinding.hasValue) {
+          return true;
+        }
+        return isDefinedInProvider(provider, prop);
+      }
+      return false;
     },
     get: (_target, prop) => {
       if (prop === Symbol.unscopables || typeof prop !== 'string') {
@@ -786,7 +842,7 @@ export const projectPointBuilder = (
   };
 };
 
-export const prepareProvider = () => new DefaultFsDataProvider();
+export const prepareProvider = (): PlayerFsDataProvider => new PlayerFsDataProvider();
 
 export type SvgRenderOptions = {
   width: number;

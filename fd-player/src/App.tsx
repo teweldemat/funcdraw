@@ -24,7 +24,8 @@ import {
 import type { PreparedGraphics, PreparedPrimitive, ViewExtent } from './graphics';
 import './App.css';
 import { FuncDraw } from '@tewelde/funcdraw';
-import examples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
+import defaultExamples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
+import { loadProjectBootstrap } from './projectConfig';
 import { ExpressionTree } from './ExpressionTree';
 import { ExamplePopup } from './components/ExamplePopup';
 import { ReferencePopup } from './components/ReferencePopup';
@@ -521,23 +522,28 @@ const slugifyProjectName = (value: string): string => {
 };
 
 const App = (): JSX.Element => {
+  const projectBootstrap = useMemo(() => loadProjectBootstrap(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const featuredExample = examples.find((entry) => entry.id === 'ghost_bicycle') ?? null;
+  const examples = projectBootstrap?.examples ?? defaultExamples;
+  const featuredExample = projectBootstrap?.examples?.[0] ?? examples.find((entry) => entry.id === 'ghost_bicycle') ?? null;
   const initialExample = featuredExample ?? (examples.length > 0 ? examples[0] : null);
-  const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
+  const persistedStateRef = useRef<PersistedSnapshot | null>(
+    projectBootstrap?.snapshot ?? loadPersistedSnapshot()
+  );
   const defaultExampleWorkspaceRef = useRef<
     { tabs: CustomTabState[]; folders: CustomFolderState[] } | null
   >(
-    initialExample
-      ? createWorkspaceStateFromDefinitions({
-          tabs: initialExample.customTabs,
-          folders: initialExample.customFolders
-        })
-      : null
+    projectBootstrap?.workspace ??
+      (initialExample
+        ? createWorkspaceStateFromDefinitions({
+            tabs: initialExample.customTabs,
+            folders: initialExample.customFolders
+          })
+        : null)
   );
+  const shouldPersistState = projectBootstrap?.persistState ?? true;
 
   const [leftWidth, setLeftWidth] = useState(() => {
     const persisted = persistedStateRef.current;
@@ -1390,9 +1396,6 @@ const App = (): JSX.Element => {
   }, [exampleOpen, referenceOpen]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
     const expandedFolderIds = customFolders
       .map((folder) => folder.id)
       .filter((folderId) => !collapsedFolders.has(folderId));
@@ -1436,12 +1439,14 @@ const App = (): JSX.Element => {
     if (collapsedFoldersByExample && Object.keys(collapsedFoldersByExample).length > 0) {
       snapshot.collapsedFoldersByExample = collapsedFoldersByExample;
     }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      persistedStateRef.current = snapshot;
-    } catch {
-      // Swallow storage errors to avoid breaking the editor experience.
+    if (shouldPersistState && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      } catch {
+        // Swallow storage errors to avoid breaking the editor experience.
+      }
     }
+    persistedStateRef.current = snapshot;
   }, [
     activeExpressionTab,
     customFolders,
@@ -1454,7 +1459,8 @@ const App = (): JSX.Element => {
     treeWidth,
     selectedExampleId,
     viewExpression,
-    viewLanguage
+    viewLanguage,
+    shouldPersistState
   ]);
 
   useEffect(() => {
@@ -1472,7 +1478,13 @@ const App = (): JSX.Element => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  const baseProvider = useMemo(() => prepareProvider(), []);
+  const baseProvider = useMemo(() => {
+    const provider = prepareProvider();
+    if (projectBootstrap?.importFunction) {
+      provider.setJsValue('import', projectBootstrap.importFunction);
+    }
+    return provider;
+  }, [projectBootstrap]);
 
   const resolver = useMemo(
     () => new LocalStorageExpressionCollectionResolver(STORAGE_KEY, { tabs: customTabs, folders: customFolders }),
@@ -1925,7 +1937,8 @@ const App = (): JSX.Element => {
     graphicsLanguage,
     ensureProjectName,
     viewExpression,
-    viewLanguage
+    viewLanguage,
+    projectBootstrap
   ]);
 
   const handleExportSvg = useCallback(() => {
@@ -1943,7 +1956,11 @@ const App = (): JSX.Element => {
     const parsed = Number(promptValue.trim());
     const exportTime = Number.isFinite(parsed) ? parsed : 0;
     try {
-      const exportHandle = FuncDraw.evaluate(resolver, undefined, { baseProvider: prepareProvider() });
+      const exportProvider = prepareProvider();
+      if (projectBootstrap?.importFunction) {
+        exportProvider.setJsValue('import', projectBootstrap.importFunction);
+      }
+      const exportHandle = FuncDraw.evaluate(resolver, undefined, { baseProvider: exportProvider });
       exportHandle.setTime(exportTime);
       const environmentProvider = exportHandle.environmentProvider;
       const viewResult = evaluateExpression(environmentProvider, viewExpression, viewLanguage);

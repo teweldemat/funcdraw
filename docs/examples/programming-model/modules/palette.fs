@@ -1,5 +1,5 @@
 {
-  return {
+  eval {
     background: '#0f172a';
     surface: '#1f2937';
     accent: '#38bdf8';

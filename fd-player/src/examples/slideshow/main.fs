@@ -28,7 +28,7 @@
     value: valueParam ?? 0;
     minValue: minParam ?? 0;
     maxValue: maxParam ?? 1;
-    return if (value < minValue)
+    eval if (value < minValue)
       then minValue
       else if (value > maxValue)
         then maxValue
@@ -88,5 +88,5 @@
       then []
       else activeSlide(context);
 
-  return result;
+  eval result;
 }

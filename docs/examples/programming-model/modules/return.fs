@@ -1,5 +1,0 @@
-{
-  return {
-    palette: palette;
-  };
-}

@@ -15,13 +15,14 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "docs:build": "node ./scripts/render-doc-previews.mjs && node ./scripts/build-docs.mjs",
+    "docs:build": "node ./scripts/build-docs.mjs",
     "copy-docs": "npm run docs:build && node ./scripts/copy-docs.mjs",
     "build:fd-player": "npm run build --workspace fd-player && npm run copy-docs",
     "dev:fd-player": "npm run docs:build && npm run dev --workspace fd-player",
     "vercel-build": "npm run build:fd-player"
   },
   "dependencies": {
+    "@tewelde/funcscript": "^0.2.1",
     "marked": "^17.0.0"
   }
 }

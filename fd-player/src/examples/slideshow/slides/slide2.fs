@@ -41,7 +41,7 @@
           align: 'left';
         };
       };
-      return [dot, text];
+      eval [dot, text];
     };
   bulletParts: bulletEntries reduce (acc, entry) => acc + entry ~ [];
 
@@ -50,7 +50,7 @@
   barWidth: cardWidth * 0.025;
   bars: [0.4, 0.65, 0.85, 0.55] map (ratio, idx) => {
     height: cardHeight * 0.18 * ratio;
-    return {
+    eval {
       type: 'rect';
       data: {
         position: [chartBaseX + idx * (barWidth + 6), chartBaseY - height];
@@ -64,5 +64,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + bulletParts + bars + footerParts;
+  eval headerParts + bulletParts + bars + footerParts;
 }

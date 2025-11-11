@@ -8,48 +8,188 @@ FuncDraw renders graphics by walking the array (or nested arrays) of primitive o
 - `width` values are expressed in world units, not pixels; the renderer scales them to the canvas resolution at draw time.
 
 ## `line`
-| Field | Type | Notes |
-| --- | --- | --- |
-| `from` | point | Required start coordinate. |
-| `to` | point | Required end coordinate. |
-| `stroke` | string | Defaults to `#38bdf8` if missing. |
-| `width` | number | Defaults to `0.25`. |
-| `dash` | number[] | Optional stroke dash pattern; ignored unless every entry is `>= 0`. |
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": { "const": "line" },
+    "data": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/definitions/point" },
+        "to": { "$ref": "#/definitions/point" },
+        "stroke": { "type": "string", "default": "#38bdf8" },
+        "width": { "type": "number", "default": 0.25 },
+        "dash": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+```
 
 ## `rect`
-| Field | Type | Notes |
-| --- | --- | --- |
-| `position` | point | Required lower-left corner. |
-| `size` | point | Required `[width, height]`. |
-| `fill` | string | Optional; no fill when omitted. |
-| `stroke` | string | Optional outline color. |
-| `width` | number | Stroke width; defaults to `0.25`. |
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": { "const": "rect" },
+    "data": {
+      "type": "object",
+      "required": ["position", "size"],
+      "properties": {
+        "position": { "$ref": "#/definitions/point" },
+        "size": { "$ref": "#/definitions/point" },
+        "fill": { "type": "string" },
+        "stroke": { "type": "string" },
+        "width": { "type": "number", "default": 0.25 }
+      }
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+```
 
 ## `circle`
-| Field | Type | Notes |
-| --- | --- | --- |
-| `center` | point | Required. |
-| `radius` | number | Required positive value. |
-| `fill` | string | Optional interior color. |
-| `stroke` | string | Optional outline color. |
-| `width` | number | Stroke width (default `0.25`). |
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": { "const": "circle" },
+    "data": {
+      "type": "object",
+      "required": ["center", "radius"],
+      "properties": {
+        "center": { "$ref": "#/definitions/point" },
+        "radius": { "type": "number", "exclusiveMinimum": 0 },
+        "fill": { "type": "string" },
+        "stroke": { "type": "string" },
+        "width": { "type": "number", "default": 0.25 }
+      }
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+```
 
 ## `polygon`
-| Field | Type | Notes |
-| --- | --- | --- |
-| `points` | point[] | Required list of ≥3 points; renderer closes the path automatically. |
-| `fill` | string | Optional. |
-| `stroke` | string | Optional. |
-| `width` | number | Stroke width (default `0.25`). |
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": { "const": "polygon" },
+    "data": {
+      "type": "object",
+      "required": ["points"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/definitions/point" }
+        },
+        "fill": { "type": "string" },
+        "stroke": { "type": "string" },
+        "width": { "type": "number", "default": 0.25 }
+      }
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+```
 
 ## `text`
-| Field | Type | Notes |
-| --- | --- | --- |
-| `position` | point | Required baseline anchor. |
-| `text` | string | Required content. |
-| `color` | string | Defaults to `#e2e8f0`. |
-| `fontSize` | number | Defaults to `1` world unit (scaled in the player so it never renders smaller than 12px). |
-| `align` | `'left' | 'center' | 'right'` | Defaults to `'left'`; `'center'` maps to `canvas.textAlign = 'center'`, `'right'` to `'right'`. |
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": { "const": "text" },
+    "data": {
+      "type": "object",
+      "required": ["position", "text"],
+      "properties": {
+        "position": { "$ref": "#/definitions/point" },
+        "text": { "type": "string" },
+        "color": { "type": "string", "default": "#e2e8f0" },
+        "fontSize": { "type": "number", "default": 1 },
+        "align": {
+          "enum": ["left", "center", "right"],
+          "default": "left"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
+```
 
 ### Layered output
 Returning a list of primitives or a list-of-lists is valid. Each nested list is treated as a layer, preserving draw order. Anything that isn't recognized as one of the five `type` strings is ignored and reported in the player warning sidebar.

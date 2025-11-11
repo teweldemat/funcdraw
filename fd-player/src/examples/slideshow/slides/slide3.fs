@@ -41,7 +41,7 @@
           align: 'left';
         };
       };
-      return [dot, text];
+      eval [dot, text];
     };
   bulletParts: bulletEntries reduce (acc, entry) => acc + entry ~ [];
 
@@ -57,7 +57,7 @@
   ];
   nodeDots:
     nodes map (offset) => {
-      return {
+      eval {
         type: 'circle';
         data: {
           center: [nodeCenterX + offset[0], nodeCenterY + offset[1]];
@@ -79,7 +79,7 @@
   ] map (pair) => {
     from: nodeDots[pair[0]].data.center;
     to: nodeDots[pair[1]].data.center;
-    return {
+    eval {
       type: 'line';
       data: {
         from;
@@ -92,5 +92,5 @@
 
   footerParts: common.footer(context, accent);
 
-  return headerParts + bulletParts + connections + nodeDots + footerParts;
+  eval headerParts + bulletParts + connections + nodeDots + footerParts;
 }

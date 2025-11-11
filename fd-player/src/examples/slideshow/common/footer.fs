@@ -50,5 +50,5 @@
     };
   };
 
-  return [track, fillBar, label];
+  eval [track, fillBar, label];
 }

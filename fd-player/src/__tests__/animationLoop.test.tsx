@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type MockInstance
+} from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -88,9 +96,10 @@ const createMockContext = () => {
 };
 
 describe('fd-player animation loop', () => {
-  let consoleError: ReturnType<typeof vi.spyOn>;
-  let requestAnimationFrameSpy: ReturnType<typeof vi.spyOn>;
-  let cancelAnimationFrameSpy: ReturnType<typeof vi.spyOn>;
+  let consoleError: MockInstance;
+  let requestAnimationFrameSpy: MockInstance;
+  let cancelAnimationFrameSpy: MockInstance;
+  let getContextSpy: MockInstance;
 
   beforeEach(() => {
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -116,24 +125,32 @@ describe('fd-player animation loop', () => {
     window.prompt = vi.fn();
     window.confirm = vi.fn();
 
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => createMockContext());
+    getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockImplementation(
+        ((contextId: '2d') =>
+          contextId === '2d' ? createMockContext() : null) as typeof HTMLCanvasElement.prototype.getContext
+      );
 
     let frameId = 0;
     requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation((callback: FrameRequestCallback) => {
-        frameId += 1;
-        callback(performance.now());
-        return frameId;
-      });
+      .mockImplementation(
+        ((callback: FrameRequestCallback) => {
+          frameId += 1;
+          callback(performance.now());
+          return frameId;
+        }) as typeof window.requestAnimationFrame
+      );
     cancelAnimationFrameSpy = vi
       .spyOn(window, 'cancelAnimationFrame')
-      .mockImplementation(() => {});
+      .mockImplementation((() => {}) as typeof window.cancelAnimationFrame);
   });
 
   afterEach(() => {
     requestAnimationFrameSpy.mockRestore();
     cancelAnimationFrameSpy.mockRestore();
+    getContextSpy.mockRestore();
     consoleError.mockRestore();
     vi.unstubAllGlobals();
   });

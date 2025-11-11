@@ -1637,12 +1637,29 @@ const App = (): JSX.Element => {
       stopAnimation();
       return;
     }
+
     playingRef.current = true;
-    let frameId: number | null = null;
+    let cancelled = false;
+    let pendingSchedule = false;
+
+    const scheduleNextFrame = () => {
+      if (cancelled || pendingSchedule || !playingRef.current) {
+        return;
+      }
+      pendingSchedule = true;
+      Promise.resolve().then(() => {
+        pendingSchedule = false;
+        if (cancelled || !playingRef.current) {
+          return;
+        }
+        const frameId = window.requestAnimationFrame(tick);
+        animationFrameRef.current = frameId;
+      });
+    };
+
     const tick = (timestamp: number) => {
-      if (!playingRef.current) {
+      if (cancelled || !playingRef.current) {
         animationFrameRef.current = null;
-        frameId = null;
         return;
       }
       if (lastTimestampRef.current === null) {
@@ -1651,13 +1668,16 @@ const App = (): JSX.Element => {
       const deltaSeconds = Math.max(0, (timestamp - lastTimestampRef.current) / 1000);
       lastTimestampRef.current = timestamp;
       setTime((previous) => previous + deltaSeconds);
-      frameId = window.requestAnimationFrame(tick);
-      animationFrameRef.current = frameId;
+      animationFrameRef.current = null;
+      scheduleNextFrame();
     };
-    frameId = window.requestAnimationFrame(tick);
-    animationFrameRef.current = frameId;
+
+    scheduleNextFrame();
+
     return () => {
+      cancelled = true;
       playingRef.current = false;
+      const frameId = animationFrameRef.current;
       if (frameId !== null) {
         cancelAnimationFrame(frameId);
       }

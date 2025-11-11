@@ -16,8 +16,8 @@
     rearCenter[0], rearCenter[1] - ((frontRadius * ratio) + rearChainOffset)
   ], 10, pedalAngle * frontRadius);
   
-  pedal1: pedal(frontCenter, pedalAngle, pedalLength,true);
-  pedal2: pedal(frontCenter, pedalAngle + math.pi, pedalLength,false);
+  pedal1: cycle.pedal(frontCenter, pedalAngle, pedalLength,true);
+  pedal2: cycle.pedal(frontCenter, pedalAngle + math.pi, pedalLength,false);
   
   eval {
     chain1,

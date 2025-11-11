@@ -20,8 +20,8 @@ return (frontCenter, rearCenter, frontRadius, frontTeeth, ratio, pedalAngle) => 
     pedalAngle * frontRadius
   );
 
-  const pedal1 = pedal(frontCenter, pedalAngle, pedalLength, true);
-  const pedal2 = pedal(frontCenter, pedalAngle + Math.PI, pedalLength, false);
+  const pedal1 = cycle.pedal(frontCenter, pedalAngle, pedalLength, true);
+  const pedal2 = cycle.pedal(frontCenter, pedalAngle + Math.PI, pedalLength, false);
 
   return {
     chain1,

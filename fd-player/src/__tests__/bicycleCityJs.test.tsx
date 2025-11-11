@@ -9,7 +9,7 @@ import { interpretGraphics, evaluateExpression } from '../graphics';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const EXAMPLE_ROOT = path.resolve(__dirname, '../examples/bicycle_city_js');
+const EXAMPLE_ROOT = path.resolve(__dirname, '../examples/ghost_bicyle_js');
 const SUPPORTED = [
   { extension: '.fs', language: 'funcscript' as const },
   { extension: '.js', language: 'javascript' as const }
@@ -96,7 +96,7 @@ const GraphicsWarningProbe = ({ value }: { value: unknown }) => {
   return <div data-testid="warnings">{interpretation.warning ?? ''}</div>;
 };
 
-describe('bicycle_city_js integration', () => {
+describe('ghost_bicyle_js integration', () => {
   it('currently emits primitive warnings when FuncScript main returns model.graphics', () => {
     const graphicsValue = loadGraphicsValue();
     render(<GraphicsWarningProbe value={graphicsValue} />);

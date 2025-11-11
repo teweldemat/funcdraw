@@ -513,8 +513,8 @@ const App = (): JSX.Element => {
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const showcaseExample = examples.find((entry) => entry.id === 'showcase') ?? null;
-  const initialExample = showcaseExample ?? (examples.length > 0 ? examples[0] : null);
+  const featuredExample = examples.find((entry) => entry.id === 'ghost_bicyle') ?? null;
+  const initialExample = featuredExample ?? (examples.length > 0 ? examples[0] : null);
   const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
   const defaultExampleWorkspaceRef = useRef<
     { tabs: CustomTabState[]; folders: CustomFolderState[] } | null

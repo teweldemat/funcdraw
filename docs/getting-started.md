@@ -4,7 +4,7 @@
 - Open **https://funcdraw.app** in your browser. The hosted build always runs the latest renderer, reference docs, and sample workspaces.
 
 ## 2. Load a sample workspace
-- Click the **Example** button (the blue book icon) in the toolbar. Pick a collection such as **Bicycle City** or **Showcase** and the player will load every tab for you—no manual file browsing required.
+- Click the **Example** button (the blue book icon) in the toolbar. Pick a collection such as **Ghost Bicyle** and the player will load every tab for you—no manual file browsing required.
 
 ## 3. Iterate on expressions
 - Edit any tab right in the browser. As soon as the `graphics` tab returns a new value, the canvas re-renders.

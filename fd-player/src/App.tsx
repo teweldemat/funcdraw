@@ -299,6 +299,18 @@ const getExpressionTabPanelId = (tabId: string) => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+const warningsEqual = (left: string[], right: string[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const drawScene = (
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
@@ -769,6 +781,9 @@ const App = (): JSX.Element => {
     setPendingFocusEditorId(null);
   }, [pendingFocusEditorId]);
   const [renderWarnings, setRenderWarnings] = useState<string[]>([]);
+  const updateRenderWarnings = useCallback((warnings: string[]) => {
+    setRenderWarnings((current) => (warningsEqual(current, warnings) ? current : warnings));
+  }, []);
   const [canvasSize, setCanvasSize] = useState<{ cssWidth: number; cssHeight: number; dpr: number }>(
     () => ({ cssWidth: 0, cssHeight: 0, dpr: 1 })
   );
@@ -1589,9 +1604,9 @@ const App = (): JSX.Element => {
       const { preparedGraphics: latestGraphics, extent } = drawStateRef.current;
       const warnings: string[] = [];
       drawScene(canvas, context, extent, latestGraphics, warnings, VIEW_PADDING);
-      setRenderWarnings(warnings);
+      updateRenderWarnings(warnings);
     });
-  }, [setRenderWarnings]);
+  }, [updateRenderWarnings]);
 
   const drawImmediate = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1605,25 +1620,8 @@ const App = (): JSX.Element => {
     const { preparedGraphics: latestGraphics, extent } = drawStateRef.current;
     const warnings: string[] = [];
     drawScene(canvas, context, extent, latestGraphics, warnings, VIEW_PADDING);
-    setRenderWarnings(warnings);
-  }, [setRenderWarnings]);
-
-  const animationLoop = useCallback(
-    function animationLoop(timestamp: number) {
-      if (!playingRef.current) {
-        animationFrameRef.current = null;
-        return;
-      }
-      if (lastTimestampRef.current === null) {
-        lastTimestampRef.current = timestamp;
-      }
-      const deltaSeconds = (timestamp - lastTimestampRef.current) / 1000;
-      lastTimestampRef.current = timestamp;
-      setTime((previous) => previous + deltaSeconds);
-      animationFrameRef.current = window.requestAnimationFrame(animationLoop);
-    },
-    []
-  );
+    updateRenderWarnings(warnings);
+  }, [updateRenderWarnings]);
 
   const stopAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -1633,6 +1631,41 @@ const App = (): JSX.Element => {
     lastTimestampRef.current = null;
   }, []);
 
+  useEffect(() => {
+    if (!isPlaying) {
+      playingRef.current = false;
+      stopAnimation();
+      return;
+    }
+    playingRef.current = true;
+    let frameId: number | null = null;
+    const tick = (timestamp: number) => {
+      if (!playingRef.current) {
+        animationFrameRef.current = null;
+        frameId = null;
+        return;
+      }
+      if (lastTimestampRef.current === null) {
+        lastTimestampRef.current = timestamp;
+      }
+      const deltaSeconds = Math.max(0, (timestamp - lastTimestampRef.current) / 1000);
+      lastTimestampRef.current = timestamp;
+      setTime((previous) => previous + deltaSeconds);
+      frameId = window.requestAnimationFrame(tick);
+      animationFrameRef.current = frameId;
+    };
+    frameId = window.requestAnimationFrame(tick);
+    animationFrameRef.current = frameId;
+    return () => {
+      playingRef.current = false;
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      animationFrameRef.current = null;
+      lastTimestampRef.current = null;
+    };
+  }, [isPlaying, stopAnimation]);
+
   const handlePlay = useCallback(() => {
     if (playingRef.current) {
       return;
@@ -1640,8 +1673,7 @@ const App = (): JSX.Element => {
     playingRef.current = true;
     setIsPlaying(true);
     lastTimestampRef.current = null;
-    animationFrameRef.current = window.requestAnimationFrame(animationLoop);
-  }, [animationLoop]);
+  }, []);
 
   const handlePause = useCallback(() => {
     if (!playingRef.current) {

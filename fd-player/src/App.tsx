@@ -711,6 +711,28 @@ const App = (): JSX.Element => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent | MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      const menus = [workspaceMenuRef.current, previewMenuRef.current, resourcesMenuRef.current];
+      for (const menu of menus) {
+        if (menu?.open && !menu.contains(target)) {
+          menu.open = false;
+        }
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isMobile]);
+
   const handleOpenTreeDrawer = useCallback(() => {
     setTreeDrawerOpen(true);
   }, []);
@@ -1755,6 +1777,14 @@ const App = (): JSX.Element => {
     stopAnimation();
   }, [stopAnimation]);
 
+  const handleTogglePlay = useCallback(() => {
+    if (playingRef.current) {
+      handlePause();
+    } else {
+      handlePlay();
+    }
+  }, [handlePause, handlePlay]);
+
   const applyManualTime = useCallback(
     (nextTime: number) => {
       const clamped = Number.isFinite(nextTime) ? Math.max(0, nextTime) : 0;
@@ -2446,21 +2476,12 @@ const App = (): JSX.Element => {
                 <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
                   <button
                     type="button"
-                    className="control-button"
-                    onClick={handlePlay}
-                    disabled={isPlaying}
+                    className={`control-button${isPlaying ? ' control-button-active' : ''}`}
+                    onClick={handleTogglePlay}
+                    aria-pressed={isPlaying}
                   >
-                    <span className="icon-button-icon" aria-hidden="true">▶</span>
-                    <span className="icon-button-label">Play</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="control-button"
-                    onClick={handlePause}
-                    disabled={!isPlaying}
-                  >
-                    <span className="icon-button-icon" aria-hidden="true">⏸</span>
-                    <span className="icon-button-label">Pause</span>
+                    <span className="icon-button-icon" aria-hidden="true">{isPlaying ? '⏸' : '▶'}</span>
+                    <span className="icon-button-label">{isPlaying ? 'Pause' : 'Play'}</span>
                   </button>
                   <button type="button" className="control-button" onClick={handleReset}>
                     <span className="icon-button-icon" aria-hidden="true">⟲</span>
@@ -2568,21 +2589,12 @@ const App = (): JSX.Element => {
                 <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
                   <button
                     type="button"
-                    className="control-button"
-                    onClick={handlePlay}
-                    disabled={isPlaying}
+                    className={`control-button${isPlaying ? ' control-button-active' : ''}`}
+                    onClick={handleTogglePlay}
+                    aria-pressed={isPlaying}
                   >
-                    <span className="icon-button-icon" aria-hidden="true">▶</span>
-                    <span className="icon-button-label">Play</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="control-button"
-                    onClick={handlePause}
-                    disabled={!isPlaying}
-                  >
-                    <span className="icon-button-icon" aria-hidden="true">⏸</span>
-                    <span className="icon-button-label">Pause</span>
+                    <span className="icon-button-icon" aria-hidden="true">{isPlaying ? '⏸' : '▶'}</span>
+                    <span className="icon-button-label">{isPlaying ? 'Pause' : 'Play'}</span>
                   </button>
                   <button type="button" className="control-button" onClick={handleReset}>
                     <span className="icon-button-icon" aria-hidden="true">⟲</span>

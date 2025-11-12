@@ -1225,6 +1225,10 @@ class FuncDrawEnvironmentProvider extends Engine.FsDataProvider {
     this.setNamedValue('fd', FD_COLLECTION_VALUE);
   }
 
+  getParentProvider() {
+    return this.parent && typeof this.parent === 'object' ? this.parent : null;
+  }
+
   setNamedValue(name, value) {
     const lower = normalizeName(name);
     if (value) {
@@ -1295,7 +1299,8 @@ class FuncDrawEnvironmentProvider extends Engine.FsDataProvider {
     if (this.manager.graph.getChildFolder('', lower)) {
       return true;
     }
-    return super.isDefined(name);
+    const parent = this.getParentProvider();
+    return parent ? parent.isDefined(name) : super.isDefined(name);
   }
 }
 

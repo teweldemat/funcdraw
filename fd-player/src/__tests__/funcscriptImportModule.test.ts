@@ -36,4 +36,22 @@ describe('FuncScript importModule binding', () => {
       wheels: SAMPLE_MODULE.wheels
     });
   });
+
+  it('keeps importModule callable inside JavaScript expressions', () => {
+    const provider = prepareProvider();
+    applyProjectImportBindings(provider, (specifier) => {
+      if (specifier === 'common-graphic') {
+        return SAMPLE_MODULE;
+      }
+      throw new Error(`Unknown module ${String(specifier)}`);
+    });
+
+    const expression = `{
+  const module = importModule("common-graphic");
+  return module.wheels.length;
+}`;
+    const result = evaluateExpression(provider, expression, 'javascript');
+    expect(result.error).toBeNull();
+    expect(result.value).toBe(2);
+  });
 });

@@ -5,5 +5,5 @@ In FuncDraw, when a name is referenced, the value is first looked up locally wit
 Because of this, expressions and folders do not need to be explicitly imported within a workspace.
 
 ## Imports
-The `import` function in FuncScript (`fdimport` in JavaScript contexts) is used to import Node.js modules. All root items—expressions, collections, and modules—are assembled into a `KeyValueCollection` (an object in JavaScript). Imported modules do not need to specify what they export.
+The `import` function in FuncScript (`fdimport` in JavaScript contexts) is used to import packages from node_modules folders. All root items—expressions, collections, and modules—are assembled into a `KeyValueCollection` (an object in JavaScript). Imported modules do not need to specify what they export.
 Name references inside imported modules follow the same workspace name resolution rules described above.

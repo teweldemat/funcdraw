@@ -93,24 +93,12 @@ const evaluateProject = (
   return funcDraw.evaluateExpression(['main']);
 };
 
-describe('sample project integration', () => {
-  it('allows JavaScript expressions to import common-graphic', () => {
+describe('aurora demo project', () => {
+  it('imports the aurora-library package defined in FuncScript', () => {
     const result = evaluateProject(
-      path.resolve(__dirname, '../../../projects/sample'),
-      'common-graphic',
-      () => requireModule('../../../packages/common-graphic')
-    );
-    expect(result).not.toBeNull();
-    expect(result?.error).toBeNull();
-  });
-});
-
-describe('landscape demo project', () => {
-  it('imports the landscape-library package', () => {
-    const result = evaluateProject(
-      path.resolve(__dirname, '../../../projects/landscape_demo'),
-      'landscape-library',
-      () => requireModule('../../../packages/landscape-library')
+      path.resolve(__dirname, '../../../projects/aurora-demo'),
+      'aurora-library',
+      () => requireModule('../../../packages/aurora-library')
     );
     expect(result).not.toBeNull();
     expect(result?.error).toBeNull();

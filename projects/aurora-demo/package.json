@@ -1,11 +1,11 @@
 {
-  "name": "@sample/landscape-demo",
+  "name": "@sample/aurora-demo",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "play": "node ../../scripts/play-project.mjs"
   },
   "dependencies": {
-    "landscape-library": "^0.1.0"
+    "aurora-library": "^0.1.0"
   }
 }

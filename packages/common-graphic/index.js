@@ -1,11 +1,11 @@
-const body = require('./body');
 const car = require('./car');
+const wheel = require('./wheel');
 
 module.exports = {
-  body,
   car,
+  wheel,
   default: {
-    body,
-    car
+    car,
+    wheel
   }
 };

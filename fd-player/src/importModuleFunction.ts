@@ -123,14 +123,17 @@ export const applyProjectImportBindings = (
     provider.set('import', funcscriptImport);
     provider.set('require', funcscriptImport);
   }
-  const assignBinding = (name: string, options?: { setGlobal?: boolean }) => {
+  const assignBinding = (
+    name: string,
+    options?: { setGlobal?: boolean; forceGlobal?: boolean }
+  ) => {
     if (!name) {
       return;
     }
     provider.setJsValue(name, importFn);
     if (options?.setGlobal !== false && typeof globalThis !== 'undefined') {
       const current = (globalThis as Record<string, unknown>)[name];
-      if (current === undefined) {
+      if (options?.forceGlobal || current === undefined) {
         try {
           (globalThis as Record<string, unknown>)[name] = importFn;
         } catch {
@@ -140,7 +143,7 @@ export const applyProjectImportBindings = (
     }
   };
   const FD_IMPORT_NAME = 'fdimport';
-  assignBinding(FD_IMPORT_NAME);
+  assignBinding(FD_IMPORT_NAME, { forceGlobal: true });
   const shouldSetGlobalRequire =
     typeof globalThis === 'undefined' || (globalThis as Record<string, unknown>).require === undefined;
   assignBinding('require', { setGlobal: shouldSetGlobalRequire });

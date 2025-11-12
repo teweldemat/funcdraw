@@ -1,0 +1,23 @@
+{
+  "title": "Landscape Library",
+  "description": "Simple sun, hill, and meadow primitives for composing outdoor scenes.",
+  "catalogEntries": [
+    {
+      "id": "sun",
+      "name": "Sun",
+      "catalogExpression": "{\n  const graphics = fdimport(\"landscape-library\").sun.eval;\n  return graphics;\n}",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-4 -1 8 8\"><circle cx=\"0\" cy=\"4\" r=\"2.2\" fill=\"#fbbf24\" stroke=\"#f97316\" stroke-width=\"0.3\"/><circle cx=\"0\" cy=\"4\" r=\"2.6\" fill=\"rgba(250,204,21,0.35)\" stroke=\"#fde047\" stroke-width=\"0.15\"/></svg>",
+      "descriptionHtml": "<p>Radiant sun primitive with stylized rays.</p>"
+    },
+    {
+      "id": "meadow",
+      "name": "Meadow Scene",
+      "catalogExpression": "{\n  const graphics = fdimport(\"landscape-library\").meadow.eval;\n  return graphics;\n}",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-12\" y=\"-12\" width=\"24\" height=\"24\" fill=\"#0ea5e9\" stroke=\"#38bdf8\" stroke-width=\"0.1\"/><rect x=\"-12\" y=\"-4\" width=\"24\" height=\"8\" fill=\"#166534\"/><circle cx=\"0\" cy=\"6\" r=\"2.2\" fill=\"#fbbf24\"/></svg>",
+      "descriptionHtml": "<p>Complete meadow scene combining hills and sun.</p>"
+    }
+  ],
+  "persistState": false
+}

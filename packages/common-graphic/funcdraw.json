@@ -3,20 +3,20 @@
   "description": "Reusable vehicle primitives shared across FuncDraw demos.",
   "catalogEntries": [
     {
-      "id": "body",
-      "name": "Vehicle Body",
-      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic/body\");\n  return graphics;\n}",
+      "id": "wheel",
+      "name": "Wheel",
+      "catalogExpression": "{\n  const wheel = fdimport(\"common-graphic\").wheel.eval;\n  return wheel;\n}",
       "catalogLanguage": "javascript",
-      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-6\" y=\"-2\" width=\"12\" height=\"4\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-4.5\" y=\"-3.5\" width=\"9\" height=\"1.5\" fill=\"#1e293b\"/></svg>",
-      "descriptionHtml": "<p>The base profile shared by every compact car primitive.</p>"
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-3 -3 6 6\"><circle cx=\"0\" cy=\"0\" r=\"2.2\" fill=\"#94a3b8\" stroke=\"#0f172a\" stroke-width=\"0.25\"/><circle cx=\"0\" cy=\"0\" r=\"1.4\" fill=\"#0f172a\"/><circle cx=\"0\" cy=\"0\" r=\"0.5\" fill=\"#e2e8f0\"/></svg>",
+      "descriptionHtml": "<p>Standalone wheel primitive that can be positioned within custom graphics.</p>"
     },
     {
       "id": "car",
       "name": "Complete Car",
-      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic/car\");\n  return graphics;\n}",
+      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic\").car.eval;\n  return graphics;\n}",
       "catalogLanguage": "javascript",
-      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-10\" y=\"-3\" width=\"20\" height=\"6\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-8\" y=\"-5\" width=\"16\" height=\"2\" fill=\"#1e293b\"/><circle cx=\"-5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"-5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/><circle cx=\"5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/></svg>",
-      "descriptionHtml": "<p>Body plus wheels, ready for scene placement.</p>"
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-10\" y=\"-3\" width=\"20\" height=\"6\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-8\" y=\"-5\" width=\"16\" height=\"2\" fill=\"#1e293b\"/><rect x=\"-9\" y=\"-1\" width=\"18\" height=\"2\" fill=\"#0f172a\"/><circle cx=\"-5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\" stroke=\"#0f172a\" stroke-width=\"0.25\"/><circle cx=\"5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\" stroke=\"#0f172a\" stroke-width=\"0.25\"/><circle cx=\"-5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/><circle cx=\"5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/></svg>",
+      "descriptionHtml": "<p>Body plus wheels, constructed from the wheel module for quick reuse.</p>"
     }
   ],
   "persistState": false

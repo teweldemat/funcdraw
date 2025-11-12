@@ -20,22 +20,20 @@ return (center, radius, teeth, angleAdvance) => {
       center[1] + Math.cos(angle) * (radius + toothSize)
     ];
     return [
-      { type: 'line', data: { from: base1, to: base2, stroke: '#38bdf8', width: 0.3 } },
-      { type: 'line', data: { from: base2, to: apex, stroke: '#38bdf8', width: 0.3 } },
-      { type: 'line', data: { from: apex, to: base1, stroke: '#38bdf8', width: 0.3 } }
+      { type: 'line', from: base1, to: base2, stroke: '#38bdf8', width: 0.3},
+      { type: 'line', from: base2, to: apex, stroke: '#38bdf8', width: 0.3},
+      { type: 'line', from: apex, to: base1, stroke: '#38bdf8', width: 0.3}
     ];
   });
   return [
     teethLines,
     {
       type: 'circle',
-      data: {
-        center,
-        radius,
-        stroke: '#334155',
-        width: 1,
-        fill: '#334155'
-      }
+      center,
+      radius,
+      stroke: '#334155',
+      width: 1,
+      fill: '#334155'
     }
   ];
 };

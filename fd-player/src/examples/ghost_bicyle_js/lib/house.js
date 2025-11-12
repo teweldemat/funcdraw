@@ -23,52 +23,44 @@ return (position, sizeParam, kindParam) => {
 
   const body = {
     type: 'rect',
-    data: {
-      position: [bodyLeft, bodyBottom],
-      size: [bodyWidth, bodyHeight],
-      fill: bodyColor,
-      stroke: '#0f172a',
-      width: 0.35
-    }
+    position: [bodyLeft, bodyBottom],
+    size: [bodyWidth, bodyHeight],
+    fill: bodyColor,
+    stroke: '#0f172a',
+    width: 0.35
   };
 
   const roof = isBuilding
     ? {
         type: 'rect',
-        data: {
-          position: [bodyLeft - 0.4 * scale, bodyTop],
-          size: [bodyWidth + 0.8 * scale, 1.3 * scale],
-          fill: '#1f2937',
-          stroke: '#0f172a',
-          width: 0.35
-        }
+        position: [bodyLeft - 0.4 * scale, bodyTop],
+        size: [bodyWidth + 0.8 * scale, 1.3 * scale],
+        fill: '#1f2937',
+        stroke: '#0f172a',
+        width: 0.35
       }
     : isTower
     ? {
         type: 'polygon',
-        data: {
-          points: [
-            [base[0], bodyTop + 3 * scale],
-            [bodyLeft - 1.2 * scale, bodyTop],
-            [bodyLeft + bodyWidth + 1.2 * scale, bodyTop]
-          ],
-          fill: '#334155',
-          stroke: '#0f172a',
-          width: 0.35
-        }
+        points: [
+          [base[0], bodyTop + 3 * scale],
+          [bodyLeft - 1.2 * scale, bodyTop],
+          [bodyLeft + bodyWidth + 1.2 * scale, bodyTop]
+        ],
+        fill: '#334155',
+        stroke: '#0f172a',
+        width: 0.35
       }
     : {
         type: 'polygon',
-        data: {
-          points: [
-            [bodyLeft - 0.5 * scale, bodyTop],
-            [bodyLeft + bodyWidth / 2, bodyTop + 3 * scale],
-            [bodyLeft + bodyWidth + 0.5 * scale, bodyTop]
-          ],
-          fill: '#7c2d12',
-          stroke: '#0f172a',
-          width: 0.35
-        }
+        points: [
+          [bodyLeft - 0.5 * scale, bodyTop],
+          [bodyLeft + bodyWidth / 2, bodyTop + 3 * scale],
+          [bodyLeft + bodyWidth + 0.5 * scale, bodyTop]
+        ],
+        fill: '#7c2d12',
+        stroke: '#0f172a',
+        width: 0.35
       };
 
   const doorWidth = 2.3 * scale;
@@ -77,24 +69,20 @@ return (position, sizeParam, kindParam) => {
     doorWidth,
     doorHeight,
     type: 'rect',
-    data: {
-      position: [base[0] - doorWidth / 2, bodyBottom],
-      size: [doorWidth, doorHeight],
-      fill: accentColor,
-      stroke: '#0f172a',
-      width: 0.25
-    }
+    position: [base[0] - doorWidth / 2, bodyBottom],
+    size: [doorWidth, doorHeight],
+    fill: accentColor,
+    stroke: '#0f172a',
+    width: 0.25
   };
 
   const windowRect = (centerX, bottomY) => ({
     type: 'rect',
-    data: {
-      position: [centerX - (2 * scale) / 2, bottomY],
-      size: [2 * scale, 2 * scale],
-      fill: accentColor,
-      stroke: '#0f172a',
-      width: 0.2
-    }
+    position: [centerX - (2 * scale) / 2, bottomY],
+    size: [2 * scale, 2 * scale],
+    fill: accentColor,
+    stroke: '#0f172a',
+    width: 0.2
   });
 
   const windows = isBuilding
@@ -108,13 +96,11 @@ return (position, sizeParam, kindParam) => {
     ? [
         {
           type: 'circle',
-          data: {
-            center: [base[0], bodyBottom + bodyHeight / 2],
-            radius: 1.6 * scale,
-            fill: accentColor,
-            stroke: '#0f172a',
-            width: 0.2
-          }
+          center: [base[0], bodyBottom + bodyHeight / 2],
+          radius: 1.6 * scale,
+          fill: accentColor,
+          stroke: '#0f172a',
+          width: 0.2
         }
       ]
     : [

@@ -43,64 +43,54 @@
 
   body: {
     type: 'rect';
-    data: {
-      position: [bodyLeft, bodyBottom];
-      size: [bodyWidth, bodyHeight];
-      fill: bodyColor;
-      stroke: '#0f172a';
-      width: 0.35;
-    };
+    position: [bodyLeft, bodyBottom];
+    size: [bodyWidth, bodyHeight];
+    fill: bodyColor;
+    stroke: '#0f172a';
+    width: 0.35;
   };
 
   roof:
     if (isBuilding) then {
       type: 'rect';
-    data: {
-      position: [bodyLeft - 0.4 * scale, bodyTop];
-      size: [bodyWidth + 0.8 * scale, 1.3 * scale];
-        fill: '#1f2937';
-        stroke: '#0f172a';
-        width: 0.35;
-      };
+    position: [bodyLeft - 0.4 * scale, bodyTop];
+    size: [bodyWidth + 0.8 * scale, 1.3 * scale];
+      fill: '#1f2937';
+      stroke: '#0f172a';
+      width: 0.35;
     }
     else if (isTower) then {
       type: 'polygon';
-      data: {
-        points: [
-          [base[0], bodyTop + 3 * scale],
-          [bodyLeft - 1.2 * scale, bodyTop],
-          [bodyLeft + bodyWidth + 1.2 * scale, bodyTop]
-        ];
-        fill: '#334155';
-        stroke: '#0f172a';
-        width: 0.35;
-      };
+      points: [
+        [base[0], bodyTop + 3 * scale],
+        [bodyLeft - 1.2 * scale, bodyTop],
+        [bodyLeft + bodyWidth + 1.2 * scale, bodyTop]
+      ];
+      fill: '#334155';
+      stroke: '#0f172a';
+      width: 0.35;
     }
     else {
       type: 'polygon';
-      data: {
-        points: [
-          [bodyLeft - 0.5 * scale, bodyTop],
-          [bodyLeft + bodyWidth / 2, bodyTop + 3 * scale],
-          [bodyLeft + bodyWidth + 0.5 * scale, bodyTop]
-        ];
-        fill: '#7c2d12';
-        stroke: '#0f172a';
-        width: 0.35;
-      };
+      points: [
+        [bodyLeft - 0.5 * scale, bodyTop],
+        [bodyLeft + bodyWidth / 2, bodyTop + 3 * scale],
+        [bodyLeft + bodyWidth + 0.5 * scale, bodyTop]
+      ];
+      fill: '#7c2d12';
+      stroke: '#0f172a';
+      width: 0.35;
     };
 
   doorway: {
     doorWidth: 2.3 * scale;
     doorHeight: 3.2 * scale;
     type: 'rect';
-    data: {
-      position: [base[0] - doorWidth / 2, bodyBottom];
-      size: [doorWidth, doorHeight];
-      fill: accentColor;
-      stroke: '#0f172a';
-      width: 0.25;
-    };
+    position: [base[0] - doorWidth / 2, bodyBottom];
+    size: [doorWidth, doorHeight];
+    fill: accentColor;
+    stroke: '#0f172a';
+    width: 0.25;
   };
 
   windowRect: (centerX, bottomY) => {
@@ -108,13 +98,11 @@
     windowHeight: 2 * scale;
     eval {
       type: 'rect';
-      data: {
-        position: [centerX - windowWidth / 2, bottomY];
-        size: [windowWidth, windowHeight];
-        fill: accentColor;
-        stroke: '#0f172a';
-        width: 0.2;
-      };
+      position: [centerX - windowWidth / 2, bottomY];
+      size: [windowWidth, windowHeight];
+      fill: accentColor;
+      stroke: '#0f172a';
+      width: 0.2;
     };
   };
 
@@ -128,13 +116,11 @@
     else if (isTower) then [
       {
         type: 'circle';
-        data: {
-          center: [base[0], bodyBottom + bodyHeight / 2];
-          radius: 1.6 * scale;
-          fill: accentColor;
-          stroke: '#0f172a';
-          width: 0.2;
-        };
+        center: [base[0], bodyBottom + bodyHeight / 2];
+        radius: 1.6 * scale;
+        fill: accentColor;
+        stroke: '#0f172a';
+        width: 0.2;
       }
     ]
     else [

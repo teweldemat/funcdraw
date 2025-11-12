@@ -39,62 +39,50 @@
   // components
   baseCircle: {
     type: 'circle',
-    data: {
-      center: center,
-      radius: baseRadius,
-      stroke: '#60a5fa',
-      width: 0.4,
-      fill: '#60a5fa'
-    }
+    center: center,
+    radius: baseRadius,
+    stroke: '#60a5fa',
+    width: 0.4,
+    fill: '#60a5fa'
   };
 
   armPolygon: {
     type: 'polygon',
-    data: {
-      points: [baseLeft, baseRight, tipRight, tipLeft],
-      stroke: '#60a5fa',
-      width: 0.0,
-      fill: '#60a5fa'
-    }
+    points: [baseLeft, baseRight, tipRight, tipLeft],
+    stroke: '#60a5fa',
+    width: 0.0,
+    fill: '#60a5fa'
   };
 
   armOutline: {
     type: 'polygon',
-    data: {
-      points: [baseLeft, baseRight, tipRight, tipLeft, baseLeft],
-      stroke: '#3b82f6',
-      width: 0.2
-    }
+    points: [baseLeft, baseRight, tipRight, tipLeft, baseLeft],
+    stroke: '#3b82f6',
+    width: 0.2
   };
 
   footRest: {
     type: 'polygon',
-    data: {
-      points: [footTL, footTR, footBR, footBL],
-      stroke: '#60a5fa',
-      width: 0.0,
-      fill: '#60a5fa'
-    }
+    points: [footTL, footTR, footBR, footBL],
+    stroke: '#60a5fa',
+    width: 0.0,
+    fill: '#60a5fa'
   };
 
   footOutline: {
     type: 'polygon',
-    data: {
-      points: [footTL, footTR, footBR, footBL, footTL],
-      stroke: '#3b82f6',
-      width: 0.2
-    }
+    points: [footTL, footTR, footBR, footBL, footTL],
+    stroke: '#3b82f6',
+    width: 0.2
   };
 
   jointCircle: {
     type: 'circle',
-    data: {
-      center: tipCenter,
-      radius: jointRadius,
-      stroke: '#3b82f6',
-      width: 0.3,
-      fill: '#93c5fd'
-    }
+    center: tipCenter,
+    radius: jointRadius,
+    stroke: '#3b82f6',
+    width: 0.3,
+    fill: '#93c5fd'
   };
 
   // drawing order depending on isRight

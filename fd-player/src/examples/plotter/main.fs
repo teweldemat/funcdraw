@@ -18,15 +18,15 @@
     };
 
     // x-axis styled as a green line
-    xAxis:{type:'line',data:{from:[x1,0],to:[x2,0],stroke:'#22c55e',width:0.28}};
+    xAxis:{type:'line', from:[x1,0],to:[x2,0],stroke:'#22c55e',width:0.28};
 
     // y-axis styled as a green line
-    yAxis:{type:'line',data:{from:[0,yMin],to:[0,yMax],stroke:'#22c55e',width:0.28}};
+    yAxis:{type:'line', from:[0,yMin],to:[0,yMax],stroke:'#22c55e',width:0.28};
 
 
     // draw the curve as connected line segments
     curve:range(0,n-1) map (i)=>{
-        type:'line',data:{from:data[i],to:data[i+1],stroke:'#38bdf8',width:0.2}
+        type:'line', from:data[i],to:data[i+1],stroke:'#38bdf8',width:0.2
     };
 
     // eval elements to render

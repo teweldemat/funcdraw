@@ -42,16 +42,16 @@
   ];
 
   bodyRadius: targetBodyWidth / 2;
-  body: { type: 'circle'; data: { center: bodyCenter; radius: bodyRadius; fill: '#e2e8f0'; stroke: '#0f172a'; width: 0.3; }; };
-  belly:{ type:'circle'; data:{ center:[bodyCenter[0]-0.35*scale, bodyCenter[1]+0.65*scale]; radius: bodyRadius*0.7; fill:'#f8fafc'; stroke:'transparent'; width:0; }; };
-  head: { type:'circle'; data:{ center:[nose[0]+0.15*scale, nose[1]-0.12*scale]; radius:1.08*scale; fill:'#f8fafc'; stroke:'#0f172a'; width:0.3; }; };
+  body: { type: 'circle'; center: bodyCenter; radius: bodyRadius; fill: '#e2e8f0'; stroke: '#0f172a'; width: 0.3; };
+  belly:{ type:'circle'; center:[bodyCenter[0]-0.35*scale, bodyCenter[1]+0.65*scale]; radius: bodyRadius*0.7; fill:'#f8fafc'; stroke:'transparent'; width:0; };
+  head: { type:'circle'; center:[nose[0]+0.15*scale, nose[1]-0.12*scale]; radius:1.08*scale; fill:'#f8fafc'; stroke:'#0f172a'; width:0.3; };
 
   blinkHz: 0.25;
   blinkPhase: timeValue * blinkHz;
   blinkU: blinkPhase - math.floor(blinkPhase);
   eyeOpen: if (blinkU < 0.02) then 0.2 else 1.0;
-  eye:{ type:'circle'; data:{ center:[(nose[0]+0.15*scale)-0.35*scale,(nose[1]-0.12*scale)-0.2*scale]; radius:0.2*eyeOpen*scale; fill:'#0f172a'; stroke:'#0f172a'; width:0.1; }; };
-  beak:{ type:'polygon'; data:{ points:[[nose[0],nose[1]],[nose[0]+0.85*scale,nose[1]+0.2*scale],[nose[0]+0.6*scale,nose[1]-0.1*scale]]; fill:'#fbbf24'; stroke:'#92400e'; width:0.2; }; };
+  eye:{ type:'circle'; center:[(nose[0]+0.15*scale)-0.35*scale,(nose[1]-0.12*scale)-0.2*scale]; radius:0.2*eyeOpen*scale; fill:'#0f172a'; stroke:'#0f172a'; width:0.1; };
+  beak:{ type:'polygon'; points:[[nose[0],nose[1]],[nose[0]+0.85*scale,nose[1]+0.2*scale],[nose[0]+0.6*scale,nose[1]-0.1*scale]]; fill:'#fbbf24'; stroke:'#92400e'; width:0.2; };
 
   wingFill: '#cbd5f5';
   wingTipFill: '#e6ecff';
@@ -67,16 +67,14 @@
 
     mainTri:{
       type:'polygon';
-      data:{
-        points:[
-          [anchor[0] + baseUp[0], anchor[1] + baseUp[1]],
-          [anchor[0] + baseDn[0], anchor[1] + baseDn[1]],
-          tip
-        ];
-        fill: wingFill;
-        stroke: wingStroke;
-        width: 0.25;
-      };
+      points:[
+        [anchor[0] + baseUp[0], anchor[1] + baseUp[1]],
+        [anchor[0] + baseDn[0], anchor[1] + baseDn[1]],
+        tip
+      ];
+      fill: wingFill;
+      stroke: wingStroke;
+      width: 0.25;
     };
 
     tipLen: wingspan * 0.35;
@@ -88,16 +86,14 @@
 
     tipTri:{
       type:'polygon';
-      data:{
-        points:[
-          [tip[0] + tipUp[0], tip[1] + tipUp[1]],
-          [tip[0] + tipDn[0], tip[1] + tipDn[1]],
-          tipPoint
-        ];
-        fill: wingTipFill;
-        stroke: wingStroke;
-        width: 0.22;
-      };
+      points:[
+        [tip[0] + tipUp[0], tip[1] + tipUp[1]],
+        [tip[0] + tipDn[0], tip[1] + tipDn[1]],
+        tipPoint
+      ];
+      fill: wingTipFill;
+      stroke: wingStroke;
+      width: 0.22;
     };
 
     eval { mainTri; tipTri };
@@ -111,17 +107,15 @@
   tailSpread: 0.6 * tailFan * scale;
   tail:{
     type:'polygon';
-    data:{
-      points:[
-        [tailRoot[0]-0.35*scale,               tailRoot[1]+0.28*scale],
-        [tailRoot[0]-(1.2*scale+tailSpread),   tailRoot[1]+(1.4*scale+0.2*tailFan*scale)],
-        [tailRoot[0]-0.65*scale,               tailRoot[1]+0.45*scale],
-        [tailRoot[0]-(1.1*scale+tailSpread),   tailRoot[1]-(0.2*scale+0.15*tailFan*scale)]
-      ];
-      fill:'#94a3b8';
-      stroke:'#0f172a';
-      width:0.25;
-    };
+    points:[
+      [tailRoot[0]-0.35*scale,               tailRoot[1]+0.28*scale],
+      [tailRoot[0]-(1.2*scale+tailSpread),   tailRoot[1]+(1.4*scale+0.2*tailFan*scale)],
+      [tailRoot[0]-0.65*scale,               tailRoot[1]+0.45*scale],
+      [tailRoot[0]-(1.1*scale+tailSpread),   tailRoot[1]-(0.2*scale+0.15*tailFan*scale)]
+    ];
+    fill:'#94a3b8';
+    stroke:'#0f172a';
+    width:0.25;
   };
 
   eval [

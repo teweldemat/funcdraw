@@ -3,7 +3,23 @@
 const fs = require('fs');
 const path = require('path');
 const { Resvg } = require('@resvg/resvg-js');
-const { FuncDraw } = require('@tewelde/funcdraw');
+
+const loadFuncDraw = () => {
+  const localPath = path.resolve(__dirname, '..', '..', 'funcdraw', 'src');
+  try {
+    // Prefer the local workspace copy when developing inside the monorepo.
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    return require(localPath);
+  } catch (err) {
+    if (err && err.code !== 'MODULE_NOT_FOUND') {
+      console.warn('Failed to load local FuncDraw sources:', err);
+    }
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    return require('@tewelde/funcdraw');
+  }
+};
+
+const { FuncDraw } = loadFuncDraw();
 const FuncScript = require('@tewelde/funcscript');
 const pkg = require('../package.json');
 
@@ -75,6 +91,67 @@ const sanitizeSegments = (segments) => {
     result.push(trimmed);
   }
   return result;
+};
+
+const describeErrorKind = (kind) => {
+  if (!kind) {
+    return 'Error';
+  }
+  switch (kind) {
+    case 'funcscript-parser':
+      return 'FuncScript parser';
+    case 'funcscript-runtime':
+      return 'FuncScript runtime';
+    case 'javascript':
+      return 'JavaScript';
+    case 'funcdraw':
+      return 'FuncDraw';
+    default:
+      if (typeof kind === 'string' && kind.trim()) {
+        return kind.replace(/-/g, ' ');
+      }
+      return 'Error';
+  }
+};
+
+const formatErrorDetailLines = (detail) => {
+  if (!detail || typeof detail.message !== 'string') {
+    return [];
+  }
+  const label = describeErrorKind(detail.kind);
+  const location = detail.location
+    ? ` (line ${detail.location.line}, column ${detail.location.column})`
+    : '';
+  const lines = [`${label}${location}: ${detail.message}`];
+  if (detail.context && typeof detail.context.lineText === 'string' && detail.context.lineText) {
+    lines.push(`  ${detail.context.lineText}`);
+    if (detail.context.pointerText) {
+      lines.push(`  ${detail.context.pointerText}`);
+    }
+  }
+  return lines;
+};
+
+const logErrorDetails = (details, logger = (line) => console.error(line), indent = '  ') => {
+  if (!Array.isArray(details) || details.length === 0) {
+    return;
+  }
+  for (const detail of details) {
+    const lines = formatErrorDetailLines(detail);
+    for (const line of lines) {
+      logger(`${indent}${line}`);
+    }
+  }
+};
+
+const stringifyErrorDetails = (details) => {
+  if (!Array.isArray(details) || details.length === 0) {
+    return [];
+  }
+  return details
+    .map((detail) => formatErrorDetailLines(detail))
+    .filter((lines) => lines.length > 0)
+    .map((lines) => lines.join('\n'));
 };
 
 class FilesystemExpressionCollectionResolver {
@@ -466,20 +543,39 @@ const toPlainValue = (value) => {
   }
 };
 
+const toPlainRecord = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  if (typeof value.getAll === 'function') {
+    const result = {};
+    try {
+      for (const [key, entry] of value.getAll()) {
+        result[key] = toPlainValue(entry);
+      }
+      return result;
+    } catch {
+      return null;
+    }
+  }
+  return value;
+};
+
 const evaluateDirectExpression = (provider, expression) => {
   const trimmed = typeof expression === 'string' ? expression.trim() : '';
   if (!trimmed) {
-    return { value: null, typed: typedNull(), error: null };
+    return { value: null, typed: typedNull(), error: null, errorDetails: null };
   }
   try {
     const typed = Engine.evaluate(trimmed, provider);
     const value = toPlainValue(typed);
-    return { value, typed, error: null };
+    return { value, typed, error: null, errorDetails: null };
   } catch (err) {
     return {
       value: null,
       typed: null,
-      error: err instanceof Error ? err.message : String(err)
+      error: err instanceof Error ? err.message : String(err),
+      errorDetails: null
     };
   }
 };
@@ -524,32 +620,42 @@ const collectPrimitives = (node, pathLabel, warnings, unknownTypes) => {
     return primitives;
   }
   if (node && typeof node === 'object') {
-    let type;
-    let data;
-    let transform;
-    try {
-      ({ type, data, transform } = node);
-    } catch (err) {
-      warnings.push(`Skipping graphics entry at ${location} because it threw while reading: ${describeError(err)}.`);
+    const normalized = toPlainRecord(node);
+    if (!normalized) {
+      warnings.push(`Primitive at ${location} must be an object or key/value collection.`);
       return [];
     }
-    if (typeof type === 'string' && data && typeof data === 'object' && !Array.isArray(data)) {
+
+    const { type, data, transform, ...rest } = normalized;
+
+    if (data !== undefined) {
+      warnings.push(
+        `Primitive at ${location} should place drawing fields directly on the object. The 'data' wrapper is no longer supported.`
+      );
+      return [];
+    }
+
+    if (typeof type === 'string') {
       if (!['line', 'rect', 'circle', 'polygon', 'text'].includes(type)) {
         unknownTypes.add(type);
       }
       if (transform !== undefined && transform !== null) {
         warnings.push(
-          `Primitive at ${location} includes a transform, but transforms are not supported and will be ignored.`
+          `Primitive at ${location} includes a transform, but transforms are no longer supported and will be ignored.`
         );
       }
-      return [{ type, data }];
+      return [{ type, data: rest }];
     }
-    warnings.push(`Primitive at ${location} must include string 'type' and object 'data'.`);
+
+    warnings.push(`Primitive at ${location} must include string 'type'.`);
     return [];
   }
   warnings.push(`Skipping graphics entry at ${location} because it is not a list or object.`);
   return [];
 };
+
+const DEFAULT_STROKE = '#38bdf8';
+const DEFAULT_STROKE_WIDTH = 0.25;
 
 const interpretGraphics = (value) => {
   if (value === null || value === undefined) {
@@ -627,8 +733,8 @@ const prepareGraphics = (extent, layers) => {
               warnings.push(`Line in ${ctx} requires numeric from/to points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : '#38bdf8';
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             const dash = Array.isArray(primitive.data.dash)
               ? primitive.data.dash.every((segment) => typeof segment === 'number' && segment >= 0)
                 ? primitive.data.dash
@@ -644,9 +750,9 @@ const prepareGraphics = (extent, layers) => {
               warnings.push(`Rectangle in ${ctx} requires position and size points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({ type: 'rect', position, size, stroke, fill, width });
             break;
           }
@@ -657,9 +763,9 @@ const prepareGraphics = (extent, layers) => {
               warnings.push(`Circle in ${ctx} requires center and positive radius.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({ type: 'circle', center, radius, stroke, fill, width });
             break;
           }
@@ -669,9 +775,9 @@ const prepareGraphics = (extent, layers) => {
               warnings.push(`Polygon in ${ctx} requires an array of at least 3 numeric points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({ type: 'polygon', points, stroke, fill, width });
             break;
           }
@@ -933,7 +1039,17 @@ const outputRawResult = (result, options) => {
     error: result.error,
     type: result.typed ? typeOf(result.typed) : null
   };
-  const json = JSON.stringify(payload, null, options.jsonPretty ? 2 : 0);
+  const seen = new WeakSet();
+  const replacer = (_, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+  const json = JSON.stringify(payload, replacer, options.jsonPretty ? 2 : 0);
   console.log(json);
 };
 
@@ -979,6 +1095,7 @@ const main = () => {
   }
   if (evaluation.error) {
     console.error(`Failed to evaluate ${pathToString(expressionSegments)}: ${evaluation.error}`);
+    logErrorDetails(evaluation.errorDetails);
     process.exitCode = 1;
     return;
   }
@@ -1007,6 +1124,7 @@ const main = () => {
       warnings.push(`View expression "${pathToString(viewSegments)}" was not found; falling back to default view.`);
     } else if (viewResult.error) {
       warnings.push(`View expression error: ${viewResult.error}; falling back to default view.`);
+      warnings.push(...stringifyErrorDetails(viewResult.errorDetails));
       viewResult = null;
     }
   }

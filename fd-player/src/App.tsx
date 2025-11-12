@@ -24,7 +24,8 @@ import {
 import type { PreparedGraphics, PreparedPrimitive, ViewExtent } from './graphics';
 import './App.css';
 import { FuncDraw } from '@tewelde/funcdraw';
-import examples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
+import defaultExamples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
+import { loadProjectBootstrap } from './projectConfig';
 import { ExpressionTree } from './ExpressionTree';
 import { ExamplePopup } from './components/ExamplePopup';
 import { ReferencePopup } from './components/ReferencePopup';
@@ -50,7 +51,7 @@ import {
 } from './workspace';
 import { buildWorkspaceFiles } from './workspaceExport';
 import { createZipBlob, MODEL_ARCHIVE_EXTENSION, MODEL_ARCHIVE_MIME } from './utils/zip';
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { ExpressionLanguage, FuncDrawErrorDetail } from '@tewelde/funcdraw';
 
 const MIN_LEFT_WIDTH = 260;
 const MIN_RIGHT_WIDTH = 320;
@@ -64,6 +65,15 @@ const MAIN_TAB_ID = 'main';
 const VIEW_TAB_ID = 'view';
 const MODEL_ARCHIVE_ACCEPT = `${MODEL_ARCHIVE_EXTENSION},${MODEL_ARCHIVE_MIME},application/zip`;
 const MOBILE_BREAKPOINT = 900;
+
+const summarizeDetailForAlert = (details: FuncDrawErrorDetail[] | null | undefined): string => {
+  if (!details || details.length === 0) {
+    return '';
+  }
+  const detail = details[0];
+  const location = detail.location ? ` (line ${detail.location.line}, column ${detail.location.column})` : '';
+  return `\n${detail.message}${location}`;
+};
 
 export type RenameTarget = { type: 'tab' | 'folder'; id: string };
 
@@ -521,23 +531,34 @@ const slugifyProjectName = (value: string): string => {
 };
 
 const App = (): JSX.Element => {
+  const projectBootstrap = useMemo(() => loadProjectBootstrap(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const featuredExample = examples.find((entry) => entry.id === 'ghost_bicycle') ?? null;
-  const initialExample = featuredExample ?? (examples.length > 0 ? examples[0] : null);
-  const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
+  const examples = projectBootstrap?.examples ?? defaultExamples;
+  const bootstrapExample = projectBootstrap?.examples
+    ? projectBootstrap.examples.find((entry) => entry.id === 'live-demo') ?? projectBootstrap.examples[0]
+    : null;
+  const fallbackExample =
+    examples.find((entry) => entry.id === 'live-demo') ??
+    examples.find((entry) => entry.id === 'ghost_bicycle') ??
+    null;
+  const initialExample = bootstrapExample ?? fallbackExample ?? (examples.length > 0 ? examples[0] : null);
+  const persistedStateRef = useRef<PersistedSnapshot | null>(
+    projectBootstrap?.snapshot ?? loadPersistedSnapshot()
+  );
   const defaultExampleWorkspaceRef = useRef<
     { tabs: CustomTabState[]; folders: CustomFolderState[] } | null
   >(
-    initialExample
-      ? createWorkspaceStateFromDefinitions({
-          tabs: initialExample.customTabs,
-          folders: initialExample.customFolders
-        })
-      : null
+    projectBootstrap?.workspace ??
+      (initialExample
+        ? createWorkspaceStateFromDefinitions({
+            tabs: initialExample.customTabs,
+            folders: initialExample.customFolders
+          })
+        : null)
   );
+  const shouldPersistState = projectBootstrap?.persistState ?? true;
 
   const [leftWidth, setLeftWidth] = useState(() => {
     const persisted = persistedStateRef.current;
@@ -631,6 +652,12 @@ const App = (): JSX.Element => {
   const [isMobile, setIsMobile] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('graphics');
   const [treeDrawerOpen, setTreeDrawerOpen] = useState(false);
+  const [showExpressions, setShowExpressions] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+  });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
@@ -657,16 +684,13 @@ const App = (): JSX.Element => {
   }, [activeMobileTab]);
 
   useEffect(() => {
-    if (isMobile && previewMode !== 'graphics') {
-      setPreviewMode('graphics');
+    if (!showExpressions && activeMobileTab === 'expressions') {
+      setActiveMobileTab('graphics');
     }
-  }, [isMobile, previewMode]);
+  }, [showExpressions, activeMobileTab]);
 
   const handleMobileTabChange = useCallback((next: MobileTab) => {
     setActiveMobileTab(next);
-    if (next === 'graphics') {
-      setPreviewMode(next);
-    }
   }, []);
 
   const handleOpenTreeDrawer = useCallback(() => {
@@ -675,6 +699,9 @@ const App = (): JSX.Element => {
 
   const handleCloseTreeDrawer = useCallback(() => {
     setTreeDrawerOpen(false);
+  }, []);
+  const handleToggleExpressions = useCallback(() => {
+    setShowExpressions((prev) => !prev);
   }, []);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
     const persisted = persistedStateRef.current;
@@ -1390,9 +1417,6 @@ const App = (): JSX.Element => {
   }, [exampleOpen, referenceOpen]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
     const expandedFolderIds = customFolders
       .map((folder) => folder.id)
       .filter((folderId) => !collapsedFolders.has(folderId));
@@ -1436,12 +1460,14 @@ const App = (): JSX.Element => {
     if (collapsedFoldersByExample && Object.keys(collapsedFoldersByExample).length > 0) {
       snapshot.collapsedFoldersByExample = collapsedFoldersByExample;
     }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      persistedStateRef.current = snapshot;
-    } catch {
-      // Swallow storage errors to avoid breaking the editor experience.
+    if (shouldPersistState && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      } catch {
+        // Swallow storage errors to avoid breaking the editor experience.
+      }
     }
+    persistedStateRef.current = snapshot;
   }, [
     activeExpressionTab,
     customFolders,
@@ -1454,7 +1480,8 @@ const App = (): JSX.Element => {
     treeWidth,
     selectedExampleId,
     viewExpression,
-    viewLanguage
+    viewLanguage,
+    shouldPersistState
   ]);
 
   useEffect(() => {
@@ -1472,7 +1499,13 @@ const App = (): JSX.Element => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  const baseProvider = useMemo(() => prepareProvider(), []);
+  const baseProvider = useMemo(() => {
+    const provider = prepareProvider();
+    if (projectBootstrap?.importFunction) {
+      provider.setJsValue('import', projectBootstrap.importFunction);
+    }
+    return provider;
+  }, [projectBootstrap]);
 
   const resolver = useMemo(
     () => new LocalStorageExpressionCollectionResolver(STORAGE_KEY, { tabs: customTabs, folders: customFolders }),
@@ -1704,6 +1737,35 @@ const App = (): JSX.Element => {
     stopAnimation();
   }, [stopAnimation]);
 
+  const applyManualTime = useCallback(
+    (nextTime: number) => {
+      const clamped = Number.isFinite(nextTime) ? Math.max(0, nextTime) : 0;
+      playingRef.current = false;
+      setIsPlaying(false);
+      stopAnimation();
+      lastTimestampRef.current = null;
+      setTime(clamped);
+      drawImmediate();
+    },
+    [drawImmediate, stopAnimation]
+  );
+
+  const handleTimeDisplayClick = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const promptValue = window.prompt('Set animation time (seconds):', time.toFixed(2));
+    if (promptValue === null) {
+      return;
+    }
+    const parsed = Number(promptValue.trim());
+    if (!Number.isFinite(parsed)) {
+      window.alert('Enter a valid number of seconds.');
+      return;
+    }
+    applyManualTime(parsed);
+  }, [applyManualTime, time]);
+
   const handleReset = useCallback(() => {
     playingRef.current = false;
     setIsPlaying(false);
@@ -1925,7 +1987,8 @@ const App = (): JSX.Element => {
     graphicsLanguage,
     ensureProjectName,
     viewExpression,
-    viewLanguage
+    viewLanguage,
+    projectBootstrap
   ]);
 
   const handleExportSvg = useCallback(() => {
@@ -1943,18 +2006,24 @@ const App = (): JSX.Element => {
     const parsed = Number(promptValue.trim());
     const exportTime = Number.isFinite(parsed) ? parsed : 0;
     try {
-      const exportHandle = FuncDraw.evaluate(resolver, undefined, { baseProvider: prepareProvider() });
+      const exportProvider = prepareProvider();
+      if (projectBootstrap?.importFunction) {
+        exportProvider.setJsValue('import', projectBootstrap.importFunction);
+      }
+      const exportHandle = FuncDraw.evaluate(resolver, undefined, { baseProvider: exportProvider });
       exportHandle.setTime(exportTime);
       const environmentProvider = exportHandle.environmentProvider;
       const viewResult = evaluateExpression(environmentProvider, viewExpression, viewLanguage);
       if (viewResult.error) {
-        window.alert(`View error: ${viewResult.error}`);
+        window.alert(`View error: ${viewResult.error}${summarizeDetailForAlert(viewResult.errorDetails)}`);
         return;
       }
       environmentProvider.setNamedValue('view', viewResult.typed ?? null);
       const graphicsResult = evaluateExpression(environmentProvider, graphicsExpression, graphicsLanguage);
       if (graphicsResult.error) {
-        window.alert(`Graphics error: ${graphicsResult.error}`);
+        window.alert(
+          `Graphics error: ${graphicsResult.error}${summarizeDetailForAlert(graphicsResult.errorDetails)}`
+        );
         return;
       }
       const viewInfo = interpretView(viewResult.value);
@@ -2154,7 +2223,8 @@ const App = (): JSX.Element => {
 
   const isMainTabActive = activeExpressionTab === MAIN_TAB_ID;
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
-  const showGraphicsPreview = isMobile ? true : previewMode === 'graphics';
+  const showGraphicsPreview = previewMode === 'graphics';
+  const isExpressionPanelVisible = showExpressions;
   const activeExpressionLabel = useMemo(() => {
     if (activeExpressionTab === MAIN_TAB_ID) {
       return 'Main';
@@ -2168,89 +2238,152 @@ const App = (): JSX.Element => {
 
   const displayProjectName = useMemo(() => sanitizeProjectName(projectName), [projectName]);
 
-  const renderTopControls = () => (
-    <div className="top-controls">
-      <div className="app-title-group">
-        <span className="app-icon" aria-hidden="true">
-          <span className="app-icon-triangle" />
-          <span className="app-icon-circle" />
-          <span className="app-icon-line" />
-        </span>
-        <h1 className="app-title" aria-label="FuncDraw application title">
-          <span className="app-title-func">Func</span>
-          <span className="app-title-draw">Draw</span>
-        </h1>
-        <div className="project-name-chip" aria-label={`Project name: ${displayProjectName}`}>
-          <span className="project-name-chip-label">Project</span>
-          <span className="project-name-chip-value">{displayProjectName}</span>
+  const renderToolbar = () => {
+    const expressionLabel = showExpressions ? 'Hide expressions' : 'Show expressions';
+    const showExpressionToggle = !isMobile;
+    return (
+      <header className="app-toolbar">
+        <div className="app-title-group">
+          <span className="app-icon" aria-hidden="true">
+            <span className="app-icon-triangle" />
+            <span className="app-icon-circle" />
+            <span className="app-icon-line" />
+          </span>
+          <div className="app-title-stack">
+            <h1 className="app-title" aria-label="FuncDraw application title">
+              <span className="app-title-func">Func</span>
+              <span className="app-title-draw">Draw</span>
+            </h1>
+            <div className="project-name-chip" aria-label={`Project name: ${displayProjectName}`}>
+              <span className="project-name-chip-label">Project</span>
+              <span className="project-name-chip-value">{displayProjectName}</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="top-controls-actions" role="group" aria-label="Workspace actions">
-        <button
-          type="button"
-          className="icon-button"
-          onClick={handleClear}
-          aria-label="Reset workspace"
-          data-tooltip="Reset workspace"
-        >
-          <span aria-hidden="true">🆕</span>
-        </button>
-        <div className="icon-button-group" role="group" aria-label="Model import and save">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={handleWorkspaceImportClick}
-            aria-label="Upload model"
-            data-tooltip="Upload model"
-          >
-            <span aria-hidden="true">📂</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={handleDownloadWorkspace}
-            aria-label="Save model"
-            data-tooltip="Save model"
-          >
-            <span aria-hidden="true">💾</span>
-          </button>
+        <div className="app-toolbar-actions" role="group" aria-label="Workspace toolbar">
+          <div className="toolbar-row" role="group" aria-label="Expression and workspace controls">
+            {showExpressionToggle ? (
+              <>
+                <div className="toolbar-group">
+                  <button
+                    type="button"
+                    className={`icon-button${showExpressions ? ' icon-button-active' : ''}`}
+                    onClick={handleToggleExpressions}
+                    aria-pressed={showExpressions}
+                  >
+                    <span className="icon-button-icon" aria-hidden="true">🧮</span>
+                    <span className="icon-button-label">{expressionLabel}</span>
+                  </button>
+                </div>
+                <div className="toolbar-divider" aria-hidden="true" />
+              </>
+            ) : null}
+            <div className="toolbar-group" role="group" aria-label="Workspace actions">
+              {showExpressions ? (
+                <button type="button" className="icon-button" onClick={handleClear}>
+                  <span className="icon-button-icon" aria-hidden="true">🆕</span>
+                  <span className="icon-button-label">Reset</span>
+                </button>
+              ) : null}
+              <button type="button" className="icon-button" onClick={handleWorkspaceImportClick}>
+                <span className="icon-button-icon" aria-hidden="true">📂</span>
+                <span className="icon-button-label">Upload</span>
+              </button>
+              <button type="button" className="icon-button" onClick={handleDownloadWorkspace}>
+                <span className="icon-button-icon" aria-hidden="true">💾</span>
+                <span className="icon-button-label">Save</span>
+              </button>
+              <button type="button" className="icon-button" onClick={handleExportSvg}>
+                <span className="icon-button-icon" aria-hidden="true">🖋️</span>
+                <span className="icon-button-label">SVG</span>
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={handleExampleOpen}
+                aria-haspopup="dialog"
+                aria-expanded={exampleOpen}
+              >
+                <span className="icon-button-icon" aria-hidden="true">📘</span>
+                <span className="icon-button-label">Examples</span>
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={handleReferenceOpen}
+                aria-haspopup="dialog"
+                aria-expanded={referenceOpen}
+              >
+                <span className="icon-button-icon" aria-hidden="true">❔</span>
+                <span className="icon-button-label">Reference</span>
+              </button>
+            </div>
+          </div>
+          <div className="toolbar-row toolbar-row-controls" role="group" aria-label="Preview and animation controls">
+            <div className="toolbar-group" role="group" aria-label="Preview controls">
+              <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
+                <button
+                  type="button"
+                  className={`preview-mode-button${
+                    previewMode === 'graphics' ? ' preview-mode-button-active' : ''
+                  }`}
+                  onClick={() => setPreviewMode('graphics')}
+                  aria-pressed={previewMode === 'graphics'}
+                >
+                  <span className="icon-button-icon" aria-hidden="true">🎨</span>
+                  <span className="icon-button-label">Graphics</span>
+                </button>
+                <button
+                  type="button"
+                  className={`preview-mode-button${
+                    previewMode === 'json' ? ' preview-mode-button-active' : ''
+                  }`}
+                  onClick={() => setPreviewMode('json')}
+                  aria-pressed={previewMode === 'json'}
+                >
+                  <span className="icon-button-icon" aria-hidden="true">{'{ }'}</span>
+                  <span className="icon-button-label">JSON</span>
+                </button>
+              </div>
+              <span className="toolbar-meta">Primitives: {totalPrimitives}</span>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={handleTimeDisplayClick}
+              >
+                <span className="icon-button-icon" aria-hidden="true">⏱</span>
+                <span className="icon-button-label">t = {time.toFixed(2)}s</span>
+              </button>
+            </div>
+            <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
+              <button
+                type="button"
+                className="control-button"
+                onClick={handlePlay}
+                disabled={isPlaying}
+              >
+                <span className="icon-button-icon" aria-hidden="true">▶</span>
+                <span className="icon-button-label">Play</span>
+              </button>
+              <button
+                type="button"
+                className="control-button"
+                onClick={handlePause}
+                disabled={!isPlaying}
+              >
+                <span className="icon-button-icon" aria-hidden="true">⏸</span>
+                <span className="icon-button-label">Pause</span>
+              </button>
+              <button type="button" className="control-button" onClick={handleReset}>
+                <span className="icon-button-icon" aria-hidden="true">⟲</span>
+                <span className="icon-button-label">Reset</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="icon-button-group" role="group" aria-label="Exports and examples">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={handleExportSvg}
-            aria-label="Export SVG"
-            data-tooltip="Export SVG"
-          >
-            <span aria-hidden="true">🖋️</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={handleExampleOpen}
-            aria-haspopup="dialog"
-            aria-expanded={exampleOpen}
-            aria-label="Load example"
-            data-tooltip="Load example"
-          >
-            <span aria-hidden="true">📘</span>
-          </button>
-        </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={handleReferenceOpen}
-          aria-haspopup="dialog"
-          aria-expanded={referenceOpen}
-          aria-label="Open reference"
-          data-tooltip="Open reference"
-        >
-          <span aria-hidden="true">❔</span>
-        </button>
-      </div>
-    </div>
-  );
+      </header>
+    );
+  };
 
   const renderExpressionTree = () => (
     <ExpressionTree
@@ -2313,6 +2446,7 @@ const App = (): JSX.Element => {
         </div>
         <StatusMessage
           error={graphicsEvaluation.error}
+          errorDetails={graphicsEvaluation.errorDetails}
           warning={graphicsInterpretation.warning ?? unknownTypesWarning}
           info={preparedGraphics.warnings.concat(renderWarnings)}
           success={preparedGraphics.layers.length > 0 ? 'Main ready.' : null}
@@ -2342,6 +2476,7 @@ const App = (): JSX.Element => {
         </div>
         <StatusMessage
           error={viewEvaluation.error}
+          errorDetails={viewEvaluation.errorDetails}
           warning={viewInterpretation.warning}
           success={viewInterpretation.extent ? 'Extent ready.' : null}
         />
@@ -2376,6 +2511,7 @@ const App = (): JSX.Element => {
             </div>
             <StatusMessage
               error={evaluation?.error ?? null}
+              errorDetails={evaluation?.errorDetails ?? null}
               success={!evaluation?.error ? 'Value ready.' : null}
             />
           </div>
@@ -2390,9 +2526,9 @@ const App = (): JSX.Element => {
         className={`app${isMobile ? ' app-mobile' : ''}`}
         aria-label="FuncScript graphics workspace"
       >
+        {renderToolbar()}
         {isMobile ? (
           <>
-            {renderTopControls()}
             <div className="mobile-tab-bar" role="tablist" aria-label="Workspace panels">
               <button
                 type="button"
@@ -2414,6 +2550,7 @@ const App = (): JSX.Element => {
                 }`}
                 aria-selected={activeMobileTab === 'expressions'}
                 aria-controls="mobile-panel-expressions"
+                disabled={!showExpressions}
                 onClick={() => handleMobileTabChange('expressions')}
               >
                 Expressions
@@ -2421,17 +2558,17 @@ const App = (): JSX.Element => {
             </div>
           </>
         ) : null}
-        {!isMobile || activeMobileTab === 'expressions' ? (
-          <section
-            id={isMobile ? 'mobile-panel-expressions' : undefined}
-            className={`panel panel-left${isMobile ? ' panel-mobile' : ''}`}
-            style={!isMobile ? { width: `${leftWidth}px` } : undefined}
-          >
-            <div className="panel-body panel-body-right">
-              {!isMobile ? renderTopControls() : null}
-              {isMobile ? (
-                <>
-                  <div className="expression-mobile-header">
+        <div className="workspace-panels">
+          {isExpressionPanelVisible && (!isMobile || activeMobileTab === 'expressions') ? (
+            <section
+              id={isMobile ? 'mobile-panel-expressions' : undefined}
+              className={`panel panel-left${isMobile ? ' panel-mobile' : ''}`}
+              style={!isMobile ? { width: `${leftWidth}px` } : undefined}
+            >
+              <div className="panel-body panel-body-right">
+                {isMobile ? (
+                  <>
+                    <div className="expression-mobile-header">
                     <button
                       type="button"
                       className="mobile-tree-button"
@@ -2444,146 +2581,77 @@ const App = (): JSX.Element => {
                     </button>
                     <span className="expression-mobile-active-label">{activeExpressionLabel}</span>
                   </div>
-                  {renderExpressionPanels('expression-tab-panels-mobile')}
-                </>
-              ) : (
-                <div
-                  className="expression-tabs"
-                  ref={expressionLayoutRef}
-                  style={{ gridTemplateColumns: `${Math.round(treeWidth)}px 12px 1fr` }}
-                >
-                  {renderExpressionTree()}
+                    {renderExpressionPanels('expression-tab-panels-mobile')}
+                  </>
+                ) : (
                   <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label="Resize tree"
-                    tabIndex={0}
-                    className={`expression-inner-splitter${
-                      treeDragging ? ' expression-inner-splitter-dragging' : ''
-                    }`}
-                    onMouseDown={handleTreeSplitterMouseDown}
-                    onTouchStart={handleTreeSplitterTouchStart}
-                    onKeyDown={handleTreeSplitterKeyDown}
-                  />
-                  {renderExpressionPanels()}
-                </div>
-              )}
-            </div>
-          </section>
-        ) : null}
-
-        {!isMobile ? (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize panels"
-            tabIndex={0}
-            className={`splitter${dragging ? ' splitter-dragging' : ''}`}
-            onMouseDown={handleSplitterMouseDown}
-            onTouchStart={handleSplitterTouchStart}
-            onKeyDown={handleSplitterKeyDown}
-          />
-        ) : null}
-
-        {!isMobile || activeMobileTab !== 'expressions' ? (
-          <section
-            id={isMobile ? 'mobile-panel-preview' : undefined}
-            className={`panel panel-right${isMobile ? ' panel-mobile' : ''}`}
-          >
-            <div className="panel-body panel-body-left">
-              <div className="panel-header-controls">
-                <div className="panel-header-left">
-                  {!isMobile ? (
-                    <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
-                      <button
-                        type="button"
-                        className={`preview-mode-button${
-                          previewMode === 'graphics' ? ' preview-mode-button-active' : ''
-                        }`}
-                        onClick={() => setPreviewMode('graphics')}
-                        aria-pressed={previewMode === 'graphics'}
-                        data-tooltip="Show graphics preview"
-                      >
-                        Graphics
-                      </button>
-                      <button
-                        type="button"
-                        className={`preview-mode-button${
-                          previewMode === 'json' ? ' preview-mode-button-active' : ''
-                        }`}
-                        onClick={() => setPreviewMode('json')}
-                        aria-pressed={previewMode === 'json'}
-                        data-tooltip="View prepared JSON"
-                      >
-                        JSON
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="preview-mode-label">Graphics preview</div>
-                  )}
-                  <div className="panel-meta">
-                    <span>Primitives: {totalPrimitives}</span>
-                    <span className="time-display">t = {time.toFixed(2)}s</span>
+                    className="expression-tabs"
+                    ref={expressionLayoutRef}
+                    style={{ gridTemplateColumns: `${Math.round(treeWidth)}px 12px 1fr` }}
+                  >
+                    {renderExpressionTree()}
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label="Resize tree"
+                      tabIndex={0}
+                      className={`expression-inner-splitter${
+                        treeDragging ? ' expression-inner-splitter-dragging' : ''
+                      }`}
+                      onMouseDown={handleTreeSplitterMouseDown}
+                      onTouchStart={handleTreeSplitterTouchStart}
+                      onKeyDown={handleTreeSplitterKeyDown}
+                    />
+                    {renderExpressionPanels()}
                   </div>
-                </div>
-                <div className="animation-controls">
-                  <div className="animation-buttons">
-                    <button
-                      type="button"
-                      className="control-button"
-                      onClick={handlePlay}
-                      disabled={isPlaying}
-                      aria-label="Play"
-                      data-tooltip="Play animation"
-                    >
-                      ▶
-                    </button>
-                    <button
-                      type="button"
-                      className="control-button"
-                      onClick={handlePause}
-                      disabled={!isPlaying}
-                      aria-label="Pause"
-                      data-tooltip="Pause animation"
-                    >
-                      ⏸
-                    </button>
-                    <button
-                      type="button"
-                      className="control-button"
-                      onClick={handleReset}
-                      aria-label="Reset"
-                      data-tooltip="Reset time"
-                    >
-                      ⟲
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                ref={canvasWrapperRef}
-                className={`canvas-wrapper${showGraphicsPreview ? '' : ' canvas-wrapper-json'}`}
-              >
-                <canvas
-                  ref={canvasRef}
-                  className={`preview-canvas${showGraphicsPreview ? '' : ' preview-canvas-hidden'}`}
-                  aria-hidden={!showGraphicsPreview}
-                />
-                {showGraphicsPreview ? null : (
-                  <pre className="preview-json" aria-label="Prepared graphics JSON" tabIndex={0}>
-                    {preparedGraphicsJson}
-                  </pre>
                 )}
-                {!canvasReady && showGraphicsPreview ? (
-                  <div className="canvas-notice">
-                    <p>Awaiting view extent and primitive output.</p>
-                  </div>
-                ) : null}
               </div>
-            </div>
-          </section>
-        ) : null}
+            </section>
+          ) : null}
+
+          {(!isMobile && isExpressionPanelVisible) ? (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize panels"
+              tabIndex={0}
+              className={`splitter${dragging ? ' splitter-dragging' : ''}`}
+              onMouseDown={handleSplitterMouseDown}
+              onTouchStart={handleSplitterTouchStart}
+              onKeyDown={handleSplitterKeyDown}
+            />
+          ) : null}
+
+          {!isMobile || activeMobileTab !== 'expressions' ? (
+            <section
+              id={isMobile ? 'mobile-panel-preview' : undefined}
+              className={`panel panel-right${isMobile ? ' panel-mobile' : ''}`}
+            >
+              <div className="panel-body panel-body-left">
+                <div
+                  ref={canvasWrapperRef}
+                  className={`canvas-wrapper${showGraphicsPreview ? '' : ' canvas-wrapper-json'}`}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    className={`preview-canvas${showGraphicsPreview ? '' : ' preview-canvas-hidden'}`}
+                    aria-hidden={!showGraphicsPreview}
+                  />
+                  {showGraphicsPreview ? null : (
+                    <pre className="preview-json" aria-label="Prepared graphics JSON" tabIndex={0}>
+                      {preparedGraphicsJson}
+                    </pre>
+                  )}
+                  {!canvasReady && showGraphicsPreview ? (
+                    <div className="canvas-notice">
+                      <p>Awaiting view extent and primitive output.</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </div>
 
         {isMobile && activeMobileTab === 'expressions' ? (
           <>

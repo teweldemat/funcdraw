@@ -597,7 +597,7 @@ export const ExpressionTree = ({
   const renderCustomTabButton = (tab: CustomTabState, nested = false) => {
     const customActive = activeExpressionTab === tab.id;
     const evaluation = tabEvaluations.get(tab.id);
-    const hasError = Boolean(evaluation?.error);
+    const hasError = Boolean(evaluation?.error || (evaluation?.errorDetails?.length ?? 0) > 0);
     const isRenaming = renameTarget?.type === 'tab' && renameTarget.id === tab.id;
     const rowClassName = ['expression-tab-row', nested ? 'expression-tab-row-nested' : '']
       .filter(Boolean)

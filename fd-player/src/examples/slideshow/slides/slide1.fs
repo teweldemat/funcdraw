@@ -23,23 +23,19 @@
       y: bulletStart - index * bulletSpacing;
       dot: {
         type: 'circle';
-        data: {
-          center: [dotX, y];
-          radius: dotRadius;
-          fill: accent;
-          stroke: 'transparent';
-          width: 0;
-        };
+        center: [dotX, y];
+        radius: dotRadius;
+        fill: accent;
+        stroke: 'transparent';
+        width: 0;
       };
       text: {
         type: 'text';
-        data: {
-          position: [textX, y];
-          text: line;
-          color: '#e2e8f0';
-          fontSize: bulletFont;
-          align: 'left';
-        };
+        position: [textX, y];
+        text: line;
+        color: '#e2e8f0';
+        fontSize: bulletFont;
+        align: 'left';
       };
       eval [dot, text];
     };
@@ -47,24 +43,20 @@
 
   decorativeSun: {
     type: 'circle';
-    data: {
-      center: [cardOrigin[0] + cardWidth - contentPaddingX * 2, cardOrigin[1] + cardHeight - contentPaddingTop * 1.2];
-      radius: cardWidth * 0.08;
-      fill: 'rgba(56,189,248,0.12)';
-      stroke: accent;
-      width: 0.8;
-    };
+    center: [cardOrigin[0] + cardWidth - contentPaddingX * 2, cardOrigin[1] + cardHeight - contentPaddingTop * 1.2];
+    radius: cardWidth * 0.08;
+    fill: 'rgba(56,189,248,0.12)';
+    stroke: accent;
+    width: 0.8;
   };
 
   orbitRing: {
     type: 'circle';
-    data: {
-      center: decorativeSun.data.center;
-      radius: cardWidth * 0.12;
-      fill: 'transparent';
-      stroke: 'rgba(56,189,248,0.3)';
-      width: 0.6;
-    };
+    center: decorativeSun.center;
+    radius: cardWidth * 0.12;
+    fill: 'transparent';
+    stroke: 'rgba(56,189,248,0.3)';
+    width: 0.6;
   };
 
   footerParts: common.footer(context, accent);

@@ -5,41 +5,35 @@
     theta: (angle ?? 0) + i * (2 * math.pi / n);
     eval {
       type: 'line',
-      data: {
-        from: [
-          center[0] + math.sin(theta) * innerRadius,
-          center[1] + math.cos(theta) * innerRadius
-        ],
-        to: [
-          center[0] + math.sin(theta) * outerRadius,
-          center[1] + math.cos(theta) * outerRadius
-        ],
-        stroke: '#38bdf8',
-        width: 0.3
-      }
+      from: [
+        center[0] + math.sin(theta) * innerRadius,
+        center[1] + math.cos(theta) * innerRadius
+      ],
+      to: [
+        center[0] + math.sin(theta) * outerRadius,
+        center[1] + math.cos(theta) * outerRadius
+      ],
+      stroke: '#38bdf8',
+      width: 0.3
     };
   };
   eval [
     lines,
     {
       type: 'circle',
-      data: {
-        center: center,
-        radius: outerRadius,
-        stroke: '#334155',
-        width: 1,
-        fill: null
-      }
+      center: center,
+      radius: outerRadius,
+      stroke: '#334155',
+      width: 1,
+      fill: null
     },
     {
       type: 'circle',
-      data: {
-        center: center,
-        radius: innerRadius,
-        stroke: '#38bdf8',
-        width: 1,
-        fill: null
-      }
+      center: center,
+      radius: innerRadius,
+      stroke: '#38bdf8',
+      width: 1,
+      fill: null
     }
   ];
 };

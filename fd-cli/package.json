@@ -35,6 +35,6 @@
     "@resvg/resvg-js": "^2.6.2",
     "@tewelde/fs-cli": "^0.2.0",
     "@tewelde/funcdraw": "^0.1.1",
-    "@tewelde/funcscript": "^0.2.1"
+    "@tewelde/funcscript": "^0.2.5"
   }
 }

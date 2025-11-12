@@ -23,23 +23,19 @@
       y: bulletStart - index * bulletSpacing;
       dot: {
         type: 'circle';
-        data: {
-          center: [dotX, y];
-          radius: dotRadius;
-          fill: accent;
-          stroke: 'transparent';
-          width: 0;
-        };
+        center: [dotX, y];
+        radius: dotRadius;
+        fill: accent;
+        stroke: 'transparent';
+        width: 0;
       };
       text: {
         type: 'text';
-        data: {
-          position: [textX, y];
-          text: line;
-          color: '#e2e8f0';
-          fontSize: bulletFont;
-          align: 'left';
-        };
+        position: [textX, y];
+        text: line;
+        color: '#e2e8f0';
+        fontSize: bulletFont;
+        align: 'left';
       };
       eval [dot, text];
     };
@@ -52,13 +48,11 @@
     height: cardHeight * 0.18 * ratio;
     eval {
       type: 'rect';
-      data: {
-        position: [chartBaseX + idx * (barWidth + 6), chartBaseY - height];
-        size: [barWidth, height];
-        fill: 'rgba(249,115,22,' + (0.3 + ratio * 0.4) + ')';
-        stroke: accent;
-        width: 0.4;
-      };
+      position: [chartBaseX + idx * (barWidth + 6), chartBaseY - height];
+      size: [barWidth, height];
+      fill: 'rgba(249,115,22,' + (0.3 + ratio * 0.4) + ')';
+      stroke: accent;
+      width: 0.4;
     };
   };
 

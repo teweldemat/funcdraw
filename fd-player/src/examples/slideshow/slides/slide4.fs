@@ -23,23 +23,19 @@
       y: bulletStart - index * bulletSpacing;
       dot: {
         type: 'circle';
-        data: {
-          center: [dotX, y];
-          radius: dotRadius;
-          fill: accent;
-          stroke: 'transparent';
-          width: 0;
-        };
+        center: [dotX, y];
+        radius: dotRadius;
+        fill: accent;
+        stroke: 'transparent';
+        width: 0;
       };
       text: {
         type: 'text';
-        data: {
-          position: [textX, y];
-          text: line;
-          color: '#e2e8f0';
-          fontSize: bulletFont;
-          align: 'left';
-        };
+        position: [textX, y];
+        text: line;
+        color: '#e2e8f0';
+        fontSize: bulletFont;
+        align: 'left';
       };
       eval [dot, text];
     };
@@ -51,35 +47,29 @@
 
   guideLine: {
     type: 'line';
-    data: {
-      from: pathStart;
-      to: pathMid;
-      stroke: accent;
-      width: 1.2;
-    };
+    from: pathStart;
+    to: pathMid;
+    stroke: accent;
+    width: 1.2;
   };
   guideLine2: {
     type: 'line';
-    data: {
-      from: pathMid;
-      to: pathEnd;
-      stroke: accent;
-      width: 1.2;
-    };
+    from: pathMid;
+    to: pathEnd;
+    stroke: accent;
+    width: 1.2;
   };
 
   arrowHead: {
     type: 'polygon';
-    data: {
-      points: [
-        pathEnd,
-        [pathEnd[0] - 10, pathEnd[1] + 6],
-        [pathEnd[0] - 4, pathEnd[1] - 8]
-      ];
-      fill: accent;
-      stroke: 'transparent';
-      width: 0;
-    };
+    points: [
+      pathEnd,
+      [pathEnd[0] - 10, pathEnd[1] + 6],
+      [pathEnd[0] - 4, pathEnd[1] - 8]
+    ];
+    fill: accent;
+    stroke: 'transparent';
+    width: 0;
   };
 
   footerParts: common.footer(context, accent);

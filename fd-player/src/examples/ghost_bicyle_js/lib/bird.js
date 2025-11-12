@@ -45,33 +45,27 @@ return (locationParam, sizeParam, flapTParam) => {
   const bodyRadius = targetBodyWidth / 2;
   const body = {
     type: 'circle',
-    data: {
-      center: bodyCenter,
-      radius: bodyRadius,
-      fill: '#e2e8f0',
-      stroke: '#0f172a',
-      width: 0.3
-    }
+    center: bodyCenter,
+    radius: bodyRadius,
+    fill: '#e2e8f0',
+    stroke: '#0f172a',
+    width: 0.3
   };
   const belly = {
     type: 'circle',
-    data: {
-      center: [bodyCenter[0] - 0.35 * scale, bodyCenter[1] + 0.65 * scale],
-      radius: bodyRadius * 0.7,
-      fill: '#f8fafc',
-      stroke: 'transparent',
-      width: 0
-    }
+    center: [bodyCenter[0] - 0.35 * scale, bodyCenter[1] + 0.65 * scale],
+    radius: bodyRadius * 0.7,
+    fill: '#f8fafc',
+    stroke: 'transparent',
+    width: 0
   };
   const head = {
     type: 'circle',
-    data: {
-      center: [nose[0] + 0.15 * scale, nose[1] - 0.12 * scale],
-      radius: 1.08 * scale,
-      fill: '#f8fafc',
-      stroke: '#0f172a',
-      width: 0.3
-    }
+    center: [nose[0] + 0.15 * scale, nose[1] - 0.12 * scale],
+    radius: 1.08 * scale,
+    fill: '#f8fafc',
+    stroke: '#0f172a',
+    width: 0.3
   };
 
   const blinkHz = 0.25;
@@ -80,26 +74,22 @@ return (locationParam, sizeParam, flapTParam) => {
   const eyeOpen = blinkU < 0.02 ? 0.2 : 1;
   const eye = {
     type: 'circle',
-    data: {
-      center: [nose[0] - 0.2 * scale, nose[1] - 0.32 * scale],
-      radius: 0.2 * eyeOpen * scale,
-      fill: '#0f172a',
-      stroke: '#0f172a',
-      width: 0.1
-    }
+    center: [nose[0] - 0.2 * scale, nose[1] - 0.32 * scale],
+    radius: 0.2 * eyeOpen * scale,
+    fill: '#0f172a',
+    stroke: '#0f172a',
+    width: 0.1
   };
   const beak = {
     type: 'polygon',
-    data: {
-      points: [
-        [nose[0], nose[1]],
-        [nose[0] + 0.85 * scale, nose[1] + 0.2 * scale],
-        [nose[0] + 0.6 * scale, nose[1] - 0.1 * scale]
-      ],
-      fill: '#fbbf24',
-      stroke: '#92400e',
-      width: 0.2
-    }
+    points: [
+      [nose[0], nose[1]],
+      [nose[0] + 0.85 * scale, nose[1] + 0.2 * scale],
+      [nose[0] + 0.6 * scale, nose[1] - 0.1 * scale]
+    ],
+    fill: '#fbbf24',
+    stroke: '#92400e',
+    width: 0.2
   };
 
   const wingFill = '#cbd5f5';
@@ -116,16 +106,14 @@ return (locationParam, sizeParam, flapTParam) => {
 
     const mainTri = {
       type: 'polygon',
-      data: {
-        points: [
-          [anchor[0] + baseUp[0], anchor[1] + baseUp[1]],
-          [anchor[0] + baseDown[0], anchor[1] + baseDown[1]],
-          tip
-        ],
-        fill: wingFill,
-        stroke: wingStroke,
-        width: 0.25
-      }
+      points: [
+        [anchor[0] + baseUp[0], anchor[1] + baseUp[1]],
+        [anchor[0] + baseDown[0], anchor[1] + baseDown[1]],
+        tip
+      ],
+      fill: wingFill,
+      stroke: wingStroke,
+      width: 0.25
     };
 
     const tipLen = wingspan * 0.35;
@@ -137,16 +125,14 @@ return (locationParam, sizeParam, flapTParam) => {
 
     const tipTri = {
       type: 'polygon',
-      data: {
-        points: [
-          [tip[0] + tipUp[0], tip[1] + tipUp[1]],
-          [tip[0] + tipDown[0], tip[1] + tipDown[1]],
-          tipPoint
-        ],
-        fill: wingTipFill,
-        stroke: wingStroke,
-        width: 0.22
-      }
+      points: [
+        [tip[0] + tipUp[0], tip[1] + tipUp[1]],
+        [tip[0] + tipDown[0], tip[1] + tipDown[1]],
+        tipPoint
+      ],
+      fill: wingTipFill,
+      stroke: wingStroke,
+      width: 0.22
     };
 
     return { mainTri, tipTri };
@@ -160,17 +146,15 @@ return (locationParam, sizeParam, flapTParam) => {
   const tailSpread = 0.6 * tailFan * scale;
   const tail = {
     type: 'polygon',
-    data: {
-      points: [
-        [tailRoot[0] - 0.35 * scale, tailRoot[1] + 0.28 * scale],
-        [tailRoot[0] - (1.2 * scale + tailSpread), tailRoot[1] + (1.4 * scale + 0.2 * tailFan * scale)],
-        [tailRoot[0] - 0.65 * scale, tailRoot[1] + 0.45 * scale],
-        [tailRoot[0] - (1.1 * scale + tailSpread), tailRoot[1] - (0.2 * scale + 0.15 * tailFan * scale)]
-      ],
-      fill: '#94a3b8',
-      stroke: '#0f172a',
-      width: 0.25
-    }
+    points: [
+      [tailRoot[0] - 0.35 * scale, tailRoot[1] + 0.28 * scale],
+      [tailRoot[0] - (1.2 * scale + tailSpread), tailRoot[1] + (1.4 * scale + 0.2 * tailFan * scale)],
+      [tailRoot[0] - 0.65 * scale, tailRoot[1] + 0.45 * scale],
+      [tailRoot[0] - (1.1 * scale + tailSpread), tailRoot[1] - (0.2 * scale + 0.15 * tailFan * scale)]
+    ],
+    fill: '#94a3b8',
+    stroke: '#0f172a',
+    width: 0.25
   };
 
   return [

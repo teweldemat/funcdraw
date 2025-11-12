@@ -74,183 +74,162 @@
   <main>
     <article>
       <h1>Primitives Reference</h1>
-<p>FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a <code>graphics</code> expression. Each primitive is an object with a <code>type</code> string and a <code>data</code> record containing the fields listed below. Validation and defaults match the logic used by the hosted FuncDraw Player and the <code>fd-cli</code> renderer.</p>
+<p>FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a <code>graphics</code> expression. Each primitive is an object with a <code>type</code> string plus the drawing fields listed below (no nested <code>data</code> wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Player and the <code>fd-cli</code> renderer.</p>
 <h2>Shared rules</h2>
 <ul>
 <li>Coordinates are 2-element arrays <code>[x, y]</code> expressed in the same units as your <code>view</code> extent.</li>
 <li><code>stroke</code> and <code>fill</code> fields take CSS color strings (<code>#rrggbb</code>, <code>rgb()</code>, etc.). When omitted, defaults described below kick in.</li>
 <li><code>width</code> values are expressed in world units, not pixels; the renderer scales them to the canvas resolution at draw time.</li>
+<li>Legacy <code>{ data: { ... } }</code> wrappers are rejected. Move drawing properties directly onto the primitive for consistent performance.</li>
 </ul>
 <h2><code>line</code></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>from</code></td>
-<td>point</td>
-<td>Required start coordinate.</td>
-</tr>
-<tr>
-<td><code>to</code></td>
-<td>point</td>
-<td>Required end coordinate.</td>
-</tr>
-<tr>
-<td><code>stroke</code></td>
-<td>string</td>
-<td>Defaults to <code>#38bdf8</code> if missing.</td>
-</tr>
-<tr>
-<td><code>width</code></td>
-<td>number</td>
-<td>Defaults to <code>0.25</code>.</td>
-</tr>
-<tr>
-<td><code>dash</code></td>
-<td>number[]</td>
-<td>Optional stroke dash pattern; ignored unless every entry is <code>&gt;= 0</code>.</td>
-</tr>
-</tbody></table>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;type&quot;, &quot;from&quot;, &quot;to&quot;],
+  &quot;properties&quot;: {
+    &quot;type&quot;: { &quot;const&quot;: &quot;line&quot; },
+    &quot;from&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;to&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;stroke&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;#38bdf8&quot; },
+    &quot;width&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;default&quot;: 0.25 },
+    &quot;dash&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;minimum&quot;: 0 }
+    }
+  },
+  &quot;definitions&quot;: {
+    &quot;point&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;prefixItems&quot;: [
+        { &quot;type&quot;: &quot;number&quot; },
+        { &quot;type&quot;: &quot;number&quot; }
+      ],
+      &quot;items&quot;: false,
+      &quot;minItems&quot;: 2,
+      &quot;maxItems&quot;: 2
+    }
+  }
+}
+</code></pre>
 <h2><code>rect</code></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>position</code></td>
-<td>point</td>
-<td>Required lower-left corner.</td>
-</tr>
-<tr>
-<td><code>size</code></td>
-<td>point</td>
-<td>Required <code>[width, height]</code>.</td>
-</tr>
-<tr>
-<td><code>fill</code></td>
-<td>string</td>
-<td>Optional; no fill when omitted.</td>
-</tr>
-<tr>
-<td><code>stroke</code></td>
-<td>string</td>
-<td>Optional outline color.</td>
-</tr>
-<tr>
-<td><code>width</code></td>
-<td>number</td>
-<td>Stroke width; defaults to <code>0.25</code>.</td>
-</tr>
-</tbody></table>
+<blockquote>
+<p><strong>Position anchor</strong></p>
+<p>The <code>position</code> field represents the <strong>bottom-left corner</strong> of the rectangle in view-space coordinates. To center a rectangle at <code>[cx, cy]</code> you must subtract half the width/height yourself: <code>position: [cx - w/2, cy - h/2]</code>.</p>
+</blockquote>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;type&quot;, &quot;position&quot;, &quot;size&quot;],
+  &quot;properties&quot;: {
+    &quot;type&quot;: { &quot;const&quot;: &quot;rect&quot; },
+    &quot;position&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;size&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;fill&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;stroke&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;width&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;default&quot;: 0.25 }
+  },
+  &quot;definitions&quot;: {
+    &quot;point&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;prefixItems&quot;: [
+        { &quot;type&quot;: &quot;number&quot; },
+        { &quot;type&quot;: &quot;number&quot; }
+      ],
+      &quot;items&quot;: false,
+      &quot;minItems&quot;: 2,
+      &quot;maxItems&quot;: 2
+    }
+  }
+}
+</code></pre>
 <h2><code>circle</code></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>center</code></td>
-<td>point</td>
-<td>Required.</td>
-</tr>
-<tr>
-<td><code>radius</code></td>
-<td>number</td>
-<td>Required positive value.</td>
-</tr>
-<tr>
-<td><code>fill</code></td>
-<td>string</td>
-<td>Optional interior color.</td>
-</tr>
-<tr>
-<td><code>stroke</code></td>
-<td>string</td>
-<td>Optional outline color.</td>
-</tr>
-<tr>
-<td><code>width</code></td>
-<td>number</td>
-<td>Stroke width (default <code>0.25</code>).</td>
-</tr>
-</tbody></table>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;type&quot;, &quot;center&quot;, &quot;radius&quot;],
+  &quot;properties&quot;: {
+    &quot;type&quot;: { &quot;const&quot;: &quot;circle&quot; },
+    &quot;center&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;radius&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;exclusiveMinimum&quot;: 0 },
+    &quot;fill&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;stroke&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;width&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;default&quot;: 0.25 }
+  },
+  &quot;definitions&quot;: {
+    &quot;point&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;prefixItems&quot;: [
+        { &quot;type&quot;: &quot;number&quot; },
+        { &quot;type&quot;: &quot;number&quot; }
+      ],
+      &quot;items&quot;: false,
+      &quot;minItems&quot;: 2,
+      &quot;maxItems&quot;: 2
+    }
+  }
+}
+</code></pre>
 <h2><code>polygon</code></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>points</code></td>
-<td>point[]</td>
-<td>Required list of ≥3 points; renderer closes the path automatically.</td>
-</tr>
-<tr>
-<td><code>fill</code></td>
-<td>string</td>
-<td>Optional.</td>
-</tr>
-<tr>
-<td><code>stroke</code></td>
-<td>string</td>
-<td>Optional.</td>
-</tr>
-<tr>
-<td><code>width</code></td>
-<td>number</td>
-<td>Stroke width (default <code>0.25</code>).</td>
-</tr>
-</tbody></table>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;type&quot;, &quot;points&quot;],
+  &quot;properties&quot;: {
+    &quot;type&quot;: { &quot;const&quot;: &quot;polygon&quot; },
+    &quot;points&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;minItems&quot;: 3,
+      &quot;items&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; }
+    },
+    &quot;fill&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;stroke&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;width&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;default&quot;: 0.25 }
+  },
+  &quot;definitions&quot;: {
+    &quot;point&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;prefixItems&quot;: [
+        { &quot;type&quot;: &quot;number&quot; },
+        { &quot;type&quot;: &quot;number&quot; }
+      ],
+      &quot;items&quot;: false,
+      &quot;minItems&quot;: 2,
+      &quot;maxItems&quot;: 2
+    }
+  }
+}
+</code></pre>
 <h2><code>text</code></h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>position</code></td>
-<td>point</td>
-<td>Required baseline anchor.</td>
-</tr>
-<tr>
-<td><code>text</code></td>
-<td>string</td>
-<td>Required content.</td>
-</tr>
-<tr>
-<td><code>color</code></td>
-<td>string</td>
-<td>Defaults to <code>#e2e8f0</code>.</td>
-</tr>
-<tr>
-<td><code>fontSize</code></td>
-<td>number</td>
-<td>Defaults to <code>1</code> world unit (scaled in the player so it never renders smaller than 12px).</td>
-</tr>
-<tr>
-<td><code>align</code></td>
-<td>`&#39;left&#39;</td>
-<td>&#39;center&#39;</td>
-</tr>
-</tbody></table>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;type&quot;, &quot;position&quot;, &quot;text&quot;],
+  &quot;properties&quot;: {
+    &quot;type&quot;: { &quot;const&quot;: &quot;text&quot; },
+    &quot;position&quot;: { &quot;$ref&quot;: &quot;#/definitions/point&quot; },
+    &quot;text&quot;: { &quot;type&quot;: &quot;string&quot; },
+    &quot;color&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;#e2e8f0&quot; },
+    &quot;fontSize&quot;: { &quot;type&quot;: &quot;number&quot;, &quot;default&quot;: 1 },
+    &quot;align&quot;: {
+      &quot;enum&quot;: [&quot;left&quot;, &quot;center&quot;, &quot;right&quot;],
+      &quot;default&quot;: &quot;left&quot;
+    }
+  },
+  &quot;definitions&quot;: {
+    &quot;point&quot;: {
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;prefixItems&quot;: [
+        { &quot;type&quot;: &quot;number&quot; },
+        { &quot;type&quot;: &quot;number&quot; }
+      ],
+      &quot;items&quot;: false,
+      &quot;minItems&quot;: 2,
+      &quot;maxItems&quot;: 2
+    }
+  }
+}
+</code></pre>
 <h3>Layered output</h3>
 <p>Returning a list of primitives or a list-of-lists is valid. Each nested list is treated as a layer, preserving draw order. Anything that isn&#39;t recognized as one of the five <code>type</code> strings is ignored and reported in the player warning sidebar.</p>
 

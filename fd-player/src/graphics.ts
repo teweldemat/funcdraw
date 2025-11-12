@@ -5,12 +5,17 @@ import {
   FsDataProvider,
   FsError,
   FsList,
+  FuncScriptParser,
   KeyValueCollection,
   type TypedValue
 } from '@tewelde/funcscript/browser';
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { SyntaxErrorData } from '@tewelde/funcscript/parser';
+import type { ExpressionLanguage, FuncDrawErrorDetail } from '@tewelde/funcdraw';
 
 export type PrimitiveType = 'line' | 'rect' | 'circle' | 'polygon' | 'text';
+
+const DEFAULT_STROKE = '#38bdf8';
+const DEFAULT_STROKE_WIDTH = 0.25;
 
 export type Primitive = {
   type: PrimitiveType | string;
@@ -86,6 +91,7 @@ export type EvaluationResult = {
   value: unknown;
   typed: TypedValue | null;
   error: string | null;
+  errorDetails: FuncDrawErrorDetail[] | null;
 };
 
 export type ViewInterpretation = {
@@ -110,41 +116,33 @@ export const defaultGraphicsExpression = `{
   return [
     {
       type:'rect',
-      data:{
-        position:[-12,-8],
-        size:[24,16],
-        fill:'rgba(15, 23, 42, 0.55)',
-        stroke:'rgba(148, 163, 184, 0.6)',
-        width:0.3
-      }
+      position:[-12,-8],
+      size:[24,16],
+      fill:'rgba(15, 23, 42, 0.55)',
+      stroke:'rgba(148, 163, 184, 0.6)',
+      width:0.3
     },
     {
       type:'polygon',
-      data:{
-        points:[[-6,-4],[0,9],[6,-4]],
-        fill:'rgba(56, 189, 248, 0.45)',
-        stroke:baseColor,
-        width:0.4
-      }
+      points:[[-6,-4],[0,9],[6,-4]],
+      fill:'rgba(56, 189, 248, 0.45)',
+      stroke:baseColor,
+      width:0.4
     },
     {
       type:'circle',
-      data:{
-        center:[4,-1],
-        radius:5,
-        stroke:accent,
-        width:0.35
-      }
+      center:[4,-1],
+      radius:5,
+      stroke:accent,
+      width:0.35
     },
     {
       type:'text',
-      data:{
-        position:[0,-6.5],
-        text:'FuncScript',
-        color:'#e2e8f0',
-        fontSize:1.4,
-        align:'center'
-      }
+      position:[0,-6.5],
+      text:'FuncScript',
+      color:'#e2e8f0',
+      fontSize:1.4,
+      align:'center'
     }
   ];
 }`;
@@ -227,6 +225,172 @@ const toPlainValue = (value: TypedValue | null): unknown => {
 
 const DEFAULT_LANGUAGE: ExpressionLanguage = 'funcscript';
 
+const MAX_CONTEXT_WIDTH = 96;
+
+type SourceLineEntry = {
+  line: number;
+  start: number;
+  end: number;
+  text: string;
+};
+
+const buildLineIndex = (source: string): SourceLineEntry[] => {
+  const entries: SourceLineEntry[] = [];
+  let start = 0;
+  let line = 1;
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === '\n' || ch === '\r') {
+      entries.push({ line, start, end: i, text: source.slice(start, i) });
+      if (ch === '\r' && source[i + 1] === '\n') {
+        i += 1;
+      }
+      start = i + 1;
+      line += 1;
+    }
+  }
+  entries.push({ line, start, end: source.length, text: source.slice(start) });
+  return entries;
+};
+
+const clampIndex = (entries: SourceLineEntry[], target: number): number => {
+  if (!Number.isFinite(target)) {
+    return 0;
+  }
+  if (entries.length === 0) {
+    return Math.max(0, Math.trunc(target));
+  }
+  const last = entries[entries.length - 1];
+  const maxIndex = Math.max(last.end - 1, last.start);
+  if (maxIndex < 0) {
+    return 0;
+  }
+  const clamped = Math.trunc(target);
+  if (clamped < 0) {
+    return 0;
+  }
+  if (clamped > maxIndex) {
+    return maxIndex;
+  }
+  return clamped;
+};
+
+const findLineEntry = (entries: SourceLineEntry[], target: number): SourceLineEntry => {
+  if (entries.length === 0) {
+    return { line: 1, start: 0, end: 0, text: '' };
+  }
+  const index = clampIndex(entries, target);
+  for (const entry of entries) {
+    if (index >= entry.start && index < entry.end) {
+      return entry;
+    }
+  }
+  return entries[entries.length - 1];
+};
+
+const buildContextSegment = (
+  lineText: string,
+  column: number,
+  span: number
+): FuncDrawErrorDetail['context'] => {
+  if (!lineText) {
+    return null;
+  }
+  const safeColumn = column > 0 ? column : 1;
+  const safeSpan = span > 0 ? span : 1;
+  const maxStart = Math.max(0, lineText.length - MAX_CONTEXT_WIDTH);
+  const idealStart = Math.max(0, safeColumn - 1 - Math.floor(MAX_CONTEXT_WIDTH / 2));
+  const start = Math.min(idealStart, maxStart);
+  const end = Math.min(lineText.length, start + MAX_CONTEXT_WIDTH);
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < lineText.length ? '...' : '';
+  const visible = `${prefix}${lineText.slice(start, end)}${suffix}`;
+  const caretColumn = safeColumn - start + prefix.length;
+  const availableSpan = Math.max(1, visible.length - Math.max(0, caretColumn - 1));
+  const pointerSpan = Math.max(1, Math.min(safeSpan, availableSpan));
+  const pointer = `${' '.repeat(Math.max(0, caretColumn - 1))}${'^'}${pointerSpan > 1 ? '~'.repeat(pointerSpan - 1) : ''}`;
+  return {
+    lineText: visible,
+    pointerText: pointer
+  };
+};
+
+const describeSourceLocation = (
+  source: string,
+  index: number,
+  length: number,
+  entries: SourceLineEntry[]
+): { location: FuncDrawErrorDetail['location']; context: FuncDrawErrorDetail['context'] } => {
+  if (!source) {
+    return { location: null, context: null };
+  }
+  const entry = findLineEntry(entries, index);
+  const normalizedIndex = clampIndex(entries, index);
+  const column = Math.max(1, normalizedIndex - entry.start + 1);
+  const location = {
+    index: normalizedIndex,
+    line: entry.line,
+    column,
+    length: length > 0 ? length : 1
+  };
+  const context = buildContextSegment(entry.text, column, location.length);
+  return { location, context };
+};
+
+const createParserErrorDetail = (
+  source: string,
+  syntaxError: SyntaxErrorData,
+  entries: SourceLineEntry[]
+): FuncDrawErrorDetail | null => {
+  if (!syntaxError || !syntaxError.Message) {
+    return null;
+  }
+  const loc = typeof syntaxError.Loc === 'number' ? syntaxError.Loc : 0;
+  const len = typeof syntaxError.Length === 'number' ? syntaxError.Length : 1;
+  const { location, context } = describeSourceLocation(source, loc, len, entries);
+  return {
+    kind: 'funcscript-parser',
+    message: syntaxError.Message,
+    location,
+    context,
+    stack: null
+  };
+};
+
+const collectParserErrorDetails = (
+  provider: FsDataProvider,
+  source: string
+): FuncDrawErrorDetail[] | null => {
+  if (!source) {
+    return null;
+  }
+  const errors: SyntaxErrorData[] = [];
+  try {
+    FuncScriptParser.parse(provider, source, errors);
+  } catch (err) {
+    return [createGenericErrorDetail(err, 'funcscript-parser')];
+  }
+  if (errors.length === 0) {
+    return null;
+  }
+  const entries = buildLineIndex(source);
+  const details = errors
+    .map((syntaxError) => createParserErrorDetail(source, syntaxError, entries))
+    .filter((detail): detail is FuncDrawErrorDetail => Boolean(detail));
+  return details.length > 0 ? details : null;
+};
+
+const createGenericErrorDetail = (
+  err: unknown,
+  kind: FuncDrawErrorDetail['kind']
+): FuncDrawErrorDetail => ({
+  kind,
+  message: err instanceof Error ? err.message : String(err),
+  location: null,
+  context: null,
+  stack: err instanceof Error && typeof err.stack === 'string' ? err.stack : null
+});
+
 const isDefinedInProvider = (provider: FsDataProvider, name: string): boolean => {
   if (typeof provider.isDefined === 'function') {
     try {
@@ -251,6 +415,62 @@ const getTypedValue = (provider: FsDataProvider, name: string): TypedValue | nul
 };
 
 const JS_VALUE_SENTINEL = Symbol.for('funcdraw.js.value');
+type JsValueCapableProvider = FsDataProvider & {
+  getJsValue: (identifier: string) => unknown;
+};
+
+const hasJsValueGetter = (provider: FsDataProvider | null | undefined): provider is JsValueCapableProvider => {
+  return !!provider && typeof (provider as { getJsValue?: unknown }).getJsValue === 'function';
+};
+
+export class PlayerFsDataProvider extends DefaultFsDataProvider {
+  private jsValues = new Map<string, { marker: symbol; value: unknown }>();
+
+  setJsValue(name: string, value: unknown) {
+    if (typeof name !== 'string') {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (value === undefined) {
+      this.jsValues.delete(key);
+      return;
+    }
+    this.jsValues.set(key, { marker: JS_VALUE_SENTINEL, value });
+  }
+
+  clearJsValue(name: string) {
+    if (typeof name !== 'string') {
+      return;
+    }
+    const key = name.trim().toLowerCase();
+    if (!key) {
+      return;
+    }
+    this.jsValues.delete(key);
+  }
+
+  getJsValue(name: string) {
+    if (typeof name !== 'string') {
+      return undefined;
+    }
+    const key = name.trim().toLowerCase();
+    if (!key) {
+      return undefined;
+    }
+    if (this.jsValues.has(key)) {
+      return this.jsValues.get(key);
+    }
+    const parent = this.parent;
+    if (hasJsValueGetter(parent)) {
+      return parent.getJsValue(name);
+    }
+    return undefined;
+  }
+}
 
 const getBuiltinGlobal = (prop: PropertyKey): unknown => {
   if (typeof prop !== 'string') {
@@ -293,7 +513,14 @@ const createJavaScriptScope = (provider: FsDataProvider) => {
       if (getBuiltinGlobal(prop) !== undefined) {
         return true;
       }
-      return typeof prop === 'string' ? isDefinedInProvider(provider, prop) : false;
+      if (typeof prop === 'string') {
+        const jsBinding = tryGetJsBinding(provider, prop);
+        if (jsBinding.hasValue) {
+          return true;
+        }
+        return isDefinedInProvider(provider, prop);
+      }
+      return false;
     },
     get: (_target, prop) => {
       if (prop === Symbol.unscopables || typeof prop !== 'string') {
@@ -467,7 +694,8 @@ export const evaluateExpression = (
     return {
       value: null,
       typed: null,
-      error: null
+      error: null,
+      errorDetails: null
     };
   }
 
@@ -481,12 +709,22 @@ export const evaluateExpression = (
       typed = Engine.evaluate(trimmed, provider);
       value = toPlainValue(typed);
     }
-    return { value, typed, error: null };
+    return { value, typed, error: null, errorDetails: null };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    let errorDetails: FuncDrawErrorDetail[] | null = null;
+    if (language === 'funcscript') {
+      errorDetails = collectParserErrorDetails(provider, trimmed);
+    }
+    if (!errorDetails || errorDetails.length === 0) {
+      const kind: FuncDrawErrorDetail['kind'] = language === 'javascript' ? 'javascript' : 'funcscript-runtime';
+      errorDetails = [createGenericErrorDetail(err, kind)];
+    }
     return {
       value: null,
       typed: null,
-      error: err instanceof Error ? err.message : String(err)
+      error: message,
+      errorDetails
     };
   }
 };
@@ -540,20 +778,27 @@ const collectPrimitives = (
   }
 
   if (node && typeof node === 'object') {
-    const candidate = node as { type?: unknown; data?: unknown; transform?: unknown };
-    let type: unknown;
-    let data: unknown;
-    let transform: unknown;
-
-    try {
-      ({ type, data, transform } = candidate);
-    } catch (err) {
-      warnings.push(`Skipping graphics entry at ${location} because it threw while reading: ${describeError(err)}.`);
+    const normalizedNode = toPlainRecord(node);
+    if (!normalizedNode) {
+      warnings.push(`Primitive at ${location} must be an object or key/value collection.`);
       return [];
     }
 
-    const normalizedData = toPlainRecord(data);
-    if (typeof type === 'string' && normalizedData) {
+    const { type, data, transform, ...rest } = normalizedNode as {
+      type?: unknown;
+      data?: unknown;
+      transform?: unknown;
+      [key: string]: unknown;
+    };
+
+    if (data !== undefined) {
+      warnings.push(
+        `Primitive at ${location} should place drawing fields directly on the object. The 'data' wrapper is no longer supported.`
+      );
+      return [];
+    }
+
+    if (typeof type === 'string') {
       if (!['line', 'rect', 'circle', 'polygon', 'text'].includes(type)) {
         unknownTypes.add(type);
       }
@@ -562,15 +807,16 @@ const collectPrimitives = (
           `Primitive at ${location} includes a transform, but transforms are no longer supported and will be ignored.`
         );
       }
+
       return [
         {
           type,
-          data: normalizedData
+          data: rest
         }
       ];
     }
 
-    warnings.push(`Primitive at ${location} must include string 'type' and object 'data'.`);
+    warnings.push(`Primitive at ${location} must include string 'type'.`);
     return [];
   }
 
@@ -643,8 +889,8 @@ export const prepareGraphics = (
               warnings.push(`Line in ${ctx} requires numeric from/to points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : '#38bdf8';
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             const dash = Array.isArray(primitive.data.dash)
               ? primitive.data.dash.every((segment) => typeof segment === 'number' && segment >= 0)
                 ? (primitive.data.dash as number[])
@@ -668,9 +914,9 @@ export const prepareGraphics = (
               warnings.push(`Rectangle in ${ctx} requires position and size points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({
               type: 'rect',
               position,
@@ -688,9 +934,9 @@ export const prepareGraphics = (
               warnings.push(`Circle in ${ctx} requires center and positive radius.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({
               type: 'circle',
               center,
@@ -707,9 +953,9 @@ export const prepareGraphics = (
               warnings.push(`Polygon in ${ctx} requires an array of at least 3 numeric points.`);
               break;
             }
-            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
             const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
             prepared.push({
               type: 'polygon',
               points,
@@ -786,7 +1032,7 @@ export const projectPointBuilder = (
   };
 };
 
-export const prepareProvider = () => new DefaultFsDataProvider();
+export const prepareProvider = (): PlayerFsDataProvider => new PlayerFsDataProvider();
 
 export type SvgRenderOptions = {
   width: number;

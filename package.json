@@ -10,7 +10,9 @@
   "workspaces": [
     "fd-cli",
     "fd-player",
-    "funcdraw"
+    "funcdraw",
+    "packages/*",
+    "projects/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -22,7 +24,7 @@
     "vercel-build": "npm run build:fd-player"
   },
   "dependencies": {
-    "@tewelde/funcscript": "^0.2.1",
+    "@tewelde/funcscript": "^0.2.5",
     "marked": "^17.0.0"
   }
 }

@@ -56,7 +56,7 @@ return (sizeParam, buttockLocationParam, foot1LocationParam, foot2LocationParam,
   const legWidth = 0.35 * scale;
   const armWidth = 0.3 * scale;
 
-  const line = (from, to, width) => ({ type: 'line', data: { from, to, stroke: limbStroke, width } });
+  const line = (from, to, width) => ({ type: 'line', from, to, stroke: limbStroke, width});
 
   const torso = line(butt, shoulders, 0.45 * scale);
   const leg1Upper = line(butt, leg1Solution.joint, legWidth);
@@ -70,13 +70,11 @@ return (sizeParam, buttockLocationParam, foot1LocationParam, foot2LocationParam,
 
   const head = {
     type: 'circle',
-    data: {
-      center: headCenter,
-      radius: headRadius,
-      stroke: limbStroke,
-      width: 0.35 * scale,
-      fill: 'rgba(148,163,184,0.45)'
-    }
+    center: headCenter,
+    radius: headRadius,
+    stroke: limbStroke,
+    width: 0.35 * scale,
+    fill: 'rgba(148,163,184,0.45)'
   };
 
   return [

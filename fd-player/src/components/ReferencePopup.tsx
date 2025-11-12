@@ -141,8 +141,8 @@ export function ReferencePopup({ open, selection, onSelect, onClose }: Reference
             <a href="/docs/index.html" target="_blank" rel="noopener noreferrer">
               FuncDraw Documentation
             </a>
-            <a href="https://teweldemat.github.io/funcscript/" target="_blank" rel="noopener noreferrer">
-              Open the full FuncScript language reference on GitHub
+            <a href="https://www.funcscript.org/" target="_blank" rel="noopener noreferrer">
+              Open the full FuncScript language reference
             </a>
           </div>
         </div>

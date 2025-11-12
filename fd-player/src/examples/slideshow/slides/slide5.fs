@@ -39,13 +39,11 @@
 
   closingText: {
     type: 'text';
-    data: {
-      position: [cardOrigin[0] + cardWidth / 2, cardOrigin[1] + cardHeight * 0.38];
-      text: 'Enjoy!';
-      color: '#fde047';
-      fontSize: cardHeight * 0.18;
-      align: 'center';
-    };
+    position: [cardOrigin[0] + cardWidth / 2, cardOrigin[1] + cardHeight * 0.38];
+    text: 'Enjoy!';
+    color: '#fde047';
+    fontSize: cardHeight * 0.18;
+    align: 'center';
   };
 
   footerParts: common.footer(context, accent);

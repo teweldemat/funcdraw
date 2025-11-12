@@ -10,13 +10,11 @@ return (options) => {
 
   const glow = {
     type: 'circle',
-    data: {
-      center,
-      radius: glowRadius,
-      fill: 'rgba(253,224,71,0.25)',
-      stroke: 'rgba(250,204,21,0.35)',
-      width: strokeWidth * 0.5
-    }
+    center,
+    radius: glowRadius,
+    fill: 'rgba(253,224,71,0.25)',
+    stroke: 'rgba(250,204,21,0.35)',
+    width: strokeWidth * 0.5
   };
 
   const rays = Array.from({ length: rayCount }, (_, index) => {
@@ -35,24 +33,20 @@ return (options) => {
     const color = isPrimary ? '#fde047' : '#fef9c3';
     return {
       type: 'line',
-      data: {
-        from: start,
-        to: end,
-        stroke: color,
-        width: rayWidth
-      }
+      from: start,
+      to: end,
+      stroke: color,
+      width: rayWidth
     };
   });
 
   const core = {
     type: 'circle',
-    data: {
-      center,
-      radius,
-      fill: '#fde047',
-      stroke: '#facc15',
-      width: strokeWidth
-    }
+    center,
+    radius,
+    fill: '#fde047',
+    stroke: '#facc15',
+    width: strokeWidth
   };
 
   return [glow, rays, core];

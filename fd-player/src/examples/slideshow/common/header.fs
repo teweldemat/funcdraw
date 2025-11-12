@@ -21,35 +21,29 @@
 
   background: {
     type: 'rect';
-    data: {
-      position: [viewBounds.minX, viewBounds.minY];
-      size: [viewBounds.maxX - viewBounds.minX, viewBounds.maxY - viewBounds.minY];
-      fill: backgroundColor;
-      stroke: '#1e293b';
-      width: 0.6;
-    };
+    position: [viewBounds.minX, viewBounds.minY];
+    size: [viewBounds.maxX - viewBounds.minX, viewBounds.maxY - viewBounds.minY];
+    fill: backgroundColor;
+    stroke: '#1e293b';
+    width: 0.6;
   };
 
   spotlight: {
     type: 'rect';
-    data: {
-      position: cardOrigin;
-      size: [cardWidth, cardHeight];
-      fill: cardFill;
-      stroke: cardStroke;
-      width: 0.4;
-    };
+    position: cardOrigin;
+    size: [cardWidth, cardHeight];
+    fill: cardFill;
+    stroke: cardStroke;
+    width: 0.4;
   };
 
   accentBar: {
     type: 'rect';
-    data: {
-      position: [cardOrigin[0], cardOrigin[1] + cardHeight - 1.8];
-      size: [cardWidth, 1.8];
-      fill: accent;
-      stroke: accent;
-      width: 0;
-    };
+    position: [cardOrigin[0], cardOrigin[1] + cardHeight - 1.8];
+    size: [cardWidth, 1.8];
+    fill: accent;
+    stroke: accent;
+    width: 0;
   };
 
   titleFont: context.titleFont ?? 18;
@@ -61,24 +55,20 @@
 
   titleText: {
     type: 'text';
-    data: {
-      position: [cardOrigin[0] + contentPaddingX, titleBaseY];
-      text: title;
-      color: '#f8fafc';
-      fontSize: titleFont;
-      align: 'left';
-    };
+    position: [cardOrigin[0] + contentPaddingX, titleBaseY];
+    text: title;
+    color: '#f8fafc';
+    fontSize: titleFont;
+    align: 'left';
   };
 
   subtitleText: {
     type: 'text';
-    data: {
-      position: [cardOrigin[0] + contentPaddingX, subtitleBaseY];
-      text: subtitle;
-      color: '#cbd5f5';
-      fontSize: subtitleFont;
-      align: 'left';
-    };
+    position: [cardOrigin[0] + contentPaddingX, subtitleBaseY];
+    text: subtitle;
+    color: '#cbd5f5';
+    fontSize: subtitleFont;
+    align: 'left';
   };
 
   eval [background, spotlight, accentBar, titleText, subtitleText];

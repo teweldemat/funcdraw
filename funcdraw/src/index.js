@@ -12,7 +12,10 @@ const {
   makeValue,
   typedNull,
   typeOf,
-  valueOf
+  valueOf,
+  BaseFunction,
+  CallType,
+  FuncScriptParser
 } = FuncScript;
 
 const VALID_TYPED_TYPES = new Set(Object.values(FSDataType));
@@ -74,6 +77,164 @@ function safeGetExpression(resolver, path) {
   } catch {
     return null;
   }
+}
+
+const MAX_CONTEXT_WIDTH = 96;
+
+function buildLineIndex(source) {
+  const entries = [];
+  let start = 0;
+  let line = 1;
+  const length = typeof source === 'string' ? source.length : 0;
+  for (let i = 0; i < length; i += 1) {
+    const ch = source[i];
+    if (ch === '\n' || ch === '\r') {
+      const end = i;
+      entries.push({ line, start, end, text: source.slice(start, end) });
+      if (ch === '\r' && source[i + 1] === '\n') {
+        i += 1;
+      }
+      start = i + 1;
+      line += 1;
+    }
+  }
+  entries.push({ line, start, end: length, text: source.slice(start, length) });
+  return entries;
+}
+
+function clampIndex(entries, targetIndex) {
+  if (!Number.isFinite(targetIndex)) {
+    return 0;
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return Math.max(0, targetIndex);
+  }
+  const lastEntry = entries[entries.length - 1];
+  const maxIndex = Math.max(lastEntry.end - 1, lastEntry.start);
+  if (maxIndex < 0) {
+    return 0;
+  }
+  if (targetIndex < 0) {
+    return 0;
+  }
+  if (targetIndex > maxIndex) {
+    return maxIndex;
+  }
+  return targetIndex;
+}
+
+function findLineEntry(entries, targetIndex) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return { line: 1, start: 0, text: '' };
+  }
+  const index = clampIndex(entries, targetIndex);
+  for (const entry of entries) {
+    if (index >= entry.start && index < entry.end) {
+      return entry;
+    }
+  }
+  return entries[entries.length - 1];
+}
+
+function buildContextLine(lineText, column, length) {
+  if (typeof lineText !== 'string') {
+    return null;
+  }
+  const safeColumn = Number.isFinite(column) && column > 0 ? column : 1;
+  const safeLength = Number.isFinite(length) && length > 0 ? length : 1;
+  const maxStart = Math.max(0, lineText.length - MAX_CONTEXT_WIDTH);
+  const idealStart = Math.max(0, safeColumn - 1 - Math.floor(MAX_CONTEXT_WIDTH / 2));
+  const start = Math.min(idealStart, maxStart);
+  const end = Math.min(lineText.length, start + MAX_CONTEXT_WIDTH);
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < lineText.length ? '...' : '';
+  const visible = prefix + lineText.slice(start, end) + suffix;
+  const caretColumn = safeColumn - start + prefix.length;
+  const availableSpan = Math.max(1, visible.length - Math.max(0, caretColumn - 1));
+  const pointerSpan = Math.max(1, Math.min(safeLength, availableSpan));
+  const pointer = `${' '.repeat(Math.max(0, caretColumn - 1))}${'^'}${pointerSpan > 1 ? '~'.repeat(pointerSpan - 1) : ''}`;
+  return {
+    lineText: visible,
+    pointerText: pointer
+  };
+}
+
+function describeSourceLocation(source, index, length, entries) {
+  if (typeof source !== 'string' || !source) {
+    return { location: null, context: null };
+  }
+  const lineEntries = Array.isArray(entries) && entries.length > 0 ? entries : buildLineIndex(source);
+  const entry = findLineEntry(lineEntries, index);
+  const normalizedIndex = clampIndex(lineEntries, index);
+  const column = Math.max(1, normalizedIndex - entry.start + 1);
+  const location = {
+    index: normalizedIndex,
+    line: entry.line,
+    column,
+    length: Number.isFinite(length) && length > 0 ? length : 1
+  };
+  const context = buildContextLine(entry.text, column, location.length);
+  return { location, context };
+}
+
+function createParserErrorDetail(source, syntaxError, lineEntries) {
+  if (!syntaxError || typeof syntaxError.Message !== 'string') {
+    return null;
+  }
+  const loc = typeof syntaxError.Loc === 'number' ? syntaxError.Loc : 0;
+  const len = typeof syntaxError.Length === 'number' ? syntaxError.Length : 1;
+  const { location, context } = describeSourceLocation(source, loc, len, lineEntries);
+  return {
+    kind: 'funcscript-parser',
+    message: syntaxError.Message || 'Syntax error',
+    location,
+    context,
+    stack: null
+  };
+}
+
+function collectParserErrorDetails(provider, source) {
+  if (!source || !FuncScriptParser || typeof FuncScriptParser.parse !== 'function') {
+    return null;
+  }
+  const errors = [];
+  try {
+    FuncScriptParser.parse(provider, source, errors);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return [
+      {
+        kind: 'funcscript-parser',
+        message,
+        location: null,
+        context: null,
+        stack: err instanceof Error && typeof err.stack === 'string' ? err.stack : null
+      }
+    ];
+  }
+  if (errors.length === 0) {
+    return null;
+  }
+  const lineEntries = buildLineIndex(source);
+  const details = [];
+  for (const syntaxError of errors) {
+    const detail = createParserErrorDetail(source, syntaxError, lineEntries);
+    if (detail) {
+      details.push(detail);
+    }
+  }
+  return details.length > 0 ? details : null;
+}
+
+function createGenericErrorDetail(err, kind) {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    kind,
+    message,
+    location: null,
+    context: null,
+    stack: err instanceof Error && typeof err.stack === 'string' ? err.stack : null
+  };
 }
 
 function toPlainValue(value) {
@@ -282,6 +443,434 @@ function convertJsValueToTyped(value, seen = new WeakSet()) {
   }
   return ensureTyped(value);
 }
+
+const clampNumber = (value, min, max) => {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+};
+
+const makeFuncDrawError = (symbol, type, message) =>
+  makeValue(FSDataType.Error, new FsError(type ?? FsError.ERROR_DEFAULT, `${symbol}: ${message}`));
+
+const requireNumericParameter = (symbol, parameter, name) => {
+  const typed = ensureTyped(parameter);
+  const t = typeOf(typed);
+  if (t === FSDataType.Integer || t === FSDataType.Float) {
+    return { ok: true, value: Number(valueOf(typed)) };
+  }
+  if (t === FSDataType.BigInteger) {
+    const raw = valueOf(typed);
+    return { ok: true, value: Number(raw) };
+  }
+  return {
+    ok: false,
+    error: makeFuncDrawError(symbol, FsError.ERROR_TYPE_MISMATCH, `${name} must be a number.`)
+  };
+};
+
+const requireStringParameter = (symbol, parameter, name) => {
+  const typed = ensureTyped(parameter);
+  const t = typeOf(typed);
+  if (t === FSDataType.String) {
+    return { ok: true, value: valueOf(typed) };
+  }
+  if (t === FSDataType.Null) {
+    return { ok: true, value: '' };
+  }
+  return {
+    ok: false,
+    error: makeFuncDrawError(symbol, FsError.ERROR_TYPE_MISMATCH, `${name} must be a string.`)
+  };
+};
+
+const normalizePointValue = (value) => {
+  if (Array.isArray(value) && value.length >= 2) {
+    const x = Number(value[0]);
+    const y = Number(value[1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      return [x, y];
+    }
+    return null;
+  }
+  if (value && typeof value === 'object') {
+    const xCandidate = value.x ?? value.X;
+    const yCandidate = value.y ?? value.Y;
+    const x = Number(xCandidate);
+    const y = Number(yCandidate);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      return [x, y];
+    }
+  }
+  return null;
+};
+
+const requirePointParameter = (symbol, parameter, name) => {
+  const plain = toPlainValue(parameter);
+  const point = normalizePointValue(plain);
+  if (!point) {
+    return {
+      ok: false,
+      error: makeFuncDrawError(symbol, FsError.ERROR_TYPE_MISMATCH, `${name} must be a point [x, y].`)
+    };
+  }
+  return { ok: true, value: point };
+};
+
+const transformPointIfValid = (value, transformPoint) => {
+  const point = normalizePointValue(value);
+  if (!point) {
+    return null;
+  }
+  const next = transformPoint(point);
+  if (!Array.isArray(next) || next.length < 2) {
+    return point;
+  }
+  const x = Number(next[0]);
+  const y = Number(next[1]);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return point;
+  }
+  return [x, y];
+};
+
+const transformPrimitiveData = (type, data, transformPoint) => {
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
+  const clone = { ...data };
+  const lower = String(type || '').toLowerCase();
+  const applyPoint = (key) => {
+    if (!Object.prototype.hasOwnProperty.call(data, key)) {
+      return;
+    }
+    const transformed = transformPointIfValid(data[key], transformPoint);
+    if (transformed) {
+      clone[key] = transformed;
+    }
+  };
+
+  switch (lower) {
+    case 'line':
+      applyPoint('from');
+      applyPoint('to');
+      break;
+    case 'rect':
+    case 'text':
+      applyPoint('position');
+      break;
+    case 'circle':
+      applyPoint('center');
+      break;
+    case 'polygon':
+      if (Array.isArray(data.points)) {
+        clone.points = data.points.map((point) => transformPointIfValid(point, transformPoint) ?? point);
+      }
+      break;
+    default:
+      applyPoint('position');
+      applyPoint('center');
+      break;
+  }
+
+  return clone;
+};
+
+function transformPrimitiveNode(node, transformPoint) {
+  const result = { ...node };
+  if (node.data && typeof node.data === 'object') {
+    result.data = transformPrimitiveData(node.type, node.data, transformPoint);
+  }
+  if (Object.prototype.hasOwnProperty.call(node, 'children')) {
+    result.children = transformGraphicsCollection(node.children, transformPoint);
+  }
+  if (Object.prototype.hasOwnProperty.call(node, 'layers')) {
+    result.layers = transformGraphicsCollection(node.layers, transformPoint);
+  }
+  return result;
+}
+
+function transformGraphicsCollection(node, transformPoint) {
+  if (Array.isArray(node)) {
+    return node.map((entry) => transformGraphicsCollection(entry, transformPoint));
+  }
+  if (node && typeof node === 'object') {
+    if (typeof node.type === 'string') {
+      return transformPrimitiveNode(node, transformPoint);
+    }
+    const clone = {};
+    for (const [key, value] of Object.entries(node)) {
+      clone[key] = transformGraphicsCollection(value, transformPoint);
+    }
+    return clone;
+  }
+  return node;
+}
+
+class MeasureTextFunction extends BaseFunction {
+  constructor() {
+    super();
+    this.symbol = 'fd.measuretext';
+    this.callType = CallType.Prefix;
+  }
+
+  get maxParameters() {
+    return 3;
+  }
+
+  evaluate(provider, parameters) {
+    if (parameters.count < 1 || parameters.count > 3) {
+      return makeFuncDrawError(
+        this.symbol,
+        FsError.ERROR_PARAMETER_COUNT_MISMATCH,
+        `expected between 1 and 3 parameters, received ${parameters.count}`
+      );
+    }
+
+    const textResult = requireStringParameter(this.symbol, parameters.getParameter(provider, 0), 'text');
+    if (!textResult.ok) {
+      return textResult.error;
+    }
+
+    let fontSize = 12;
+    if (parameters.count >= 2) {
+      const sizeResult = requireNumericParameter(this.symbol, parameters.getParameter(provider, 1), 'fontSize');
+      if (!sizeResult.ok) {
+        return sizeResult.error;
+      }
+      fontSize = sizeResult.value;
+    }
+    if (!Number.isFinite(fontSize) || fontSize <= 0) {
+      fontSize = 12;
+    }
+
+    let optionsRecord = {};
+    if (parameters.count === 3) {
+      const rawOptions = toPlainValue(parameters.getParameter(provider, 2));
+      if (rawOptions === null || rawOptions === undefined) {
+        optionsRecord = {};
+      } else if (rawOptions && typeof rawOptions === 'object' && !Array.isArray(rawOptions)) {
+        optionsRecord = rawOptions;
+      } else {
+        return makeFuncDrawError(this.symbol, FsError.ERROR_TYPE_MISMATCH, 'options must be a record.');
+      }
+    }
+
+    const widthFactor = clampNumber(
+      typeof optionsRecord.widthFactor === 'number' ? optionsRecord.widthFactor : 0.58,
+      0.2,
+      5
+    );
+    const letterSpacing = Number.isFinite(optionsRecord.letterSpacing) ? optionsRecord.letterSpacing : 0;
+    const lineHeightFactor = clampNumber(
+      typeof optionsRecord.lineHeight === 'number' && optionsRecord.lineHeight > 0
+        ? optionsRecord.lineHeight
+        : 1.2,
+      0.5,
+      4
+    );
+    const ascentRatio = clampNumber(
+      typeof optionsRecord.ascentRatio === 'number' ? optionsRecord.ascentRatio : 0.78,
+      0.1,
+      0.95
+    );
+
+    const rawText = textResult.value;
+    const lines = rawText.length > 0 ? rawText.split(/\r?\n/) : [''];
+    const baseCharWidth = fontSize * widthFactor;
+    const classifyChar = (char) => {
+      if (!char) {
+        return 1;
+      }
+      if (char === ' ') {
+        return 0.55;
+      }
+      if ('.,:;!`\"\'|'.indexOf(char) >= 0) {
+        return 0.45;
+      }
+      if ('-_'.indexOf(char) >= 0) {
+        return 0.65;
+      }
+      if (char === '/' || char === '\\') {
+        return 0.7;
+      }
+      if ('{}[]()<>'.indexOf(char) >= 0) {
+        return 0.7;
+      }
+      const code = char.charCodeAt(0);
+      if (code >= 48 && code <= 57) {
+        return 0.75;
+      }
+      if (code >= 65 && code <= 90) {
+        if (char === 'M' || char === 'W') {
+          return 1.05;
+        }
+        return 0.95;
+      }
+      if (code >= 97 && code <= 122) {
+        if ('ilftjr'.indexOf(char) >= 0) {
+          return 0.7;
+        }
+        return 0.85;
+      }
+      return 0.85;
+    };
+
+    let measuredWidth = 0;
+    let totalWidthSum = 0;
+    let totalChars = 0;
+    for (const line of lines) {
+      let lineWidth = 0;
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        const weight = classifyChar(char);
+        lineWidth += baseCharWidth * weight;
+      }
+      if (line.length > 1 && letterSpacing !== 0) {
+        lineWidth += (line.length - 1) * letterSpacing;
+      }
+      if (lineWidth > measuredWidth) {
+        measuredWidth = lineWidth;
+      }
+      totalWidthSum += lineWidth;
+      totalChars += line.length;
+    }
+
+    const avgCharWidthResult = totalChars > 0 ? totalWidthSum / totalChars : baseCharWidth;
+    const perLineHeight = fontSize * lineHeightFactor;
+    const totalHeight = perLineHeight * lines.length;
+    const ascent = fontSize * ascentRatio;
+    const descent = perLineHeight - ascent;
+
+    const metrics = {
+      text: rawText,
+      fontSize,
+      width: measuredWidth,
+      lineHeight: perLineHeight,
+      height: totalHeight,
+      lines: lines.length,
+      ascent,
+      descent,
+      baseline: ascent,
+      avgCharWidth: avgCharWidthResult,
+      letterSpacing,
+      widthFactor,
+      lineHeightFactor,
+      ascentRatio
+    };
+
+    return convertJsValueToTyped(metrics);
+  }
+}
+
+class TranslateFunction extends BaseFunction {
+  constructor() {
+    super();
+    this.symbol = 'fd.translate';
+    this.callType = CallType.Prefix;
+  }
+
+  get maxParameters() {
+    return 3;
+  }
+
+  evaluate(provider, parameters) {
+    if (parameters.count !== 3) {
+      return makeFuncDrawError(
+        this.symbol,
+        FsError.ERROR_PARAMETER_COUNT_MISMATCH,
+        `expected 3 parameters (deltaX, deltaY, graphics) but received ${parameters.count}`
+      );
+    }
+
+    const deltaXResult = requireNumericParameter(this.symbol, parameters.getParameter(provider, 0), 'deltaX');
+    if (!deltaXResult.ok) {
+      return deltaXResult.error;
+    }
+    const deltaYResult = requireNumericParameter(this.symbol, parameters.getParameter(provider, 1), 'deltaY');
+    if (!deltaYResult.ok) {
+      return deltaYResult.error;
+    }
+
+    const target = toPlainValue(parameters.getParameter(provider, 2));
+    if (target === null || target === undefined) {
+      return typedNull();
+    }
+    const dx = deltaXResult.value;
+    const dy = deltaYResult.value;
+    const transformed = transformGraphicsCollection(target, (point) => [point[0] + dx, point[1] + dy]);
+    return convertJsValueToTyped(transformed);
+  }
+}
+
+class RotateFunction extends BaseFunction {
+  constructor() {
+    super();
+    this.symbol = 'fd.rotate';
+    this.callType = CallType.Prefix;
+  }
+
+  get maxParameters() {
+    return 3;
+  }
+
+  evaluate(provider, parameters) {
+    if (parameters.count !== 3) {
+      return makeFuncDrawError(
+        this.symbol,
+        FsError.ERROR_PARAMETER_COUNT_MISMATCH,
+        `expected 3 parameters (origin, radians, graphics) but received ${parameters.count}`
+      );
+    }
+
+    const originResult = requirePointParameter(this.symbol, parameters.getParameter(provider, 0), 'origin');
+    if (!originResult.ok) {
+      return originResult.error;
+    }
+    const radiansResult = requireNumericParameter(this.symbol, parameters.getParameter(provider, 1), 'radians');
+    if (!radiansResult.ok) {
+      return radiansResult.error;
+    }
+
+    const target = toPlainValue(parameters.getParameter(provider, 2));
+    if (target === null || target === undefined) {
+      return typedNull();
+    }
+
+    const [ox, oy] = originResult.value;
+    const angle = radiansResult.value;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const transformed = transformGraphicsCollection(target, (point) => {
+      const translatedX = point[0] - ox;
+      const translatedY = point[1] - oy;
+      return [ox + translatedX * cos - translatedY * sin, oy + translatedX * sin + translatedY * cos];
+    });
+    return convertJsValueToTyped(transformed);
+  }
+}
+
+const createFdCollectionValue = () => {
+  const measureText = ensureTyped(new MeasureTextFunction());
+  const translate = ensureTyped(new TranslateFunction());
+  const rotate = ensureTyped(new RotateFunction());
+  const entries = [
+    ['measuretext', measureText],
+    ['translate', translate],
+    ['rotate', rotate]
+  ];
+  const collection = new SimpleKeyValueCollection(null, entries);
+  return ensureTyped(collection);
+};
+
+const FD_COLLECTION_VALUE = createFdCollectionValue();
 
 class FolderNode {
   constructor(name, path, createdAt, parentKey) {
@@ -633,6 +1222,7 @@ class FuncDrawEnvironmentProvider extends Engine.FsDataProvider {
     super(manager.baseProvider);
     this.manager = manager;
     this.namedValues = new Map();
+    this.setNamedValue('fd', FD_COLLECTION_VALUE);
   }
 
   setNamedValue(name, value) {
@@ -769,6 +1359,11 @@ class FuncDrawEvaluationManager {
       const evaluation = this.evaluateNode(returnExpression, provider);
       return evaluation.typed ?? typedNull();
     }
+    const evalExpression = this.graph.getExpressionInFolder(folderNode.key, 'eval');
+    if (evalExpression) {
+      const evaluation = this.evaluateNode(evalExpression, provider);
+      return evaluation.typed ?? typedNull();
+    }
     return ensureTyped(provider);
   }
 
@@ -798,7 +1393,20 @@ class FuncDrawEvaluationManager {
     if (this.evaluating.has(key)) {
       const message = 'Circular reference detected while evaluating expression.';
       const typedError = makeValue(FSDataType.Error, new FsError(FsError.ERROR_DEFAULT, message));
-      const fallback = { value: null, typed: typedError, error: message };
+      const fallback = {
+        value: null,
+        typed: typedError,
+        error: message,
+        errorDetails: [
+          {
+            kind: 'funcdraw',
+            message,
+            location: null,
+            context: null,
+            stack: null
+          }
+        ]
+      };
       this.evaluations.set(key, fallback);
       return fallback;
     }
@@ -809,13 +1417,14 @@ class FuncDrawEvaluationManager {
     let evaluation;
     if (!trimmed) {
       this.javascriptValues.delete(key);
-      evaluation = { value: null, typed: typedNull(), error: null };
+      evaluation = { value: null, typed: typedNull(), error: null, errorDetails: null };
     } else {
       try {
         let typed;
         let jsValue;
         if (language === 'javascript') {
-          const executor = this.getJavaScriptExecutor(key, trimmed);
+          const normalizedJs = normalizeJavaScriptSource(trimmed);
+          const executor = this.getJavaScriptExecutor(key, normalizedJs);
           jsValue = runJavaScriptExecutor(executor, provider);
           if (jsValue === undefined) {
             typed = typedNull();
@@ -831,23 +1440,34 @@ class FuncDrawEvaluationManager {
           evaluation = {
             value: jsValue === undefined ? null : jsValue,
             typed,
-            error: null
+            error: null,
+            errorDetails: null
           };
         } else {
           evaluation = {
             value: toPlainValue(typed),
             typed,
-            error: null
+            error: null,
+            errorDetails: null
           };
         }
       } catch (err) {
         this.javascriptValues.delete(key);
         const message = err instanceof Error ? err.message : String(err);
+        let errorDetails = null;
+        if (language === 'funcscript') {
+          errorDetails = collectParserErrorDetails(provider, trimmed);
+        }
+        if (!errorDetails || errorDetails.length === 0) {
+          const kind = language === 'javascript' ? 'javascript' : 'funcscript-runtime';
+          errorDetails = [createGenericErrorDetail(err, kind)];
+        }
         const typed = makeValue(FSDataType.Error, new FsError(FsError.ERROR_DEFAULT, message));
         evaluation = {
           value: null,
           typed,
-          error: message
+          error: message,
+          errorDetails
         };
       }
     }
@@ -927,3 +1547,14 @@ module.exports = {
   evaluate,
   default: FuncDraw
 };
+function normalizeJavaScriptSource(source) {
+  if (typeof source !== 'string') {
+    return source;
+  }
+  const trimmed = source.trimStart();
+  if (!/^export\s+default\b/.test(trimmed)) {
+    return source;
+  }
+  const body = trimmed.replace(/^export\s+default\s*/, '').replace(/;\s*$/, '');
+  return `return (${body});`;
+}

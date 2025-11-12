@@ -58,27 +58,25 @@
   legWidth: 0.35 * scale;
   armWidth: 0.3 * scale;
 
-  leg1Upper: { type: 'line'; data: { from: butt; to: leg1Solution.joint; stroke: limbStroke; width: legWidth; }; };
-  leg1Lower: { type: 'line'; data: { from: leg1Solution.joint; to: leg1Solution.effector; stroke: limbStroke; width: legWidth; }; };
-  leg2Upper: { type: 'line'; data: { from: butt; to: leg2Solution.joint; stroke: limbStroke; width: legWidth; }; };
-  leg2Lower: { type: 'line'; data: { from: leg2Solution.joint; to: leg2Solution.effector; stroke: limbStroke; width: legWidth; }; };
+  leg1Upper: { type: 'line'; from: butt; to: leg1Solution.joint; stroke: limbStroke; width: legWidth; };
+  leg1Lower: { type: 'line'; from: leg1Solution.joint; to: leg1Solution.effector; stroke: limbStroke; width: legWidth; };
+  leg2Upper: { type: 'line'; from: butt; to: leg2Solution.joint; stroke: limbStroke; width: legWidth; };
+  leg2Lower: { type: 'line'; from: leg2Solution.joint; to: leg2Solution.effector; stroke: limbStroke; width: legWidth; };
 
-  torso: { type: 'line'; data: { from: butt; to: shoulders; stroke: limbStroke; width: 0.45 * scale; }; };
+  torso: { type: 'line'; from: butt; to: shoulders; stroke: limbStroke; width: 0.45 * scale; };
 
-  arm1Upper: { type: 'line'; data: { from: shoulders; to: arm1Solution.joint; stroke: limbStroke; width: armWidth; }; };
-  arm1Lower: { type: 'line'; data: { from: arm1Solution.joint; to: arm1Solution.effector; stroke: limbStroke; width: armWidth; }; };
-  arm2Upper: { type: 'line'; data: { from: shoulders; to: arm2Solution.joint; stroke: limbStroke; width: armWidth; }; };
-  arm2Lower: { type: 'line'; data: { from: arm2Solution.joint; to: arm2Solution.effector; stroke: limbStroke; width: armWidth; }; };
+  arm1Upper: { type: 'line'; from: shoulders; to: arm1Solution.joint; stroke: limbStroke; width: armWidth; };
+  arm1Lower: { type: 'line'; from: arm1Solution.joint; to: arm1Solution.effector; stroke: limbStroke; width: armWidth; };
+  arm2Upper: { type: 'line'; from: shoulders; to: arm2Solution.joint; stroke: limbStroke; width: armWidth; };
+  arm2Lower: { type: 'line'; from: arm2Solution.joint; to: arm2Solution.effector; stroke: limbStroke; width: armWidth; };
 
   head: {
     type: 'circle';
-    data: {
-      center: headCenter;
-      radius: headRadius;
-      stroke: limbStroke;
-      width: 0.35 * scale;
-      fill: 'rgba(148,163,184,0.45)';
-    };
+    center: headCenter;
+    radius: headRadius;
+    stroke: limbStroke;
+    width: 0.35 * scale;
+    fill: 'rgba(148,163,184,0.45)';
   };
 
   eval [

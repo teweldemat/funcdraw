@@ -10,13 +10,11 @@
 
   glow: {
     type: 'circle';
-    data: {
-      center;
-      radius: glowRadius;
-      fill: 'rgba(253,224,71,0.25)';
-      stroke: 'rgba(250,204,21,0.35)';
-      width: strokeWidth * 0.5;
-    };
+    center;
+    radius: glowRadius;
+    fill: 'rgba(253,224,71,0.25)';
+    stroke: 'rgba(250,204,21,0.35)';
+    width: strokeWidth * 0.5;
   };
 
   rays: range(0, rayCount) map (index) => {
@@ -36,24 +34,20 @@
     color: if (variant = 0) then '#fde047' else '#fef9c3';
     eval {
       type: 'line';
-      data: {
-        from: start;
-        to: end;
-        stroke: color;
-        width: rayWidth;
-      };
+      from: start;
+      to: end;
+      stroke: color;
+      width: rayWidth;
     };
   };
 
   core: {
     type: 'circle';
-    data: {
-      center;
-      radius;
-      fill: '#fde047';
-      stroke: '#facc15';
-      width: strokeWidth;
-    };
+    center;
+    radius;
+    fill: '#fde047';
+    stroke: '#facc15';
+    width: strokeWidth;
   };
 
   eval [glow, rays, core];

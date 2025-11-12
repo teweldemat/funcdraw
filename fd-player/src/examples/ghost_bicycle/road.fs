@@ -8,13 +8,11 @@
 
   asphalt: {
     type: 'rect';
-    data: {
-      position: [roadStartX, roadY];
-      size: [roadLength, roadWidth];
-      fill: '#111827';
-      stroke: '#0f172a';
-      width: 0.4;
-    };
+    position: [roadStartX, roadY];
+    size: [roadLength, roadWidth];
+    fill: '#111827';
+    stroke: '#0f172a';
+    width: 0.4;
   };
 
   markerLength: 8;
@@ -28,13 +26,11 @@
     startX: markerFirstX + index * markerStep;
     eval {
       type: 'rect';
-      data: {
-        position: [startX, roadY + roadWidth / 2 - markerHeight / 2];
-        size: [markerLength, markerHeight];
-        fill: '#fef08a';
-        stroke: '#fde047';
-        width: 0.15;
-      };
+      position: [startX, roadY + roadWidth / 2 - markerHeight / 2];
+      size: [markerLength, markerHeight];
+      fill: '#fef08a';
+      stroke: '#fde047';
+      width: 0.15;
     };
   };
 

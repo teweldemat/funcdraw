@@ -11,6 +11,26 @@ export type ExpressionListItem = {
   language?: ExpressionLanguage;
 };
 
+export type FuncDrawErrorLocation = {
+  index: number;
+  line: number;
+  column: number;
+  length: number;
+};
+
+export type FuncDrawErrorContext = {
+  lineText: string;
+  pointerText: string;
+};
+
+export type FuncDrawErrorDetail = {
+  kind: 'funcdraw' | 'funcscript-parser' | 'funcscript-runtime' | 'javascript' | (string & {});
+  message: string;
+  location?: FuncDrawErrorLocation | null;
+  context?: FuncDrawErrorContext | null;
+  stack?: string | null;
+};
+
 export interface ExpressionCollectionResolver {
   listItems(path: PathSegments): ExpressionListItem[];
   getExpression(path: PathSegments): string | null;
@@ -20,6 +40,7 @@ export type EvaluationResult = {
   value: unknown;
   typed: TypedValue | null;
   error: string | null;
+  errorDetails: FuncDrawErrorDetail[] | null;
 };
 
 export type EvaluateOptions = {

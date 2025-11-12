@@ -32,13 +32,11 @@
   seatDrop: height * 0.08;
   seatRect: {
     type: 'rect';
-    data: {
-      position: [rTop[0] - seatHalf, rTop[1]];
-      size: [seatLen, seatThickness];
-      fill: accentColor;
-      stroke: accentColor;
-      width: 0.0;
-    };
+    position: [rTop[0] - seatHalf, rTop[1]];
+    size: [seatLen, seatThickness];
+    fill: accentColor;
+    stroke: accentColor;
+    width: 0.0;
   };
   slantedTopLower: [rTopLower[0], rTopLower[1] - seatDrop];
 
@@ -49,25 +47,25 @@
 
   eval [
     // slanted rear column
-    { type: 'line', data: { from: rear, to: rTop, stroke: frameColor, width: 0.6 } },
+    { type: 'line', from: rear, to: rTop, stroke: frameColor, width: 0.6},
 
     // front slanted steering column
-    { type: 'line', data: { from: front, to: fTop, stroke: frameColor, width: 0.6 } },
+    { type: 'line', from: front, to: fTop, stroke: frameColor, width: 0.6},
 
     // top horizontal bar
-    { type: 'line', data: { from: slantedTopLower, to: fJoinLower, stroke: frameColor, width: 0.6 } },
+    { type: 'line', from: slantedTopLower, to: fJoinLower, stroke: frameColor, width: 0.6},
 
     // lower triangle (gear to both ends of lower bar)
-    { type: 'line', data: { from: gear, to: slantedTopLower, stroke: frameColor, width: 0.6 } },
-    { type: 'line', data: { from: gear, to: fJoinLower, stroke: frameColor, width: 0.6 } },
+    { type: 'line', from: gear, to: slantedTopLower, stroke: frameColor, width: 0.6},
+    { type: 'line', from: gear, to: fJoinLower, stroke: frameColor, width: 0.6},
 
     // lower horizontal bar
-    { type: 'line', data: { from: gear, to: rear, stroke: frameColor, width: 0.6 } },
+    { type: 'line', from: gear, to: rear, stroke: frameColor, width: 0.6},
 
     // seat (horizontal, thicker T cap)
     seatRect,
 
     // steering handle
-    { type: 'line', data: { from: fTop, to: handleEnd, stroke: accentColor, width: 0.5 } }
+    { type: 'line', from: fTop, to: handleEnd, stroke: accentColor, width: 0.5}
   ];
 }

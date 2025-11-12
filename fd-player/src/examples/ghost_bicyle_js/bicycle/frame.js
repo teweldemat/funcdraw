@@ -25,13 +25,11 @@ return (rear, front, gear, height, frameColorParam, accentColorParam) => {
   const seatDrop = height * 0.08;
   const seatRect = {
     type: 'rect',
-    data: {
-      position: [rTop[0] - seatHalf, rTop[1]],
-      size: [seatLen, seatThickness],
-      fill: accentColor,
-      stroke: accentColor,
-      width: 0
-    }
+    position: [rTop[0] - seatHalf, rTop[1]],
+    size: [seatLen, seatThickness],
+    fill: accentColor,
+    stroke: accentColor,
+    width: 0
   };
   const slantedTopLower = [rTopLower[0], rTopLower[1] - seatDrop];
 
@@ -39,7 +37,7 @@ return (rear, front, gear, height, frameColorParam, accentColorParam) => {
   const handleRise = 0.8;
   const handleEnd = [fTop[0] + handleLen, fTop[1] + handleRise];
 
-  const line = (from, to, stroke, width = 0.6) => ({ type: 'line', data: { from, to, stroke, width } });
+  const line = (from, to, stroke, width = 0.6) => ({ type: 'line', from, to, stroke, width});
 
   return [
     line(rear, rTop, frameColor),

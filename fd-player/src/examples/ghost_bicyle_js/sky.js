@@ -5,13 +5,11 @@ return (locationParam, widthParam, heightParam) => {
 
   const skyPlane = {
     type: 'rect',
-    data: {
-      position: [origin[0], origin[1]],
-      size: [areaWidth, areaHeight],
-      fill: '#bae6fd',
-      stroke: '#93c5fd',
-      width: 0.18
-    }
+    position: [origin[0], origin[1]],
+    size: [areaWidth, areaHeight],
+    fill: '#bae6fd',
+    stroke: '#93c5fd',
+    width: 0.18
   };
 
   const makeWorldPoint = (ux, uy) => [origin[0] + areaWidth * ux, origin[1] + areaHeight * uy];

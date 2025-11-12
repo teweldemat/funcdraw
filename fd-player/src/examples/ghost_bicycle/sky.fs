@@ -5,13 +5,11 @@
 
   skyPlane: {
     type: 'rect';
-    data: {
-      position: [origin[0], origin[1]];
-      size: [areaWidth, areaHeight];
-      fill: '#bae6fd';
-      stroke: '#93c5fd';
-      width: 0.18;
-    };
+    position: [origin[0], origin[1]];
+    size: [areaWidth, areaHeight];
+    fill: '#bae6fd';
+    stroke: '#93c5fd';
+    width: 0.18;
   };
 
   spanMetric: math.min(areaWidth, areaHeight);

@@ -12,22 +12,20 @@
     apex: [center[0] + math.sin(angle) * (radius + toothSize),
           center[1] + math.cos(angle) * (radius + toothSize)];
     eval [
-      { type: 'line', data: { from: base1, to: base2, stroke: '#38bdf8', width: 0.3 } },
-      { type: 'line', data: { from: base2, to: apex, stroke: '#38bdf8', width: 0.3 } },
-      { type: 'line', data: { from: apex, to: base1, stroke: '#38bdf8', width: 0.3 } }
+      { type: 'line', from: base1, to: base2, stroke: '#38bdf8', width: 0.3},
+      { type: 'line', from: base2, to: apex, stroke: '#38bdf8', width: 0.3},
+      { type: 'line', from: apex, to: base1, stroke: '#38bdf8', width: 0.3}
     ];
   };
   eval [
     teethLines,
     {
       type: 'circle',
-      data: {
-        center: center,
-        radius: radius,
-        stroke: '#334155',
-        width: 1,
-        fill: '#334155'
-      }
+      center: center,
+      radius: radius,
+      stroke: '#334155',
+      width: 1,
+      fill: '#334155'
     }
   ];
 };

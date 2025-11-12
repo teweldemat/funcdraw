@@ -16,24 +16,20 @@ return (options) => {
 
   const shadow = {
     type: 'circle',
-    data: {
-      center: [center[0] + 2 * sizeScale, center[1] - 2.2 * sizeScale],
-      radius: baseRadius * 1.5,
-      fill: 'rgba(148,163,184,0.25)',
-      stroke: 'transparent',
-      width: 0
-    }
+    center: [center[0] + 2 * sizeScale, center[1] - 2.2 * sizeScale],
+    radius: baseRadius * 1.5,
+    fill: 'rgba(148,163,184,0.25)',
+    stroke: 'transparent',
+    width: 0
   };
 
   const softGlow = {
     type: 'circle',
-    data: {
-      center: [center[0] + 0.5 * sizeScale, center[1] + 0.4 * sizeScale],
-      radius: baseRadius * 1.8,
-      fill: 'rgba(241,245,249,0.3)',
-      stroke: 'transparent',
-      width: 0
-    }
+    center: [center[0] + 0.5 * sizeScale, center[1] + 0.4 * sizeScale],
+    radius: baseRadius * 1.8,
+    fill: 'rgba(241,245,249,0.3)',
+    stroke: 'transparent',
+    width: 0
   };
 
   const puffs = puffLayout.map((puff) => {
@@ -41,25 +37,21 @@ return (options) => {
     const shade = puffPalette[safeIndex];
     return {
       type: 'circle',
-      data: {
-        center: [center[0] + puff.dx * sizeScale, center[1] + puff.dy * sizeScale],
-        radius: baseRadius * puff.radiusScale,
-        fill: shade,
-        stroke: 'transparent',
-        width: 0
-      }
+      center: [center[0] + puff.dx * sizeScale, center[1] + puff.dy * sizeScale],
+      radius: baseRadius * puff.radiusScale,
+      fill: shade,
+      stroke: 'transparent',
+      width: 0
     };
   });
 
   const highlight = {
     type: 'circle',
-    data: {
-      center: [center[0] - 1.8 * sizeScale, center[1] + 1.4 * sizeScale],
-      radius: baseRadius * 0.8,
-      fill: 'rgba(248,250,252,0.6)',
-      stroke: 'transparent',
-      width: 0
-    }
+    center: [center[0] - 1.8 * sizeScale, center[1] + 1.4 * sizeScale],
+    radius: baseRadius * 0.8,
+    fill: 'rgba(248,250,252,0.6)',
+    stroke: 'transparent',
+    width: 0
   };
 
   return [shadow, softGlow, puffs, highlight];

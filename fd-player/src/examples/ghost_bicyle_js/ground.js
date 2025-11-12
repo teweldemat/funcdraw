@@ -15,13 +15,11 @@ return (locationParam, widthParam, heightParam, shiftParam) => {
 
   const buildGroundRect = (baseX) => ({
     type: 'rect',
-    data: {
-      position: [baseX, origin[1]],
-      size: [tileWidth, groundHeight],
-      fill: '#15803d',
-      stroke: '#0f5132',
-      width: 0.2
-    }
+    position: [baseX, origin[1]],
+    size: [tileWidth, groundHeight],
+    fill: '#15803d',
+    stroke: '#0f5132',
+    width: 0.2
   });
 
   const roadHeight = groundHeight * 0.35;
@@ -29,13 +27,11 @@ return (locationParam, widthParam, heightParam, shiftParam) => {
 
   const buildRoadRect = (baseX) => ({
     type: 'rect',
-    data: {
-      position: [baseX, roadY],
-      size: [tileWidth, roadHeight],
-      fill: '#1f2937',
-      stroke: '#0f172a',
-      width: 0.2
-    }
+    position: [baseX, roadY],
+    size: [tileWidth, roadHeight],
+    fill: '#1f2937',
+    stroke: '#0f172a',
+    width: 0.2
   });
 
   const laneCenterY = roadY + roadHeight / 2;
@@ -49,13 +45,11 @@ return (locationParam, widthParam, heightParam, shiftParam) => {
       const dashX = baseX + index * (dashWidth + dashGap);
       return {
         type: 'rect',
-        data: {
-          position: [dashX, laneCenterY - 0.25],
-          size: [dashWidth, 0.5],
-          fill: '#f8fafc',
-          stroke: '#f8fafc',
-          width: 0.1
-        }
+        position: [dashX, laneCenterY - 0.25],
+        size: [dashWidth, 0.5],
+        fill: '#f8fafc',
+        stroke: '#f8fafc',
+        width: 0.1
       };
     });
 

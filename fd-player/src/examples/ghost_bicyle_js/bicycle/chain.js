@@ -19,12 +19,10 @@ return (start, end, segments, displacement) => {
     }
     return {
       type: 'line',
-      data: {
-        from: point(a),
-        to: point(b),
-        stroke: '#fbbf24',
-        width: 0.3
-      }
+      from: point(a),
+      to: point(b),
+      stroke: '#fbbf24',
+      width: 0.3
     };
   });
 };

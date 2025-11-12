@@ -15,36 +15,30 @@ return (position, sizeParam) => {
   return [
     {
       type: 'rect',
-      data: {
-        position: [base[0] - trunkWidth / 2, base[1]],
-        size: [trunkWidth, trunkHeight],
-        fill: '#92400e',
-        stroke: '#713f12',
-        width: 0.25
-      }
+      position: [base[0] - trunkWidth / 2, base[1]],
+      size: [trunkWidth, trunkHeight],
+      fill: '#92400e',
+      stroke: '#713f12',
+      width: 0.25
     },
     {
       type: 'polygon',
-      data: {
-        points: [
-          [base[0] - canopyWidth / 2, canopyBaseY],
-          [base[0], canopyApexY],
-          [base[0] + canopyWidth / 2, canopyBaseY]
-        ],
-        fill: '#22c55e',
-        stroke: '#15803d',
-        width: 0.35
-      }
+      points: [
+        [base[0] - canopyWidth / 2, canopyBaseY],
+        [base[0], canopyApexY],
+        [base[0] + canopyWidth / 2, canopyBaseY]
+      ],
+      fill: '#22c55e',
+      stroke: '#15803d',
+      width: 0.35
     },
     {
       type: 'circle',
-      data: {
-        center: [base[0], canopyBaseY + canopyHeight * 0.6],
-        radius: canopyWidth / 2.8,
-        fill: 'rgba(34,197,94,0.8)',
-        stroke: '#16a34a',
-        width: 0.25
-      }
+      center: [base[0], canopyBaseY + canopyHeight * 0.6],
+      radius: canopyWidth / 2.8,
+      fill: 'rgba(34,197,94,0.8)',
+      stroke: '#16a34a',
+      width: 0.25
     }
   ];
 };

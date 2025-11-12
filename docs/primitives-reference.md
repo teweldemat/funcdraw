@@ -1,33 +1,28 @@
 # Primitives Reference
 
-FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a `graphics` expression. Each primitive is an object with a `type` string and a `data` record containing the fields listed below. Validation and defaults match the logic used by the hosted FuncDraw Player and the `fd-cli` renderer.
+FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a `graphics` expression. Each primitive is an object with a `type` string plus the drawing fields listed below (no nested `data` wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Player and the `fd-cli` renderer.
 
 ## Shared rules
 - Coordinates are 2-element arrays `[x, y]` expressed in the same units as your `view` extent.
 - `stroke` and `fill` fields take CSS color strings (`#rrggbb`, `rgb()`, etc.). When omitted, defaults described below kick in.
 - `width` values are expressed in world units, not pixels; the renderer scales them to the canvas resolution at draw time.
+- Legacy `{ data: { ... } }` wrappers are rejected. Move drawing properties directly onto the primitive for consistent performance.
 
 ## `line`
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["type", "data"],
+  "required": ["type", "from", "to"],
   "properties": {
     "type": { "const": "line" },
-    "data": {
-      "type": "object",
-      "required": ["from", "to"],
-      "properties": {
-        "from": { "$ref": "#/definitions/point" },
-        "to": { "$ref": "#/definitions/point" },
-        "stroke": { "type": "string", "default": "#38bdf8" },
-        "width": { "type": "number", "default": 0.25 },
-        "dash": {
-          "type": "array",
-          "items": { "type": "number", "minimum": 0 }
-        }
-      }
+    "from": { "$ref": "#/definitions/point" },
+    "to": { "$ref": "#/definitions/point" },
+    "stroke": { "type": "string", "default": "#38bdf8" },
+    "width": { "type": "number", "default": 0.25 },
+    "dash": {
+      "type": "array",
+      "items": { "type": "number", "minimum": 0 }
     }
   },
   "definitions": {
@@ -46,24 +41,22 @@ FuncDraw renders graphics by walking the array (or nested arrays) of primitive o
 ```
 
 ## `rect`
+
+> **Position anchor**
+>
+> The `position` field represents the **bottom-left corner** of the rectangle in view-space coordinates. To center a rectangle at `[cx, cy]` you must subtract half the width/height yourself: `position: [cx - w/2, cy - h/2]`.
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["type", "data"],
+  "required": ["type", "position", "size"],
   "properties": {
     "type": { "const": "rect" },
-    "data": {
-      "type": "object",
-      "required": ["position", "size"],
-      "properties": {
-        "position": { "$ref": "#/definitions/point" },
-        "size": { "$ref": "#/definitions/point" },
-        "fill": { "type": "string" },
-        "stroke": { "type": "string" },
-        "width": { "type": "number", "default": 0.25 }
-      }
-    }
+    "position": { "$ref": "#/definitions/point" },
+    "size": { "$ref": "#/definitions/point" },
+    "fill": { "type": "string" },
+    "stroke": { "type": "string" },
+    "width": { "type": "number", "default": 0.25 }
   },
   "definitions": {
     "point": {
@@ -85,20 +78,14 @@ FuncDraw renders graphics by walking the array (or nested arrays) of primitive o
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["type", "data"],
+  "required": ["type", "center", "radius"],
   "properties": {
     "type": { "const": "circle" },
-    "data": {
-      "type": "object",
-      "required": ["center", "radius"],
-      "properties": {
-        "center": { "$ref": "#/definitions/point" },
-        "radius": { "type": "number", "exclusiveMinimum": 0 },
-        "fill": { "type": "string" },
-        "stroke": { "type": "string" },
-        "width": { "type": "number", "default": 0.25 }
-      }
-    }
+    "center": { "$ref": "#/definitions/point" },
+    "radius": { "type": "number", "exclusiveMinimum": 0 },
+    "fill": { "type": "string" },
+    "stroke": { "type": "string" },
+    "width": { "type": "number", "default": 0.25 }
   },
   "definitions": {
     "point": {
@@ -120,23 +107,17 @@ FuncDraw renders graphics by walking the array (or nested arrays) of primitive o
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["type", "data"],
+  "required": ["type", "points"],
   "properties": {
     "type": { "const": "polygon" },
-    "data": {
-      "type": "object",
-      "required": ["points"],
-      "properties": {
-        "points": {
-          "type": "array",
-          "minItems": 3,
-          "items": { "$ref": "#/definitions/point" }
-        },
-        "fill": { "type": "string" },
-        "stroke": { "type": "string" },
-        "width": { "type": "number", "default": 0.25 }
-      }
-    }
+    "points": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/definitions/point" }
+    },
+    "fill": { "type": "string" },
+    "stroke": { "type": "string" },
+    "width": { "type": "number", "default": 0.25 }
   },
   "definitions": {
     "point": {
@@ -158,22 +139,16 @@ FuncDraw renders graphics by walking the array (or nested arrays) of primitive o
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["type", "data"],
+  "required": ["type", "position", "text"],
   "properties": {
     "type": { "const": "text" },
-    "data": {
-      "type": "object",
-      "required": ["position", "text"],
-      "properties": {
-        "position": { "$ref": "#/definitions/point" },
-        "text": { "type": "string" },
-        "color": { "type": "string", "default": "#e2e8f0" },
-        "fontSize": { "type": "number", "default": 1 },
-        "align": {
-          "enum": ["left", "center", "right"],
-          "default": "left"
-        }
-      }
+    "position": { "$ref": "#/definitions/point" },
+    "text": { "type": "string" },
+    "color": { "type": "string", "default": "#e2e8f0" },
+    "fontSize": { "type": "number", "default": 1 },
+    "align": {
+      "enum": ["left", "center", "right"],
+      "default": "left"
     }
   },
   "definitions": {

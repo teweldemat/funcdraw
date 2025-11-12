@@ -23,23 +23,19 @@
       y: bulletStart - index * bulletSpacing;
       dot: {
         type: 'circle';
-        data: {
-          center: [dotX, y];
-          radius: dotRadius;
-          fill: accent;
-          stroke: 'transparent';
-          width: 0;
-        };
+        center: [dotX, y];
+        radius: dotRadius;
+        fill: accent;
+        stroke: 'transparent';
+        width: 0;
       };
       text: {
         type: 'text';
-        data: {
-          position: [textX, y];
-          text: line;
-          color: '#e2e8f0';
-          fontSize: bulletFont;
-          align: 'left';
-        };
+        position: [textX, y];
+        text: line;
+        color: '#e2e8f0';
+        fontSize: bulletFont;
+        align: 'left';
       };
       eval [dot, text];
     };
@@ -59,13 +55,11 @@
     nodes map (offset) => {
       eval {
         type: 'circle';
-        data: {
-          center: [nodeCenterX + offset[0], nodeCenterY + offset[1]];
-          radius: nodeRadius;
-          fill: accent;
-          stroke: 'transparent';
-          width: 0;
-        };
+        center: [nodeCenterX + offset[0], nodeCenterY + offset[1]];
+        radius: nodeRadius;
+        fill: accent;
+        stroke: 'transparent';
+        width: 0;
       };
     };
 
@@ -77,16 +71,14 @@
     [1, 3],
     [2, 4]
   ] map (pair) => {
-    from: nodeDots[pair[0]].data.center;
-    to: nodeDots[pair[1]].data.center;
+    from: nodeDots[pair[0]].center;
+    to: nodeDots[pair[1]].center;
     eval {
       type: 'line';
-      data: {
-        from;
-        to;
-        stroke: 'rgba(168,85,247,0.5)';
-        width: 0.8;
-      };
+      from;
+      to;
+      stroke: 'rgba(168,85,247,0.5)';
+      width: 0.8;
     };
   };
 

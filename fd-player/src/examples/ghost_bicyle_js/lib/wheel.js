@@ -6,41 +6,35 @@ return (center, outerRadius, innerRadius, angle) => {
     const theta = baseAngle + index * ((Math.PI * 2) / spokeCount);
     return {
       type: 'line',
-      data: {
-        from: [
-          center[0] + Math.sin(theta) * innerRadius,
-          center[1] + Math.cos(theta) * innerRadius
-        ],
-        to: [
-          center[0] + Math.sin(theta) * outerRadius,
-          center[1] + Math.cos(theta) * outerRadius
-        ],
-        stroke: '#38bdf8',
-        width: 0.3
-      }
+      from: [
+        center[0] + Math.sin(theta) * innerRadius,
+        center[1] + Math.cos(theta) * innerRadius
+      ],
+      to: [
+        center[0] + Math.sin(theta) * outerRadius,
+        center[1] + Math.cos(theta) * outerRadius
+      ],
+      stroke: '#38bdf8',
+      width: 0.3
     };
   });
   return [
     lines,
     {
       type: 'circle',
-      data: {
-        center,
-        radius: outerRadius,
-        stroke: '#334155',
-        width: 1,
-        fill: null
-      }
+      center,
+      radius: outerRadius,
+      stroke: '#334155',
+      width: 1,
+      fill: null
     },
     {
       type: 'circle',
-      data: {
-        center,
-        radius: innerRadius,
-        stroke: '#38bdf8',
-        width: 1,
-        fill: null
-      }
+      center,
+      radius: innerRadius,
+      stroke: '#38bdf8',
+      width: 1,
+      fill: null
     }
   ];
 };

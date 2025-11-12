@@ -7,7 +7,8 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
+  type MutableRefObject
 } from 'react';
 import {
   defaultGraphicsExpression,
@@ -634,6 +635,9 @@ const App = (): JSX.Element => {
   const newTabInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFocusEditorId, setPendingFocusEditorId] = useState<string | null>(null);
   const newTabInputPrimedRef = useRef(false);
+  const workspaceMenuRef = useRef<HTMLDetailsElement | null>(null);
+  const previewMenuRef = useRef<HTMLDetailsElement | null>(null);
+  const resourcesMenuRef = useRef<HTMLDetailsElement | null>(null);
   const draftCommittedRef = useRef(false);
   const workspaceImportInputRef = useRef<HTMLInputElement | null>(null);
   const folderImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -678,6 +682,14 @@ const App = (): JSX.Element => {
   }, [isMobile]);
 
   useEffect(() => {
+    if (!isMobile) {
+      workspaceMenuRef.current?.removeAttribute('open');
+      previewMenuRef.current?.removeAttribute('open');
+      resourcesMenuRef.current?.removeAttribute('open');
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
     if (activeMobileTab !== 'expressions') {
       setTreeDrawerOpen(false);
     }
@@ -692,6 +704,34 @@ const App = (): JSX.Element => {
   const handleMobileTabChange = useCallback((next: MobileTab) => {
     setActiveMobileTab(next);
   }, []);
+
+  const closeMobileMenu = useCallback((menuRef: MutableRefObject<HTMLDetailsElement | null>) => {
+    if (menuRef.current) {
+      menuRef.current.open = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent | MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      const menus = [workspaceMenuRef.current, previewMenuRef.current, resourcesMenuRef.current];
+      for (const menu of menus) {
+        if (menu?.open && !menu.contains(target)) {
+          menu.open = false;
+        }
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isMobile]);
 
   const handleOpenTreeDrawer = useCallback(() => {
     setTreeDrawerOpen(true);
@@ -1737,6 +1777,14 @@ const App = (): JSX.Element => {
     stopAnimation();
   }, [stopAnimation]);
 
+  const handleTogglePlay = useCallback(() => {
+    if (playingRef.current) {
+      handlePause();
+    } else {
+      handlePlay();
+    }
+  }, [handlePause, handlePlay]);
+
   const applyManualTime = useCallback(
     (nextTime: number) => {
       const clamped = Number.isFinite(nextTime) ? Math.max(0, nextTime) : 0;
@@ -2261,125 +2309,301 @@ const App = (): JSX.Element => {
           </div>
         </div>
         <div className="app-toolbar-actions" role="group" aria-label="Workspace toolbar">
-          <div className="toolbar-row" role="group" aria-label="Expression and workspace controls">
-            {showExpressionToggle ? (
-              <>
-                <div className="toolbar-group">
+          {isMobile ? (
+            <>
+              <div className="mobile-toolbar-menus" role="group" aria-label="Workspace controls">
+                <details ref={workspaceMenuRef} className="mobile-menu">
+                  <summary className="mobile-menu-trigger" aria-haspopup="menu">
+                    <span className="mobile-menu-trigger-icon" aria-hidden="true">🧰</span>
+                    <span className="mobile-menu-trigger-label">Workspace</span>
+                  </summary>
+                  <div
+                    className="mobile-menu-content"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-label="Workspace actions"
+                  >
+                    {showExpressions ? (
+                      <button
+                        type="button"
+                        className="mobile-menu-item"
+                        onClick={() => {
+                          handleClear();
+                          closeMobileMenu(workspaceMenuRef);
+                        }}
+                        role="menuitem"
+                      >
+                        <span className="mobile-menu-item-icon" aria-hidden="true">🆕</span>
+                        <span className="mobile-menu-item-label">Reset</span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleWorkspaceImportClick();
+                        closeMobileMenu(workspaceMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">📂</span>
+                      <span className="mobile-menu-item-label">Upload</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleDownloadWorkspace();
+                        closeMobileMenu(workspaceMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">💾</span>
+                      <span className="mobile-menu-item-label">Save</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleExportSvg();
+                        closeMobileMenu(workspaceMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">🖋️</span>
+                      <span className="mobile-menu-item-label">SVG</span>
+                    </button>
+                  </div>
+                </details>
+                <details ref={resourcesMenuRef} className="mobile-menu">
+                  <summary className="mobile-menu-trigger" aria-haspopup="menu">
+                    <span className="mobile-menu-trigger-icon" aria-hidden="true">📚</span>
+                    <span className="mobile-menu-trigger-label">Resources</span>
+                  </summary>
+                  <div
+                    className="mobile-menu-content"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-label="Reference resources"
+                  >
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleExampleOpen();
+                        closeMobileMenu(resourcesMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">📘</span>
+                      <span className="mobile-menu-item-label">Examples</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleReferenceOpen();
+                        closeMobileMenu(resourcesMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">❔</span>
+                      <span className="mobile-menu-item-label">Reference</span>
+                    </button>
+                  </div>
+                </details>
+                <details ref={previewMenuRef} className="mobile-menu">
+                  <summary className="mobile-menu-trigger" aria-haspopup="menu">
+                    <span className="mobile-menu-trigger-icon" aria-hidden="true">🎛️</span>
+                    <span className="mobile-menu-trigger-label">Preview</span>
+                  </summary>
+                  <div
+                    className="mobile-menu-content"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-label="Preview controls"
+                  >
+                    <button
+                      type="button"
+                      className={`mobile-menu-item${
+                        previewMode === 'graphics' ? ' mobile-menu-item-active' : ''
+                      }`}
+                      onClick={() => {
+                        setPreviewMode('graphics');
+                        closeMobileMenu(previewMenuRef);
+                      }}
+                      role="menuitemradio"
+                      aria-checked={previewMode === 'graphics'}
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">🎨</span>
+                      <span className="mobile-menu-item-label">Graphics</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`mobile-menu-item${
+                        previewMode === 'json' ? ' mobile-menu-item-active' : ''
+                      }`}
+                      onClick={() => {
+                        setPreviewMode('json');
+                        closeMobileMenu(previewMenuRef);
+                      }}
+                      role="menuitemradio"
+                      aria-checked={previewMode === 'json'}
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">{'{ }'}</span>
+                      <span className="mobile-menu-item-label">JSON</span>
+                    </button>
+                    <div className="mobile-menu-item mobile-menu-item-static" role="presentation">
+                      <span className="mobile-menu-item-icon" aria-hidden="true">📦</span>
+                      <span className="mobile-menu-item-label">Primitives: {totalPrimitives}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="mobile-menu-item"
+                      onClick={() => {
+                        handleTimeDisplayClick();
+                        closeMobileMenu(previewMenuRef);
+                      }}
+                      role="menuitem"
+                    >
+                      <span className="mobile-menu-item-icon" aria-hidden="true">⏱</span>
+                      <span className="mobile-menu-item-label">t = {time.toFixed(2)}s</span>
+                    </button>
+                  </div>
+                </details>
+              </div>
+              <div className="toolbar-row toolbar-row-controls" role="group" aria-label="Animation controls">
+                <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
                   <button
                     type="button"
-                    className={`icon-button${showExpressions ? ' icon-button-active' : ''}`}
-                    onClick={handleToggleExpressions}
-                    aria-pressed={showExpressions}
+                    className={`control-button${isPlaying ? ' control-button-active' : ''}`}
+                    onClick={handleTogglePlay}
+                    aria-pressed={isPlaying}
                   >
-                    <span className="icon-button-icon" aria-hidden="true">🧮</span>
-                    <span className="icon-button-label">{expressionLabel}</span>
+                    <span className="icon-button-icon" aria-hidden="true">{isPlaying ? '⏸' : '▶'}</span>
+                    <span className="icon-button-label">{isPlaying ? 'Pause' : 'Play'}</span>
+                  </button>
+                  <button type="button" className="control-button" onClick={handleReset}>
+                    <span className="icon-button-icon" aria-hidden="true">⟲</span>
+                    <span className="icon-button-label">Reset</span>
                   </button>
                 </div>
-                <div className="toolbar-divider" aria-hidden="true" />
-              </>
-            ) : null}
-            <div className="toolbar-group" role="group" aria-label="Workspace actions">
-              {showExpressions ? (
-                <button type="button" className="icon-button" onClick={handleClear}>
-                  <span className="icon-button-icon" aria-hidden="true">🆕</span>
-                  <span className="icon-button-label">Reset</span>
-                </button>
-              ) : null}
-              <button type="button" className="icon-button" onClick={handleWorkspaceImportClick}>
-                <span className="icon-button-icon" aria-hidden="true">📂</span>
-                <span className="icon-button-label">Upload</span>
-              </button>
-              <button type="button" className="icon-button" onClick={handleDownloadWorkspace}>
-                <span className="icon-button-icon" aria-hidden="true">💾</span>
-                <span className="icon-button-label">Save</span>
-              </button>
-              <button type="button" className="icon-button" onClick={handleExportSvg}>
-                <span className="icon-button-icon" aria-hidden="true">🖋️</span>
-                <span className="icon-button-label">SVG</span>
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={handleExampleOpen}
-                aria-haspopup="dialog"
-                aria-expanded={exampleOpen}
-              >
-                <span className="icon-button-icon" aria-hidden="true">📘</span>
-                <span className="icon-button-label">Examples</span>
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={handleReferenceOpen}
-                aria-haspopup="dialog"
-                aria-expanded={referenceOpen}
-              >
-                <span className="icon-button-icon" aria-hidden="true">❔</span>
-                <span className="icon-button-label">Reference</span>
-              </button>
-            </div>
-          </div>
-          <div className="toolbar-row toolbar-row-controls" role="group" aria-label="Preview and animation controls">
-            <div className="toolbar-group" role="group" aria-label="Preview controls">
-              <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
-                <button
-                  type="button"
-                  className={`preview-mode-button${
-                    previewMode === 'graphics' ? ' preview-mode-button-active' : ''
-                  }`}
-                  onClick={() => setPreviewMode('graphics')}
-                  aria-pressed={previewMode === 'graphics'}
-                >
-                  <span className="icon-button-icon" aria-hidden="true">🎨</span>
-                  <span className="icon-button-label">Graphics</span>
-                </button>
-                <button
-                  type="button"
-                  className={`preview-mode-button${
-                    previewMode === 'json' ? ' preview-mode-button-active' : ''
-                  }`}
-                  onClick={() => setPreviewMode('json')}
-                  aria-pressed={previewMode === 'json'}
-                >
-                  <span className="icon-button-icon" aria-hidden="true">{'{ }'}</span>
-                  <span className="icon-button-label">JSON</span>
-                </button>
               </div>
-              <span className="toolbar-meta">Primitives: {totalPrimitives}</span>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={handleTimeDisplayClick}
-              >
-                <span className="icon-button-icon" aria-hidden="true">⏱</span>
-                <span className="icon-button-label">t = {time.toFixed(2)}s</span>
-              </button>
-            </div>
-            <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
-              <button
-                type="button"
-                className="control-button"
-                onClick={handlePlay}
-                disabled={isPlaying}
-              >
-                <span className="icon-button-icon" aria-hidden="true">▶</span>
-                <span className="icon-button-label">Play</span>
-              </button>
-              <button
-                type="button"
-                className="control-button"
-                onClick={handlePause}
-                disabled={!isPlaying}
-              >
-                <span className="icon-button-icon" aria-hidden="true">⏸</span>
-                <span className="icon-button-label">Pause</span>
-              </button>
-              <button type="button" className="control-button" onClick={handleReset}>
-                <span className="icon-button-icon" aria-hidden="true">⟲</span>
-                <span className="icon-button-label">Reset</span>
-              </button>
-            </div>
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="toolbar-row" role="group" aria-label="Expression and workspace controls">
+                {showExpressionToggle ? (
+                  <>
+                    <div className="toolbar-group">
+                      <button
+                        type="button"
+                        className={`icon-button${showExpressions ? ' icon-button-active' : ''}`}
+                        onClick={handleToggleExpressions}
+                        aria-pressed={showExpressions}
+                      >
+                        <span className="icon-button-icon" aria-hidden="true">🧮</span>
+                        <span className="icon-button-label">{expressionLabel}</span>
+                      </button>
+                    </div>
+                    <div className="toolbar-divider" aria-hidden="true" />
+                  </>
+                ) : null}
+                <div className="toolbar-group" role="group" aria-label="Workspace actions">
+                  {showExpressions ? (
+                    <button type="button" className="icon-button" onClick={handleClear}>
+                      <span className="icon-button-icon" aria-hidden="true">🆕</span>
+                      <span className="icon-button-label">Reset</span>
+                    </button>
+                  ) : null}
+                  <button type="button" className="icon-button" onClick={handleWorkspaceImportClick}>
+                    <span className="icon-button-icon" aria-hidden="true">📂</span>
+                    <span className="icon-button-label">Upload</span>
+                  </button>
+                  <button type="button" className="icon-button" onClick={handleDownloadWorkspace}>
+                    <span className="icon-button-icon" aria-hidden="true">💾</span>
+                    <span className="icon-button-label">Save</span>
+                  </button>
+                  <button type="button" className="icon-button" onClick={handleExportSvg}>
+                    <span className="icon-button-icon" aria-hidden="true">🖋️</span>
+                    <span className="icon-button-label">SVG</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={handleExampleOpen}
+                    aria-haspopup="dialog"
+                    aria-expanded={exampleOpen}
+                  >
+                    <span className="icon-button-icon" aria-hidden="true">📘</span>
+                    <span className="icon-button-label">Examples</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={handleReferenceOpen}
+                    aria-haspopup="dialog"
+                    aria-expanded={referenceOpen}
+                  >
+                    <span className="icon-button-icon" aria-hidden="true">❔</span>
+                    <span className="icon-button-label">Reference</span>
+                  </button>
+                </div>
+              </div>
+              <div className="toolbar-row toolbar-row-controls" role="group" aria-label="Preview and animation controls">
+                <div className="toolbar-group" role="group" aria-label="Preview controls">
+                  <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
+                    <button
+                      type="button"
+                      className={`preview-mode-button${
+                        previewMode === 'graphics' ? ' preview-mode-button-active' : ''
+                      }`}
+                      onClick={() => setPreviewMode('graphics')}
+                      aria-pressed={previewMode === 'graphics'}
+                    >
+                      <span className="icon-button-icon" aria-hidden="true">🎨</span>
+                      <span className="icon-button-label">Graphics</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`preview-mode-button${
+                        previewMode === 'json' ? ' preview-mode-button-active' : ''
+                      }`}
+                      onClick={() => setPreviewMode('json')}
+                      aria-pressed={previewMode === 'json'}
+                    >
+                      <span className="icon-button-icon" aria-hidden="true">{'{ }'}</span>
+                      <span className="icon-button-label">JSON</span>
+                    </button>
+                  </div>
+                  <span className="toolbar-meta">Primitives: {totalPrimitives}</span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={handleTimeDisplayClick}
+                  >
+                    <span className="icon-button-icon" aria-hidden="true">⏱</span>
+                    <span className="icon-button-label">t = {time.toFixed(2)}s</span>
+                  </button>
+                </div>
+                <div className="toolbar-group toolbar-group-animation" role="group" aria-label="Animation controls">
+                  <button
+                    type="button"
+                    className={`control-button${isPlaying ? ' control-button-active' : ''}`}
+                    onClick={handleTogglePlay}
+                    aria-pressed={isPlaying}
+                  >
+                    <span className="icon-button-icon" aria-hidden="true">{isPlaying ? '⏸' : '▶'}</span>
+                    <span className="icon-button-label">{isPlaying ? 'Pause' : 'Play'}</span>
+                  </button>
+                  <button type="button" className="control-button" onClick={handleReset}>
+                    <span className="icon-button-icon" aria-hidden="true">⟲</span>
+                    <span className="icon-button-label">Reset</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </header>
     );

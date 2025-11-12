@@ -53,6 +53,7 @@ import {
 import { buildWorkspaceFiles } from './workspaceExport';
 import { createZipBlob, MODEL_ARCHIVE_EXTENSION, MODEL_ARCHIVE_MIME } from './utils/zip';
 import type { ExpressionLanguage, FuncDrawErrorDetail } from '@tewelde/funcdraw';
+import { applyProjectImportBindings } from './importModuleFunction';
 
 const MIN_LEFT_WIDTH = 260;
 const MIN_RIGHT_WIDTH = 320;
@@ -1541,9 +1542,7 @@ const App = (): JSX.Element => {
   }, []);
   const baseProvider = useMemo(() => {
     const provider = prepareProvider();
-    if (projectBootstrap?.importFunction) {
-      provider.setJsValue('import', projectBootstrap.importFunction);
-    }
+    applyProjectImportBindings(provider, projectBootstrap?.importFunction);
     return provider;
   }, [projectBootstrap]);
 
@@ -2055,9 +2054,7 @@ const App = (): JSX.Element => {
     const exportTime = Number.isFinite(parsed) ? parsed : 0;
     try {
       const exportProvider = prepareProvider();
-      if (projectBootstrap?.importFunction) {
-        exportProvider.setJsValue('import', projectBootstrap.importFunction);
-      }
+      applyProjectImportBindings(exportProvider, projectBootstrap?.importFunction);
       const exportHandle = FuncDraw.evaluate(resolver, undefined, { baseProvider: exportProvider });
       exportHandle.setTime(exportTime);
       const environmentProvider = exportHandle.environmentProvider;

@@ -1,0 +1,11 @@
+{
+  "name": "@sample/funcdraw-funcscript",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "play": "node ../../scripts/play-project.mjs"
+  },
+  "dependencies": {
+    "common-graphic": "^0.1.0"
+  }
+}

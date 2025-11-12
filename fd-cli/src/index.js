@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createRequire } = require('module');
 const { Resvg } = require('@resvg/resvg-js');
 
 const loadFuncDraw = () => {
@@ -24,9 +25,15 @@ const FuncScript = require('@tewelde/funcscript');
 const pkg = require('../package.json');
 
 const {
+  ArrayFsList,
+  BaseFunction,
+  CallType,
   DefaultFsDataProvider,
   Engine,
   FSDataType,
+  FsList,
+  KeyValueCollection,
+  SimpleKeyValueCollection,
   ensureTyped,
   typeOf,
   valueOf,
@@ -38,6 +45,163 @@ const DEFAULT_VIEW_EXPRESSION = `{
 }`;
 const DEFAULT_BACKGROUND = '#0f172a';
 const DEFAULT_GRID_COLOR = 'rgba(148, 163, 184, 0.2)';
+const JS_VALUE_SENTINEL = Symbol('fd-cli.js.value');
+
+const makeTypedNull = () => Engine.makeValue(FSDataType.Null, null);
+
+const convertNumber = (value) => {
+  if (Number.isInteger(value)) {
+    return Engine.makeValue(FSDataType.Integer, value);
+  }
+  return Engine.makeValue(FSDataType.Float, value);
+};
+
+const convertModuleValueToTyped = (value, seen = new WeakSet()) => {
+  if (value === null || value === undefined) {
+    return makeTypedNull();
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value)) {
+      throw new Error('Cannot convert cyclic array to FuncScript value.');
+    }
+    seen.add(value);
+    const entries = value.map((entry) => convertModuleValueToTyped(entry, seen));
+    seen.delete(value);
+    return Engine.makeValue(FSDataType.List, new ArrayFsList(entries));
+  }
+  const valueType = typeof value;
+  if (valueType === 'string') {
+    return Engine.makeValue(FSDataType.String, value);
+  }
+  if (valueType === 'number') {
+    if (!Number.isFinite(value)) {
+      return makeTypedNull();
+    }
+    return convertNumber(value);
+  }
+  if (valueType === 'boolean') {
+    return Engine.makeValue(FSDataType.Boolean, value);
+  }
+  if (valueType === 'bigint') {
+    return Engine.makeValue(FSDataType.BigInteger, value);
+  }
+  if (value instanceof Date) {
+    return Engine.makeValue(FSDataType.DateTime, value);
+  }
+  if (valueType === 'object') {
+    if (seen.has(value)) {
+      throw new Error('Cannot convert cyclic object to FuncScript value.');
+    }
+    seen.add(value);
+    const entries = Object.entries(value).map(([key, entry]) => [key, convertModuleValueToTyped(entry, seen)]);
+    seen.delete(value);
+    return Engine.makeValue(FSDataType.KeyValueCollection, new SimpleKeyValueCollection(null, entries));
+  }
+  throw new Error(`Unsupported module value type: ${String(valueType)}`);
+};
+
+class CliFsDataProvider extends DefaultFsDataProvider {
+  constructor(map) {
+    super(map);
+    this.jsValues = new Map();
+  }
+
+  setJsValue(name, value) {
+    if (typeof name !== 'string') {
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (value === undefined) {
+      this.jsValues.delete(key);
+      return;
+    }
+    this.jsValues.set(key, { marker: JS_VALUE_SENTINEL, value });
+  }
+
+  getJsValue(name) {
+    if (typeof name !== 'string') {
+      return undefined;
+    }
+    const key = name.trim().toLowerCase();
+    if (!key) {
+      return undefined;
+    }
+    if (this.jsValues.has(key)) {
+      return this.jsValues.get(key);
+    }
+    if (this.parent && typeof this.parent.getJsValue === 'function') {
+      return this.parent.getJsValue(name);
+    }
+    return undefined;
+  }
+}
+
+class FuncscriptImportFunction extends BaseFunction {
+  constructor(importFn) {
+    super();
+    this.importFn = importFn;
+    this.symbol = 'import';
+    this.callType = CallType.Prefix;
+  }
+
+  get maxParameters() {
+    return 1;
+  }
+
+  evaluate(provider, parameters) {
+    if (parameters.count !== 1) {
+      throw new Error('import expects exactly one string argument.');
+    }
+    const typedSpecifier = Engine.ensureTyped(parameters.getParameter(provider, 0));
+    if (Engine.typeOf(typedSpecifier) !== FSDataType.String) {
+      throw new Error('import argument must be a string.');
+    }
+    const specifier = Engine.valueOf(typedSpecifier);
+    const moduleValue = this.importFn(specifier);
+    return convertModuleValueToTyped(moduleValue);
+  }
+}
+
+const createFuncscriptImportFunction = (importFn) => {
+  if (typeof importFn !== 'function') {
+    return null;
+  }
+  return new FuncscriptImportFunction(importFn);
+};
+
+const applyImportBindings = (provider, importFn) => {
+  if (!importFn || typeof importFn !== 'function') {
+    return;
+  }
+  const funcscriptImport = createFuncscriptImportFunction(importFn);
+  if (funcscriptImport) {
+    provider.set('import', funcscriptImport);
+    provider.set('require', funcscriptImport);
+  }
+  const assignBinding = (name, options = {}) => {
+    if (!name) {
+      return;
+    }
+    provider.setJsValue(name, importFn);
+    if (options.setGlobal !== false && typeof globalThis !== 'undefined') {
+      const current = globalThis[name];
+      if (options.forceGlobal || current === undefined) {
+        try {
+          globalThis[name] = importFn;
+        } catch {
+          // Ignore read-only globals.
+        }
+      }
+    }
+  };
+  assignBinding('fdimport', { forceGlobal: true });
+  const shouldSetGlobalRequire = typeof globalThis === 'undefined' || globalThis.require === undefined;
+  assignBinding('require', { setGlobal: shouldSetGlobalRequire });
+};
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 720;
 const DEFAULT_PADDING = 48;
@@ -999,6 +1163,226 @@ const ensurePathSegments = (value, label) => {
 
 const pathToString = (segments) => segments.join('/');
 
+const SUPPORTED_RESOLVER_EXTENSIONS = ['.fs', '.js'];
+
+const createFilesystemResolverForPackage = (root) => {
+  const resolvedRoot = path.resolve(root);
+  const listItems = (segments) => {
+    const target = path.join(resolvedRoot, ...segments);
+    let entries;
+    try {
+      entries = fs.readdirSync(target, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const items = [];
+    let index = 0;
+    for (const entry of entries) {
+      if (!entry || typeof entry.name !== 'string' || entry.name.startsWith('.')) {
+        index += 1;
+        continue;
+      }
+      if (entry.isDirectory && entry.isDirectory()) {
+        items.push({ kind: 'folder', name: entry.name, createdAt: index });
+      } else if (entry.isFile && entry.isFile()) {
+        const lower = entry.name.toLowerCase();
+        const extension = SUPPORTED_RESOLVER_EXTENSIONS.find((ext) => lower.endsWith(ext));
+        if (extension) {
+          const baseName = entry.name.slice(0, -extension.length);
+          items.push({
+            kind: 'expression',
+            name: baseName,
+            createdAt: index,
+            language: extension === '.fs' ? 'funcscript' : 'javascript'
+          });
+        }
+      }
+      index += 1;
+    }
+    return items;
+  };
+
+  const getExpression = (segments) => {
+    if (!Array.isArray(segments) || segments.length === 0) {
+      return null;
+    }
+    const folderSegments = segments.slice(0, -1);
+    const name = segments[segments.length - 1];
+    const folderPath = path.join(resolvedRoot, ...folderSegments);
+    for (const extension of SUPPORTED_RESOLVER_EXTENSIONS) {
+      const candidate = path.join(folderPath, `${name}${extension}`);
+      try {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return fs.readFileSync(candidate, 'utf8');
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+    return null;
+  };
+
+  return {
+    listItems,
+    getExpression
+  };
+};
+
+const convertTypedToPlain = (typed) => {
+  if (!typed) {
+    return null;
+  }
+  const type = Engine.typeOf(typed);
+  const raw = Engine.valueOf(typed);
+  switch (type) {
+    case FSDataType.Null:
+    case FSDataType.Boolean:
+    case FSDataType.Integer:
+    case FSDataType.Float:
+    case FSDataType.String:
+    case FSDataType.Guid:
+    case FSDataType.DateTime:
+    case FSDataType.BigInteger:
+      return raw;
+    case FSDataType.List: {
+      if (raw instanceof FsList && typeof raw.toArray === 'function') {
+        return raw.toArray().map((entry) => convertTypedToPlain(entry));
+      }
+      if (Array.isArray(raw)) {
+        return raw.map((entry) => convertTypedToPlain(entry));
+      }
+      return [];
+    }
+    case FSDataType.KeyValueCollection: {
+      if (raw instanceof KeyValueCollection && typeof raw.getAll === 'function') {
+        const result = {};
+        for (const [key, entry] of raw.getAll()) {
+          result[key] = convertTypedToPlain(entry);
+        }
+        return result;
+      }
+      return raw;
+    }
+    default:
+      return raw;
+  }
+};
+
+const hasEvalExpression = (handle, folderPath) => {
+  return handle
+    .listExpressions()
+    .some((entry) => {
+      if (!Array.isArray(entry.path) || entry.path.length !== folderPath.length + 1) {
+        return false;
+      }
+      const matchesParent = entry.path.slice(0, -1).every((segment, index) => segment === folderPath[index]);
+      return matchesParent && entry.path[entry.path.length - 1] === 'eval';
+    });
+};
+
+const collectFolderValue = (handle, folderPath) => {
+  const typed = handle.getFolderValue(folderPath);
+  const plain = convertTypedToPlain(typed);
+  if (plain && typeof plain === 'object' && !Array.isArray(plain) && !hasEvalExpression(handle, folderPath)) {
+    handle.listFolders(folderPath).forEach((child) => {
+      plain[child.name] = collectFolderValue(handle, child.path);
+    });
+  }
+  return plain;
+};
+
+const loadFuncdrawPackageSnapshot = (packageRoot) => {
+  const workspaceRoot = fs.existsSync(path.join(packageRoot, 'workspace'))
+    ? path.join(packageRoot, 'workspace')
+    : packageRoot;
+  const resolver = createFilesystemResolverForPackage(workspaceRoot);
+  const handle = FuncDraw.evaluate(resolver);
+  const exports = {};
+  const expressions = handle
+    .listExpressions()
+    .filter((entry) => Array.isArray(entry.path) && entry.path.length === 1);
+  expressions.forEach((entry) => {
+    const result = handle.evaluateExpression(entry.path);
+    if (result && entry.path.length === 1) {
+      exports[entry.path[0]] = result.value ?? null;
+    }
+  });
+  handle.listFolders([]).forEach((folder) => {
+    if (!folder || !Array.isArray(folder.path)) {
+      return;
+    }
+    try {
+      exports[folder.name] = collectFolderValue(handle, folder.path);
+    } catch {
+      // ignore errors
+    }
+  });
+  return exports;
+};
+
+const tryLoadFuncdrawPackage = (specifier, resolver) => {
+  try {
+    const packageJsonPath = resolver.resolve(`${specifier}/package.json`);
+    const packageRoot = path.dirname(packageJsonPath);
+    const configPath = path.join(packageRoot, 'funcdraw.json');
+    if (!fs.existsSync(configPath)) {
+      return null;
+    }
+    return loadFuncdrawPackageSnapshot(packageRoot);
+  } catch {
+    return null;
+  }
+};
+
+const clonePlainValue = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => clonePlainValue(entry));
+  }
+  if (typeof value === 'object') {
+    const clone = {};
+    for (const [key, entry] of Object.entries(value)) {
+      clone[key] = clonePlainValue(entry);
+    }
+    return clone;
+  }
+  return value;
+};
+
+const createModuleImportFunction = (rootDir) => {
+  const root = path.resolve(rootDir || process.cwd());
+  let resolver;
+  const packageJsonPath = path.join(root, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    resolver = createRequire(packageJsonPath);
+  } else {
+    resolver = require;
+  }
+  const cache = new Map();
+  return (specifier) => {
+    if (typeof specifier !== 'string') {
+      throw new Error('Import specifier must be a string.');
+    }
+    const trimmed = specifier.trim();
+    if (!trimmed) {
+      throw new Error('Import specifier cannot be empty.');
+    }
+    if (cache.has(trimmed)) {
+      return cache.get(trimmed);
+    }
+    let value = tryLoadFuncdrawPackage(trimmed, resolver);
+    if (!value) {
+      // eslint-disable-next-line import/no-dynamic-require, global-require
+      value = resolver(trimmed);
+    }
+    const cloned = clonePlainValue(value);
+    cache.set(trimmed, cloned);
+    return cloned;
+  };
+};
+
 const printExpressionList = (funcDraw) => {
   const folders = funcDraw.listFolders([]);
   const expressions = funcDraw.listExpressions();
@@ -1024,7 +1408,9 @@ const printExpressionList = (funcDraw) => {
 };
 
 const createFuncDraw = (resolver, options) => {
-  const baseProvider = new DefaultFsDataProvider();
+  const baseProvider = new CliFsDataProvider();
+  const importFn = createModuleImportFunction(options.root || process.cwd());
+  applyImportBindings(baseProvider, importFn);
   const evaluateOptions = { baseProvider };
   if (options.timeName) {
     evaluateOptions.timeName = options.timeName;

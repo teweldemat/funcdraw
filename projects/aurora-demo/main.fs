@@ -1,4 +1,1 @@
-{
-  palette: import("aurora-library");
-  return palette.meadow;
-}
+import("aurora-library").meadow

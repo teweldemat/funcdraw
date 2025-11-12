@@ -6,4 +6,18 @@ Because of this, expressions and folders do not need to be explicitly imported w
 
 ## Imports
 The `import` function in FuncScript (`fdimport` in JavaScript contexts) is used to import packages from node_modules folders. All root items—expressions, collections, and modules—are assembled into a `KeyValueCollection` (an object in JavaScript). Imported modules do not need to specify what they export.
-Name references inside imported modules follow the same workspace name resolution rules described above.
+Name references inside imported packages follow the same workspace name resolution rules described above.
+
+
+## Package Structure
+
+- package.json
+- funcdraw.json
+- <expression>.fs|js
+- <collection>.fs|js
+    - <expression>.fs|js
+    - <collection>.fs|js
+        - <expression
+- <module>
+    - <eval>.fs|js
+    - <expression>.fs|js

@@ -1,0 +1,15 @@
+{
+  "title": "FuncDraw Cartoon Library",
+  "description": "Collections of landscape, animal, and character primitives for cartoon scenes.",
+  "catalogEntries": [
+    {
+      "id": "evergreen-tree",
+      "name": "Evergreen Tree",
+      "catalogExpression": "import(\"@funcdraw/cartoon\").landscape.tree('evergreen', [0, 0], 10).graphics;",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-8 -8 16 16\"><rect x=\"-0.7\" y=\"-4.5\" width=\"1.4\" height=\"4.8\" fill=\"#92400e\"/><polygon points=\"0,-7.5 -4,-3.5 4,-3.5\" fill=\"#166534\"/><polygon points=\"0,-5.5 -3.5,-2.5 3.5,-2.5\" fill=\"#16a34a\"/><circle cx=\"0\" cy=\"-4\" r=\"3.5\" fill=\"rgba(22, 163, 74, 0.25)\"/></svg>",
+      "descriptionHtml": "<p>Layered evergreen tree module that can be dropped into any cartoon landscape.</p>"
+    }
+  ],
+  "persistState": false
+}

@@ -3,6 +3,13 @@ const path = require('path');
 const { createRequire } = require('module');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
+const { FuncDraw } = require('@tewelde/funcdraw');
+const {
+  Engine,
+  FSDataType,
+  FsList,
+  KeyValueCollection
+} = require('@tewelde/funcscript/browser');
 
 const publicPath = process.env.PUBLIC_PATH || '/';
 const resolvePort = () => {
@@ -355,6 +362,185 @@ const collectModuleSpecifiers = (projectConfig) => {
   return specifiers;
 };
 
+const SUPPORTED_RESOLVER_EXTENSIONS = EXPRESSION_FILE_TYPES.map((entry) => entry.extension);
+
+const createFilesystemResolverForPackage = (root) => {
+  const listItems = (segments) => {
+    const target = path.join(root, ...segments);
+    let entries;
+    try {
+      entries = fs.readdirSync(target, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const items = [];
+    let index = 0;
+    for (const entry of entries) {
+      if (!entry || typeof entry.name !== 'string' || entry.name.startsWith('.')) {
+        index += 1;
+        continue;
+      }
+      if (entry.isDirectory && entry.isDirectory()) {
+        items.push({ kind: 'folder', name: entry.name, createdAt: index });
+        index += 1;
+        continue;
+      }
+      if (entry.isFile && entry.isFile()) {
+        const lower = entry.name.toLowerCase();
+        const fileType = EXPRESSION_FILE_TYPES.find((type) => lower.endsWith(type.extension));
+        if (fileType) {
+          const baseName = entry.name.slice(0, -fileType.extension.length);
+          items.push({
+            kind: 'expression',
+            name: baseName,
+            createdAt: index,
+            language: fileType.language
+          });
+        }
+      }
+      index += 1;
+    }
+    return items;
+  };
+
+  const getExpression = (segments) => {
+    if (!Array.isArray(segments) || segments.length === 0) {
+      return null;
+    }
+    const folderSegments = segments.slice(0, -1);
+    const name = segments[segments.length - 1];
+    const folderPath = path.join(root, ...folderSegments);
+    for (const extension of SUPPORTED_RESOLVER_EXTENSIONS) {
+      const candidate = path.join(folderPath, `${name}${extension}`);
+      try {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return fs.readFileSync(candidate, 'utf8');
+        }
+      } catch {
+        // Ignore read errors and continue.
+      }
+    }
+    return null;
+  };
+
+  return {
+    listItems,
+    getExpression
+  };
+};
+
+const convertTypedToPlain = (typed) => {
+  if (!typed) {
+    return null;
+  }
+  const type = Engine.typeOf(typed);
+  const raw = Engine.valueOf(typed);
+  switch (type) {
+    case FSDataType.Null:
+    case FSDataType.Boolean:
+    case FSDataType.Integer:
+    case FSDataType.Float:
+    case FSDataType.String:
+    case FSDataType.Guid:
+    case FSDataType.DateTime:
+    case FSDataType.BigInteger:
+      return raw;
+    case FSDataType.List: {
+      if (raw instanceof FsList && typeof raw.toArray === 'function') {
+        return raw.toArray().map((entry) => convertTypedToPlain(entry));
+      }
+      if (Array.isArray(raw)) {
+        return raw.map((entry) => convertTypedToPlain(entry));
+      }
+      return [];
+    }
+    case FSDataType.KeyValueCollection: {
+      if (raw instanceof KeyValueCollection && typeof raw.getAll === 'function') {
+        const result = {};
+        for (const [key, entry] of raw.getAll()) {
+          result[key] = convertTypedToPlain(entry);
+        }
+        return result;
+      }
+      return raw;
+    }
+    default:
+      return raw;
+  }
+};
+
+const hasEvalExpression = (handle, folderPath) => {
+  return handle
+    .listExpressions()
+    .some((entry) => {
+      if (!Array.isArray(entry.path) || entry.path.length !== folderPath.length + 1) {
+        return false;
+      }
+      const matchesParent = entry.path.slice(0, -1).every((segment, index) => segment === folderPath[index]);
+      return matchesParent && entry.path[entry.path.length - 1] === 'eval';
+    });
+};
+
+const collectFolderValue = (handle, folderPath) => {
+  const typed = handle.getFolderValue(folderPath);
+  const plain = convertTypedToPlain(typed);
+  if (plain && typeof plain === 'object' && !Array.isArray(plain) && !hasEvalExpression(handle, folderPath)) {
+    handle.listFolders(folderPath).forEach((child) => {
+      plain[child.name] = collectFolderValue(handle, child.path);
+    });
+  }
+  return plain;
+};
+
+const loadFuncdrawPackage = (packageRoot) => {
+  const workspaceDir = fs.existsSync(path.join(packageRoot, 'workspace'))
+    ? path.join(packageRoot, 'workspace')
+    : packageRoot;
+  const resolver = createFilesystemResolverForPackage(workspaceDir);
+  const handle = FuncDraw.evaluate(resolver);
+  const exports = {};
+
+  const expressions = handle
+    .listExpressions()
+    .filter((entry) => Array.isArray(entry.path) && entry.path.length === 1);
+  expressions.forEach((entry) => {
+    const result = handle.evaluateExpression(entry.path);
+    if (result && entry.path.length === 1) {
+      exports[entry.path[0]] = result.value ?? null;
+    }
+  });
+
+  handle.listFolders([]).forEach((folder) => {
+    if (!folder || typeof folder.name !== 'string' || !Array.isArray(folder.path)) {
+      return;
+    }
+    try {
+      exports[folder.name] = collectFolderValue(handle, folder.path);
+    } catch {
+      // Ignore folders that fail to evaluate.
+    }
+  });
+
+  return exports;
+};
+
+const tryLoadFuncdrawPackage = (specifier, resolver) => {
+  if (!resolver || typeof resolver.resolve !== 'function') {
+    return null;
+  }
+  try {
+    const packageJsonPath = resolver.resolve(`${specifier}/package.json`);
+    const packageRoot = path.dirname(packageJsonPath);
+    const configPath = path.join(packageRoot, 'funcdraw.json');
+    if (!fs.existsSync(configPath)) {
+      return null;
+    }
+    return loadFuncdrawPackage(packageRoot);
+  } catch {
+    return null;
+  }
+};
+
 const readProjectConfig = () => {
   if (!projectConfigPath) {
     return { literal: 'null', modulesLiteral: 'null' };
@@ -377,7 +563,8 @@ const readProjectConfig = () => {
         const resolver = createRequire(path.join(projectRoot, 'package.json'));
         for (const specifier of specifiers) {
           try {
-            const resolved = resolver(specifier);
+            const packageValue = tryLoadFuncdrawPackage(specifier, resolver);
+            const resolved = packageValue ?? resolver(specifier);
             const sanitized = sanitizeModuleValue(resolved);
             if (sanitized !== undefined) {
               modules[specifier] = sanitized;

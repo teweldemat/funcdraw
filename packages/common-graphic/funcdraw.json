@@ -5,7 +5,7 @@
     {
       "id": "body",
       "name": "Vehicle Body",
-      "catalogExpression": "{\n  const graphics = importModule(\"common-graphic/body\");\n  return graphics;\n}",
+      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic/body\");\n  return graphics;\n}",
       "catalogLanguage": "javascript",
       "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-6\" y=\"-2\" width=\"12\" height=\"4\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-4.5\" y=\"-3.5\" width=\"9\" height=\"1.5\" fill=\"#1e293b\"/></svg>",
       "descriptionHtml": "<p>The base profile shared by every compact car primitive.</p>"
@@ -13,7 +13,7 @@
     {
       "id": "car",
       "name": "Complete Car",
-      "catalogExpression": "{\n  const graphics = importModule(\"common-graphic/car\");\n  return graphics;\n}",
+      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic/car\");\n  return graphics;\n}",
       "catalogLanguage": "javascript",
       "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-10\" y=\"-3\" width=\"20\" height=\"6\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-8\" y=\"-5\" width=\"16\" height=\"2\" fill=\"#1e293b\"/><circle cx=\"-5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"-5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/><circle cx=\"5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/></svg>",
       "descriptionHtml": "<p>Body plus wheels, ready for scene placement.</p>"

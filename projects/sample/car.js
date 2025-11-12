@@ -1,4 +1,4 @@
 {
-  const graphics = importModule("common-graphic").car;
+  const graphics = fdimport("common-graphic").car;
   return graphics;
 }

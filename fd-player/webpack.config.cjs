@@ -25,6 +25,7 @@ const projectRoot = process.env.FUNCPLAY_PROJECT_ROOT
 const moduleSpecifierPatterns = [
   /import\s*\(\s*(['"])([^'"\s]+)\1\s*\)/g,
   /require\s*\(\s*(['"])([^'"\s]+)\1\s*\)/g,
+  /fdimport\s*\(\s*(['"])([^'"\s]+)\1\s*\)/g,
   /importModule\s*\(\s*(['"])([^'"\s]+)\1\s*\)/g
 ];
 

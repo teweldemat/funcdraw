@@ -15,7 +15,7 @@ const SAMPLE_MODULE = {
   ]
 };
 
-describe('FuncScript importModule binding', () => {
+describe('project import bindings', () => {
   it('exposes project modules to FuncScript expressions', () => {
     const provider = prepareProvider();
     applyProjectImportBindings(provider, (specifier) => {
@@ -26,7 +26,7 @@ describe('FuncScript importModule binding', () => {
     });
 
     const expression = `{
-  module: importModule("common-graphic");
+  module: import("common-graphic");
   return module;
 }`;
     const result = evaluateExpression(provider, expression, 'funcscript');
@@ -37,7 +37,7 @@ describe('FuncScript importModule binding', () => {
     });
   });
 
-  it('keeps importModule callable inside JavaScript expressions', () => {
+  it('exposes fdimport inside JavaScript expressions', () => {
     const provider = prepareProvider();
     applyProjectImportBindings(provider, (specifier) => {
       if (specifier === 'common-graphic') {
@@ -47,7 +47,7 @@ describe('FuncScript importModule binding', () => {
     });
 
     const expression = `{
-  const module = importModule("common-graphic");
+  const module = fdimport("common-graphic");
   return module.wheels.length;
 }`;
     const result = evaluateExpression(provider, expression, 'javascript');

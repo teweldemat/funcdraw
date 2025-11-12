@@ -5,7 +5,7 @@
     {
       "id": "sample-car",
       "name": "Sample Car",
-      "catalogExpression": "{\n  const graphics = importModule(\"common-graphic\").car;\n  return graphics;\n}",
+      "catalogExpression": "{\n  const graphics = fdimport(\"common-graphic\").car;\n  return graphics;\n}",
       "catalogLanguage": "javascript",
       "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-10\" y=\"-3\" width=\"20\" height=\"6\" fill=\"#38bdf8\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><rect x=\"-8\" y=\"-5\" width=\"16\" height=\"2\" fill=\"#1e293b\"/><circle cx=\"-5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"5\" cy=\"3\" r=\"2.2\" fill=\"#94a3b8\"/><circle cx=\"-5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/><circle cx=\"5\" cy=\"3\" r=\"1.4\" fill=\"#0f172a\"/></svg>",
       "descriptionHtml": "<p>A compact vehicle composed from reusable primitives.</p>"

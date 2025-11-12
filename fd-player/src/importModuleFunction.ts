@@ -75,12 +75,12 @@ const convertModuleValueToTyped = (value: unknown, seen = new WeakSet<object>())
   throw new Error(`Unsupported module value type: ${String(valueType)}`);
 };
 
-class FuncscriptImportModuleFunction extends BaseFunction {
+class FuncscriptImportFunction extends BaseFunction {
   private readonly importFn: NonNullable<ProjectModuleImport>;
 
   constructor(importFn: NonNullable<ProjectModuleImport>) {
     super();
-    this.symbol = 'importmodule';
+    this.symbol = 'import';
     this.callType = CallType.Prefix;
     this.importFn = importFn;
   }
@@ -91,12 +91,12 @@ class FuncscriptImportModuleFunction extends BaseFunction {
 
   evaluate(provider: FsDataProvider, parameters: ParameterList) {
     if (parameters.count !== 1) {
-      throw new Error('importModule expects exactly one string argument.');
+      throw new Error('import expects exactly one string argument.');
     }
     const typedSpecifier = Engine.ensureTyped(parameters.getParameter(provider, 0));
     const specifierType = Engine.typeOf(typedSpecifier);
     if (specifierType !== FSDataType.String) {
-      throw new Error('importModule argument must be a string.');
+      throw new Error('import argument must be a string.');
     }
     const specifier = Engine.valueOf(typedSpecifier) as string;
     const moduleValue = this.importFn(specifier);
@@ -108,7 +108,7 @@ export const createFuncscriptImportFunction = (importFn: ProjectModuleImport): B
   if (!importFn) {
     return null;
   }
-  return new FuncscriptImportModuleFunction(importFn);
+  return new FuncscriptImportFunction(importFn);
 };
 
 export const applyProjectImportBindings = (
@@ -120,7 +120,7 @@ export const applyProjectImportBindings = (
   }
   const funcscriptImport = createFuncscriptImportFunction(importFn);
   if (funcscriptImport) {
-    provider.set('importModule', funcscriptImport);
+    provider.set('import', funcscriptImport);
     provider.set('require', funcscriptImport);
   }
   const assignBinding = (name: string, options?: { setGlobal?: boolean }) => {
@@ -139,8 +139,8 @@ export const applyProjectImportBindings = (
       }
     }
   };
-  assignBinding('import', { setGlobal: false });
-  assignBinding('importModule');
+  const FD_IMPORT_NAME = 'fdimport';
+  assignBinding(FD_IMPORT_NAME);
   const shouldSetGlobalRequire =
     typeof globalThis === 'undefined' || (globalThis as Record<string, unknown>).require === undefined;
   assignBinding('require', { setGlobal: shouldSetGlobalRequire });

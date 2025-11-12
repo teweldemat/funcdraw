@@ -300,6 +300,120 @@
   border-color: rgba(56, 189, 248, 0.6);
 }
 
+.mobile-toolbar-menus {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.mobile-menu {
+  position: relative;
+}
+
+.mobile-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+  list-style: none;
+}
+
+.mobile-menu-trigger::-webkit-details-marker,
+.mobile-menu-trigger::marker {
+  display: none;
+}
+
+.mobile-menu-trigger::after {
+  content: '▾';
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: rgba(226, 232, 240, 0.8);
+  transition: transform 140ms ease;
+}
+
+.mobile-menu[open] .mobile-menu-trigger::after {
+  transform: rotate(180deg);
+}
+
+.mobile-menu-trigger:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.mobile-menu-content {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.45);
+  z-index: 12;
+}
+
+.mobile-menu[open] > .mobile-menu-content {
+  display: flex;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease, color 140ms ease;
+}
+
+.mobile-menu-item:hover,
+.mobile-menu-item:focus-visible {
+  background: rgba(56, 189, 248, 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.mobile-menu-item-active {
+  background: rgba(59, 130, 246, 0.28);
+}
+
+.mobile-menu-item-icon {
+  font-size: 1rem;
+}
+
+.mobile-menu-item-label {
+  flex: 1;
+}
+
+.mobile-menu-item-static {
+  cursor: default;
+  background: rgba(148, 163, 184, 0.08);
+  pointer-events: none;
+}
+
 .dialog-button {
   flex: 0 0 auto;
   padding: 8px 16px;

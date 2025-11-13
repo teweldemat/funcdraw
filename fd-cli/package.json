@@ -1,6 +1,6 @@
 {
-  "name": "@tewelde/fd-cli",
-  "version": "0.1.1",
+  "name": "@funcdraw/fd-cli",
+  "version": "0.1.2",
   "description": "Command line interface for FuncDraw workspaces backed by the filesystem.",
   "license": "MIT",
   "type": "commonjs",
@@ -34,7 +34,7 @@
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@tewelde/fs-cli": "^0.2.0",
-    "@tewelde/funcdraw": "^0.1.1",
+    "@funcdraw/core": "^0.1.2",
     "@tewelde/funcscript": "^0.2.5"
   }
 }

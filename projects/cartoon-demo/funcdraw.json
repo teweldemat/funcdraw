@@ -1,0 +1,15 @@
+{
+  "title": "Cartoon Tree Demo",
+  "description": "Places three evergreen trees of varying heights using the @funcdraw/cat-cartoon library.",
+  "catalogEntries": [
+    {
+      "id": "tree-row",
+      "name": "Evergreen Trio",
+      "catalogExpression": "import(\"@funcdraw/cat-cartoon\").landscape.tree('evergreen', [0, -4], 10);",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-0.7\" y=\"-4.5\" width=\"1.4\" height=\"4.8\" fill=\"#92400e\"/><polygon points=\"0,-7.5 -4,-3.5 4,-3.5\" fill=\"#166534\"/><polygon points=\"0,-5.5 -3.5,-2.5 3.5,-2.5\" fill=\"#16a34a\"/></svg>",
+      "descriptionHtml": "<p>Single tree reference from the cartoon library.</p>"
+    }
+  ],
+  "persistState": false
+}

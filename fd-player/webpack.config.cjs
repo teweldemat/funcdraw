@@ -3,7 +3,7 @@ const path = require('path');
 const { createRequire } = require('module');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
-const { FuncDraw } = require('@tewelde/funcdraw');
+const { FuncDraw } = require('@funcdraw/core');
 const {
   Engine,
   FSDataType,

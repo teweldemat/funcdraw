@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { ExpressionLanguage } from '@funcdraw/core';
 import type { CustomFolderState, CustomTabState } from '../workspace';
 import { createCustomFolderId, createCustomTabId, isValidTabName } from '../workspace';
 

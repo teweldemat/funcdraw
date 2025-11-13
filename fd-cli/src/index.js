@@ -16,7 +16,7 @@ const loadFuncDraw = () => {
       console.warn('Failed to load local FuncDraw sources:', err);
     }
     // eslint-disable-next-line import/no-dynamic-require, global-require
-    return require('@tewelde/funcdraw');
+    return require('@funcdraw/core');
   }
 };
 
@@ -46,6 +46,36 @@ const DEFAULT_VIEW_EXPRESSION = `{
 const DEFAULT_BACKGROUND = '#0f172a';
 const DEFAULT_GRID_COLOR = 'rgba(148, 163, 184, 0.2)';
 const JS_VALUE_SENTINEL = Symbol('fd-cli.js.value');
+const FUNC_DRAW_MODULE_SENTINEL = Symbol('fd-cli.funcdraw.module');
+
+const isFuncdrawModuleValue = (value) => Boolean(value && value[FUNC_DRAW_MODULE_SENTINEL]);
+
+const getProviderFolderPath = (provider) => {
+  let current = provider;
+  const visited = new Set();
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (current.folderNode && Array.isArray(current.folderNode.path)) {
+      return [...current.folderNode.path];
+    }
+    if (current.kvc && current.kvc.folderNode && Array.isArray(current.kvc.folderNode.path)) {
+      return [...current.kvc.folderNode.path];
+    }
+    if (typeof current.getParentProvider === 'function') {
+      try {
+        const parent = current.getParentProvider();
+        if (parent) {
+          current = parent;
+          continue;
+        }
+      } catch {
+        // Ignore lookup failures and fall back to parent chain.
+      }
+    }
+    current = current.parent || null;
+  }
+  return [];
+};
 
 const makeTypedNull = () => Engine.makeValue(FSDataType.Null, null);
 
@@ -161,7 +191,12 @@ class FuncscriptImportFunction extends BaseFunction {
       throw new Error('import argument must be a string.');
     }
     const specifier = Engine.valueOf(typedSpecifier);
-    const moduleValue = this.importFn(specifier);
+    const context = { folderPath: getProviderFolderPath(provider) };
+    const moduleValue = this.importFn(specifier, context);
+    if (isFuncdrawModuleValue(moduleValue)) {
+      const typedModule = moduleValue.getTypedValue();
+      return ensureTyped(typedModule);
+    }
     return convertModuleValueToTyped(moduleValue);
   }
 }
@@ -1228,99 +1263,102 @@ const createFilesystemResolverForPackage = (root) => {
   };
 };
 
-const convertTypedToPlain = (typed) => {
-  if (!typed) {
-    return null;
-  }
-  const type = Engine.typeOf(typed);
-  const raw = Engine.valueOf(typed);
-  switch (type) {
-    case FSDataType.Null:
-    case FSDataType.Boolean:
-    case FSDataType.Integer:
-    case FSDataType.Float:
-    case FSDataType.String:
-    case FSDataType.Guid:
-    case FSDataType.DateTime:
-    case FSDataType.BigInteger:
-      return raw;
-    case FSDataType.List: {
-      if (raw instanceof FsList && typeof raw.toArray === 'function') {
-        return raw.toArray().map((entry) => convertTypedToPlain(entry));
-      }
-      if (Array.isArray(raw)) {
-        return raw.map((entry) => convertTypedToPlain(entry));
-      }
-      return [];
-    }
-    case FSDataType.KeyValueCollection: {
-      if (raw instanceof KeyValueCollection && typeof raw.getAll === 'function') {
-        const result = {};
-        for (const [key, entry] of raw.getAll()) {
-          result[key] = convertTypedToPlain(entry);
-        }
-        return result;
-      }
-      return raw;
-    }
-    default:
-      return raw;
-  }
-};
-
-const hasEvalExpression = (handle, folderPath) => {
-  return handle
+const buildFuncdrawModuleEntries = (handle) => {
+  const seen = new Set();
+  const entries = [];
+  handle
     .listExpressions()
-    .some((entry) => {
-      if (!Array.isArray(entry.path) || entry.path.length !== folderPath.length + 1) {
-        return false;
+    .filter((entry) => Array.isArray(entry.path) && entry.path.length === 1)
+    .forEach((entry) => {
+      const name = entry.path[0];
+      if (typeof name !== 'string' || !name) {
+        return;
       }
-      const matchesParent = entry.path.slice(0, -1).every((segment, index) => segment === folderPath[index]);
-      return matchesParent && entry.path[entry.path.length - 1] === 'eval';
+      const lower = name.toLowerCase();
+      if (seen.has(lower)) {
+        return;
+      }
+      const evaluation = handle.evaluateExpression(entry.path);
+      const typed = evaluation && evaluation.typed ? evaluation.typed : typedNull();
+      entries.push([name, typed]);
+      seen.add(lower);
     });
+
+  handle.listFolders([]).forEach((folder) => {
+    if (!folder || typeof folder.name !== 'string' || !folder.name) {
+      return;
+    }
+    const lower = folder.name.toLowerCase();
+    if (seen.has(lower)) {
+      return;
+    }
+    const typed = handle.getFolderValue(folder.path) ?? typedNull();
+    entries.push([folder.name, typed]);
+    seen.add(lower);
+  });
+
+  return entries;
 };
 
-const collectFolderValue = (handle, folderPath) => {
-  const typed = handle.getFolderValue(folderPath);
-  const plain = convertTypedToPlain(typed);
-  if (plain && typeof plain === 'object' && !Array.isArray(plain) && !hasEvalExpression(handle, folderPath)) {
-    handle.listFolders(folderPath).forEach((child) => {
-      plain[child.name] = collectFolderValue(handle, child.path);
-    });
+const evaluateDefaultExport = (handle) => {
+  const returnResult = handle.evaluateExpression(['return']);
+  if (returnResult && returnResult.typed) {
+    return ensureTyped(returnResult.typed);
   }
-  return plain;
+  const evalResult = handle.evaluateExpression(['eval']);
+  if (evalResult && evalResult.typed) {
+    return ensureTyped(evalResult.typed);
+  }
+  const collection = new SimpleKeyValueCollection(null, buildFuncdrawModuleEntries(handle));
+  return ensureTyped(collection);
 };
 
-const loadFuncdrawPackageSnapshot = (packageRoot) => {
+const createFuncdrawModuleValue = (packageRoot, options = {}) => {
   const workspaceRoot = fs.existsSync(path.join(packageRoot, 'workspace'))
     ? path.join(packageRoot, 'workspace')
     : packageRoot;
   const resolver = createFilesystemResolverForPackage(workspaceRoot);
-  const handle = FuncDraw.evaluate(resolver);
-  const exports = {};
-  const expressions = handle
-    .listExpressions()
-    .filter((entry) => Array.isArray(entry.path) && entry.path.length === 1);
-  expressions.forEach((entry) => {
-    const result = handle.evaluateExpression(entry.path);
-    if (result && entry.path.length === 1) {
-      exports[entry.path[0]] = result.value ?? null;
+  const moduleImportFn = createModuleImportFunction(workspaceRoot, options);
+  const moduleBaseProvider = new CliFsDataProvider();
+  applyImportBindings(moduleBaseProvider, moduleImportFn);
+  const evaluateOptions = { baseProvider: moduleBaseProvider };
+  if (options.timeName) {
+    evaluateOptions.timeName = options.timeName;
+  }
+  const handle = FuncDraw.evaluate(resolver, options.timeValue, evaluateOptions);
+  const collection = new SimpleKeyValueCollection(null, buildFuncdrawModuleEntries(handle));
+  const typedValue = ensureTyped(collection);
+  return {
+    [FUNC_DRAW_MODULE_SENTINEL]: true,
+    getTypedValue() {
+      return typedValue;
     }
-  });
-  handle.listFolders([]).forEach((folder) => {
-    if (!folder || !Array.isArray(folder.path)) {
-      return;
-    }
-    try {
-      exports[folder.name] = collectFolderValue(handle, folder.path);
-    } catch {
-      // ignore errors
-    }
-  });
-  return exports;
+  };
 };
 
-const tryLoadFuncdrawPackage = (specifier, resolver) => {
+const createFuncdrawFolderDefaultValue = (folderRoot, options = {}) => {
+  const workspaceRoot = fs.existsSync(path.join(folderRoot, 'workspace'))
+    ? path.join(folderRoot, 'workspace')
+    : folderRoot;
+  const resolver = createFilesystemResolverForPackage(workspaceRoot);
+  const moduleImportFn = createModuleImportFunction(workspaceRoot, options);
+  const moduleBaseProvider = new CliFsDataProvider();
+  applyImportBindings(moduleBaseProvider, moduleImportFn);
+  const evaluateOptions = { baseProvider: moduleBaseProvider };
+  if (options.timeName) {
+    evaluateOptions.timeName = options.timeName;
+  }
+  const handle = FuncDraw.evaluate(resolver, options.timeValue, evaluateOptions);
+  const typedValue = evaluateDefaultExport(handle);
+  return {
+    [FUNC_DRAW_MODULE_SENTINEL]: true,
+    getTypedValue() {
+      return typedValue;
+    }
+  };
+};
+
+const tryLoadFuncdrawPackage = (specifier, resolver, options) => {
   try {
     const packageJsonPath = resolver.resolve(`${specifier}/package.json`);
     const packageRoot = path.dirname(packageJsonPath);
@@ -1328,30 +1366,33 @@ const tryLoadFuncdrawPackage = (specifier, resolver) => {
     if (!fs.existsSync(configPath)) {
       return null;
     }
-    return loadFuncdrawPackageSnapshot(packageRoot);
+    return createFuncdrawModuleValue(packageRoot, options);
   } catch {
     return null;
   }
 };
 
-const clonePlainValue = (value) => {
-  if (value === null || value === undefined) {
+const tryLoadFuncdrawFolder = (absolutePath, options) => {
+  try {
+    const stats = fs.statSync(absolutePath);
+    if (!stats.isDirectory()) {
+      return null;
+    }
+    return createFuncdrawFolderDefaultValue(absolutePath, options);
+  } catch {
     return null;
   }
-  if (Array.isArray(value)) {
-    return value.map((entry) => clonePlainValue(entry));
-  }
-  if (typeof value === 'object') {
-    const clone = {};
-    for (const [key, entry] of Object.entries(value)) {
-      clone[key] = clonePlainValue(entry);
-    }
-    return clone;
-  }
-  return value;
 };
 
-const createModuleImportFunction = (rootDir) => {
+const isRelativeModuleSpecifier = (specifier) => specifier.startsWith('./') || specifier.startsWith('../');
+
+const resolveRelativeModulePath = (rootDir, folderPath, specifier) => {
+  const segments = Array.isArray(folderPath) ? folderPath : [];
+  const basePath = path.resolve(rootDir, ...segments);
+  return path.resolve(basePath, specifier);
+};
+
+const createModuleImportFunction = (rootDir, options = {}) => {
   const root = path.resolve(rootDir || process.cwd());
   let resolver;
   const packageJsonPath = path.join(root, 'package.json');
@@ -1361,7 +1402,7 @@ const createModuleImportFunction = (rootDir) => {
     resolver = require;
   }
   const cache = new Map();
-  return (specifier) => {
+  const importFn = (specifier, context = null) => {
     if (typeof specifier !== 'string') {
       throw new Error('Import specifier must be a string.');
     }
@@ -1369,18 +1410,37 @@ const createModuleImportFunction = (rootDir) => {
     if (!trimmed) {
       throw new Error('Import specifier cannot be empty.');
     }
-    if (cache.has(trimmed)) {
-      return cache.get(trimmed);
+    let cacheKey = trimmed;
+    let value = null;
+    if (isRelativeModuleSpecifier(trimmed)) {
+      const folderPath = context && Array.isArray(context.folderPath) ? context.folderPath : null;
+      if (!folderPath) {
+        throw new Error(`Cannot resolve relative import '${specifier}' without a folder context.`);
+      }
+      const absolutePath = resolveRelativeModulePath(root, folderPath, trimmed);
+      cacheKey = `path:${absolutePath}`;
+      if (cache.has(cacheKey)) {
+        return cache.get(cacheKey);
+      }
+      value = tryLoadFuncdrawFolder(absolutePath, options);
+      if (!value) {
+        throw new Error(`Cannot resolve relative import '${specifier}' (searched ${absolutePath})`);
+      }
+      cache.set(cacheKey, value);
+      return value;
     }
-    let value = tryLoadFuncdrawPackage(trimmed, resolver);
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey);
+    }
+    value = tryLoadFuncdrawPackage(trimmed, resolver, options);
     if (!value) {
       // eslint-disable-next-line import/no-dynamic-require, global-require
       value = resolver(trimmed);
     }
-    const cloned = clonePlainValue(value);
-    cache.set(trimmed, cloned);
-    return cloned;
+    cache.set(cacheKey, value);
+    return value;
   };
+  return importFn;
 };
 
 const printExpressionList = (funcDraw) => {
@@ -1408,14 +1468,17 @@ const printExpressionList = (funcDraw) => {
 };
 
 const createFuncDraw = (resolver, options) => {
+  const timeValue = typeof options.time === 'number' && Number.isFinite(options.time) ? options.time : undefined;
   const baseProvider = new CliFsDataProvider();
-  const importFn = createModuleImportFunction(options.root || process.cwd());
+  const importFn = createModuleImportFunction(options.root || process.cwd(), {
+    timeValue,
+    timeName: options.timeName
+  });
   applyImportBindings(baseProvider, importFn);
   const evaluateOptions = { baseProvider };
   if (options.timeName) {
     evaluateOptions.timeName = options.timeName;
   }
-  const timeValue = typeof options.time === 'number' && Number.isFinite(options.time) ? options.time : undefined;
   return FuncDraw.evaluate(resolver, timeValue, evaluateOptions);
 };
 

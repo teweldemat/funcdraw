@@ -24,7 +24,7 @@ import {
 } from './graphics';
 import type { PreparedGraphics, PreparedPrimitive, ViewExtent } from './graphics';
 import './App.css';
-import { FuncDraw } from '@tewelde/funcdraw';
+import { FuncDraw } from '@funcdraw/core';
 import defaultExamples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
 import { loadProjectBootstrap } from './projectConfig';
 import { ExpressionTree } from './ExpressionTree';
@@ -52,7 +52,7 @@ import {
 } from './workspace';
 import { buildWorkspaceFiles } from './workspaceExport';
 import { createZipBlob, MODEL_ARCHIVE_EXTENSION, MODEL_ARCHIVE_MIME } from './utils/zip';
-import type { ExpressionLanguage, FuncDrawErrorDetail } from '@tewelde/funcdraw';
+import type { ExpressionLanguage, FuncDrawErrorDetail } from '@funcdraw/core';
 import { applyProjectImportBindings } from './importModuleFunction';
 
 const MIN_LEFT_WIDTH = 260;

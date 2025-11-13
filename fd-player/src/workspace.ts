@@ -2,7 +2,7 @@ import type {
   ExpressionCollectionResolver,
   ExpressionLanguage,
   ExpressionListItem
-} from '@tewelde/funcdraw';
+} from '@funcdraw/core';
 import type { CustomTabDefinition } from './examples';
 
 export const STORAGE_KEY = 'fd-player-state';

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { FuncDraw } from '@tewelde/funcdraw';
+import { FuncDraw } from '@funcdraw/core';
 import { interpretGraphics, evaluateExpression } from '../graphics';
 
 const __filename = fileURLToPath(import.meta.url);

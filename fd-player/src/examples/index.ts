@@ -1,4 +1,4 @@
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { ExpressionLanguage } from '@funcdraw/core';
 
 declare const require: any;
 

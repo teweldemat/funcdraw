@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../App.css', () => ({}));
 import path from 'path';
 import fs from 'fs';
-import { FuncDraw } from '@tewelde/funcdraw';
+import { FuncDraw } from '@funcdraw/core';
 import {
   Engine,
   FSDataType,
@@ -85,7 +85,7 @@ const evaluateProject = (
 ) => {
   const resolver = createProjectResolver(projectRoot);
   const provider = prepareProvider();
-  const snapshot = JSON.parse(JSON.stringify(moduleFactory()));
+  const snapshot = clonePlainValue(moduleFactory());
   applyProjectImportBindings(provider, (specifier) => {
     const normalized = typeof specifier === 'string' ? specifier.trim() : '';
     if (normalized === moduleSpecifier || normalized.startsWith(`${moduleSpecifier}/`)) {
@@ -95,6 +95,34 @@ const evaluateProject = (
   });
   const funcDraw = FuncDraw.evaluate(resolver, undefined, { baseProvider: provider });
   return funcDraw.evaluateExpression(['main']);
+};
+
+const clonePlainValue = (value: unknown, seen = new WeakSet<object>()): unknown => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value)) {
+      return null;
+    }
+    seen.add(value);
+    const result = value.map((entry) => clonePlainValue(entry, seen));
+    seen.delete(value);
+    return result;
+  }
+  if (typeof value === 'object') {
+    if (seen.has(value as object)) {
+      return null;
+    }
+    seen.add(value as object);
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = clonePlainValue(entry, seen);
+    }
+    seen.delete(value as object);
+    return result;
+  }
+  return value;
 };
 
 const convertTypedToPlain = (typed: unknown): unknown => {

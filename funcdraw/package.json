@@ -1,6 +1,6 @@
 {
-  "name": "@tewelde/funcdraw",
-  "version": "0.1.1",
+  "name": "@funcdraw/core",
+  "version": "0.1.2",
   "description": "Evaluation helpers for FuncDraw expression collections.",
   "license": "MIT",
   "type": "commonjs",

@@ -10,7 +10,7 @@ import {
   type TypedValue
 } from '@tewelde/funcscript/browser';
 import type { SyntaxErrorData } from '@tewelde/funcscript/parser';
-import type { ExpressionLanguage, FuncDrawErrorDetail } from '@tewelde/funcdraw';
+import type { ExpressionLanguage, FuncDrawErrorDetail } from '@funcdraw/core';
 
 export type PrimitiveType = 'line' | 'rect' | 'circle' | 'polygon' | 'text';
 

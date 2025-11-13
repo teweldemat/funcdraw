@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { FuncScriptEditor } from '@tewelde/funcscript-editor';
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { ExpressionLanguage } from '@funcdraw/core';
 import { JavaScriptEditor } from './JavaScriptEditor';
 
 export type ExpressionEditorProps = {

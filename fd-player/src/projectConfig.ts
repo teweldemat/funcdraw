@@ -1,4 +1,4 @@
-import type { ExpressionLanguage } from '@tewelde/funcdraw';
+import type { ExpressionLanguage } from '@funcdraw/core';
 import { defaultGraphicsExpression, defaultViewExpression } from './graphics';
 import type { CustomTabDefinition, CustomFolderDefinition, ExampleDefinition } from './examples';
 import {

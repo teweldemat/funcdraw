@@ -11,8 +11,7 @@
     "fd-cli",
     "fd-player",
     "funcdraw",
-    "packages/*",
-    "projects/*"
+    "packages/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

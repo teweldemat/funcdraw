@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import type { FuncDrawErrorDetail } from '@tewelde/funcdraw';
+import type { FuncDrawErrorDetail } from '@funcdraw/core';
 
 type StatusMessageProps = {
   error?: string | null;

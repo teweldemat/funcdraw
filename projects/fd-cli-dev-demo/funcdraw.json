@@ -1,12 +1,11 @@
 {
   "title": "FuncDraw CLI Dev Demo",
   "description": "Demonstrates fd-cli evaluation with local file: dependencies before publishing to npm.",
-  "catalogEntries": [
+  "catalog": [
     {
       "id": "cli-demo",
       "name": "CLI City Scene",
       "catalogExpression": "{\n  aurora: import('aurora-library');\n  cartoon: import('@funcdraw/cat-cartoon');\n  meadow: aurora.meadow([-16, -10], [32, 22], {\n    groundHeight: 9,\n    sun: { offsetX: 0.2, heightRatio: 0.65, radius: 2.6 },\n    hill: { backgroundColor: '#22c55e', foregroundColor: '#15803d' }\n  });\n  cottage: cartoon.city.house('cottage', [-10, -1.2], 8.5);\n  rowhome: cartoon.city.house('townhome', [-1, -2], 7.2);\n  modernHome: cartoon.city.house('modern', [10, -2], 12);\n  coupe: cartoon.city.car([3.5, -3], 11);\n  eval [\n    meadow,\n    cottage.graphics,\n    rowhome.graphics,\n    modernHome.graphics,\n    coupe.graphics\n  ];\n}",
-      "catalogLanguage": "funcscript",
       "descriptionHtml": "<p>Combines the aurora meadow backdrop with three distinct house styles and the coupe.</p>"
     }
   ],

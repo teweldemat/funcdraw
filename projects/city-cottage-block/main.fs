@@ -1,6 +1,6 @@
 {
-  aurora: import("../../packages/aurora-library");
-  cartoon: import("../../packages/cartoon");
+  aurora: import('aurora-library');
+  cartoon: import('@funcdraw/cat-cartoon');
 
   meadow: aurora.meadow([-20, -10], [40, 22], {
     groundHeight: 12,

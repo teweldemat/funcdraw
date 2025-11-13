@@ -1,0 +1,17 @@
+{
+  "name": "@sample/city-modern-drive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modern drive scene with a glass-lined home and coupe.",
+  "scripts": {
+    "render:raw": "npx fd-cli . main --format raw",
+    "render:svg": "npx fd-cli . main view --format svg --out ./city-modern-drive.svg"
+  },
+  "dependencies": {
+    "aurora-library": "file:../../packages/aurora-library",
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-cli": "file:../../fd-cli"
+  }
+}

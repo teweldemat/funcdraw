@@ -1,5 +1,5 @@
 {
-  cartoon: import("../../packages/cartoon");
+  cartoon: import('@funcdraw/cat-cartoon');
 
   columnPositions: [-14, 0, 14];
   rowConfigs: [

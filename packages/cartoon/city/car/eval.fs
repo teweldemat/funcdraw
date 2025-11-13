@@ -2,7 +2,7 @@
   baseLocation: baseLocationParam ?? [0, 0];
   length: lengthParam ?? 11;
   options: optionsParam ?? {};
-  wheelModule: import("../machine/parts/wheel");
+  wheelModule: machine.parts.wheel;
 
   scale: length / 11;
   wheelRadius: 0.9 * scale;
@@ -141,8 +141,10 @@
   frontWheelCenter: [baseLocation[0] + wheelSpread, ground - wheelRadius];
   rearWheelCenter: [baseLocation[0] - wheelSpread, ground - wheelRadius];
 
-  rearWheel: wheelModule(rearWheelCenter, wheelRadius, { rimColor: '#f8fafc' });
-  frontWheel: wheelModule(frontWheelCenter, wheelRadius, { rimColor: '#f8fafc' });
+  rearWheelResult: wheelModule(rearWheelCenter, wheelRadius, { rimColor: '#f8fafc' });
+  frontWheelResult: wheelModule(frontWheelCenter, wheelRadius, { rimColor: '#f8fafc' });
+  rearWheel: rearWheelResult.graphics ?? rearWheelResult;
+  frontWheel: frontWheelResult.graphics ?? frontWheelResult;
 
   aboveExtent: ground - cabinTop;
   belowExtent: 2 * wheelRadius;

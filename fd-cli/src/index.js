@@ -502,7 +502,7 @@ const parseNumberOption = (value, label) => {
 
 const parseArgs = (argv) => {
   const options = {
-    root: process.cwd(),
+    packageRoot: null,
     expression: null,
     view: null,
     format: 'raw',
@@ -520,7 +520,6 @@ const parseArgs = (argv) => {
     version: false
   };
 
-  let rootExplicit = false;
   const positionals = [];
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -533,15 +532,6 @@ const parseArgs = (argv) => {
       case '--version':
       case '-V':
         options.version = true;
-        break;
-      case '--root':
-      case '-r':
-        options.root = argv[i + 1];
-        if (options.root === undefined) {
-          throw new Error('--root requires a path argument.');
-        }
-        i += 1;
-        rootExplicit = true;
         break;
       case '--expression':
       case '--expr':
@@ -616,8 +606,11 @@ const parseArgs = (argv) => {
     }
   }
 
-  if (!rootExplicit && positionals.length > 0) {
-    options.root = positionals.shift();
+  if (positionals.length > 0) {
+    options.packageRoot = positionals.shift();
+  }
+  if (!options.packageRoot) {
+    options.packageRoot = process.cwd();
   }
   if (!options.expression && positionals.length > 0) {
     options.expression = positionals.shift();
@@ -637,17 +630,34 @@ const parseArgs = (argv) => {
   return options;
 };
 
+const ensureFuncdrawPackageRoot = (input) => {
+  const candidate = path.resolve(input || process.cwd());
+  const packageJsonPath = path.join(candidate, 'package.json');
+  const funcdrawConfigPath = path.join(candidate, 'funcdraw.json');
+  if (!fs.existsSync(packageJsonPath) || !fs.statSync(packageJsonPath).isFile()) {
+    throw new Error(`No package.json found under ${candidate}.`);
+  }
+  if (!fs.existsSync(funcdrawConfigPath) || !fs.statSync(funcdrawConfigPath).isFile()) {
+    throw new Error(`No funcdraw.json found under ${candidate}.`);
+  }
+  return candidate;
+};
+
 const printHelp = () => {
   const lines = [
     'FuncDraw CLI',
     '',
     'Usage:',
-    '  fd-cli --root <folder> --expression <path> [options]',
+    '  fd-cli <package-folder> --expression <name> [options]',
+    '  fd-cli <package-folder> <name> [view-name]',
+    '',
+    'Arguments:',
+    '  <package-folder>       Folder with package.json and funcdraw.json (defaults to cwd).',
+    '  <name>                 Module or expression name (no file paths).',
     '',
     'Options:',
-    '  -r, --root <path>        Root folder that contains .fs files.',
-    '  -e, --expression <path>  Expression path (e.g. graphics/shapes/main).',
-    '      --view <path>        Optional view expression path (defaults to built-in view).',
+    '  -e, --expression <name>  Name of the expression to evaluate.',
+    '      --view <name>        Optional view expression name (defaults to built-in view).',
     '  -f, --format <type>      Output format: raw | svg | png (default raw).',
     '  -o, --out <file>         Target file for svg/png output (stdout if omitted for svg).',
     '      --width <px>         Output width for svg/png (default 1280).',
@@ -663,8 +673,8 @@ const printHelp = () => {
     '  -V, --version            Print version.',
     '',
     'Examples:',
-    '  fd-cli --root ./workspace --expression graphics/main',
-    '  fd-cli ./workspace graphics/main --view settings/view --format svg --out render.svg'
+    '  fd-cli ./packages/aurora-library --expression meadow',
+    '  fd-cli ./projects/fd-cli-dev-demo main view --format svg --out render.svg'
   ];
   console.log(lines.join('\n'));
 };
@@ -1225,6 +1235,17 @@ const ensurePathSegments = (value, label) => {
   return segments;
 };
 
+const ensureExpressionReference = (value, label) => {
+  const segments = ensurePathSegments(value, label);
+  segments.forEach((segment) => {
+    const lower = segment.trim().toLowerCase();
+    if (lower.endsWith('.fs') || lower.endsWith('.js')) {
+      throw new Error(`${label} must be a FuncDraw module or expression name, not a file path.`);
+    }
+  });
+  return segments;
+};
+
 const pathToString = (segments) => segments.join('/');
 
 const SUPPORTED_RESOLVER_EXTENSIONS = ['.fs', '.js'];
@@ -1347,7 +1368,7 @@ const createFuncdrawModuleValue = (packageRoot, options = {}) => {
     ? path.join(packageRoot, 'workspace')
     : packageRoot;
   const resolver = createFilesystemResolverForPackage(workspaceRoot);
-  const moduleImportFn = createModuleImportFunction(workspaceRoot, options);
+  const moduleImportFn = createModuleImportFunction(packageRoot, options);
   const moduleBaseProvider = new CliFsDataProvider();
   applyImportBindings(moduleBaseProvider, moduleImportFn);
   const evaluateOptions = { baseProvider: moduleBaseProvider };
@@ -1357,28 +1378,6 @@ const createFuncdrawModuleValue = (packageRoot, options = {}) => {
   const handle = FuncDraw.evaluate(resolver, options.timeValue, evaluateOptions);
   const collection = new SimpleKeyValueCollection(null, buildFuncdrawModuleEntries(handle));
   const typedValue = ensureTyped(collection);
-  return {
-    [FUNC_DRAW_MODULE_SENTINEL]: true,
-    getTypedValue() {
-      return typedValue;
-    }
-  };
-};
-
-const createFuncdrawFolderDefaultValue = (folderRoot, options = {}) => {
-  const workspaceRoot = fs.existsSync(path.join(folderRoot, 'workspace'))
-    ? path.join(folderRoot, 'workspace')
-    : folderRoot;
-  const resolver = createFilesystemResolverForPackage(workspaceRoot);
-  const moduleImportFn = createModuleImportFunction(workspaceRoot, options);
-  const moduleBaseProvider = new CliFsDataProvider();
-  applyImportBindings(moduleBaseProvider, moduleImportFn);
-  const evaluateOptions = { baseProvider: moduleBaseProvider };
-  if (options.timeName) {
-    evaluateOptions.timeName = options.timeName;
-  }
-  const handle = FuncDraw.evaluate(resolver, options.timeValue, evaluateOptions);
-  const typedValue = evaluateDefaultExport(handle);
   return {
     [FUNC_DRAW_MODULE_SENTINEL]: true,
     getTypedValue() {
@@ -1401,28 +1400,8 @@ const tryLoadFuncdrawPackage = (specifier, resolver, options) => {
   }
 };
 
-const tryLoadFuncdrawFolder = (absolutePath, options) => {
-  try {
-    const stats = fs.statSync(absolutePath);
-    if (!stats.isDirectory()) {
-      return null;
-    }
-    return createFuncdrawFolderDefaultValue(absolutePath, options);
-  } catch {
-    return null;
-  }
-};
-
-const isRelativeModuleSpecifier = (specifier) => specifier.startsWith('./') || specifier.startsWith('../');
-
-const resolveRelativeModulePath = (rootDir, folderPath, specifier) => {
-  const segments = Array.isArray(folderPath) ? folderPath : [];
-  const basePath = path.resolve(rootDir, ...segments);
-  return path.resolve(basePath, specifier);
-};
-
-const createModuleImportFunction = (rootDir, options = {}) => {
-  const root = path.resolve(rootDir || process.cwd());
+const createModuleImportFunction = (packageRoot, options = {}) => {
+  const root = path.resolve(packageRoot || process.cwd());
   let resolver;
   const packageJsonPath = path.join(root, 'package.json');
   if (fs.existsSync(packageJsonPath)) {
@@ -1431,7 +1410,7 @@ const createModuleImportFunction = (rootDir, options = {}) => {
     resolver = require;
   }
   const cache = new Map();
-  const importFn = (specifier, context = null) => {
+  const importFn = (specifier) => {
     if (typeof specifier !== 'string') {
       throw new Error('Import specifier must be a string.');
     }
@@ -1439,29 +1418,11 @@ const createModuleImportFunction = (rootDir, options = {}) => {
     if (!trimmed) {
       throw new Error('Import specifier cannot be empty.');
     }
-    let cacheKey = trimmed;
-    let value = null;
-    if (isRelativeModuleSpecifier(trimmed)) {
-      const folderPath = context && Array.isArray(context.folderPath) ? context.folderPath : null;
-      if (!folderPath) {
-        throw new Error(`Cannot resolve relative import '${specifier}' without a folder context.`);
-      }
-      const absolutePath = resolveRelativeModulePath(root, folderPath, trimmed);
-      cacheKey = `path:${absolutePath}`;
-      if (cache.has(cacheKey)) {
-        return cache.get(cacheKey);
-      }
-      value = tryLoadFuncdrawFolder(absolutePath, options);
-      if (!value) {
-        throw new Error(`Cannot resolve relative import '${specifier}' (searched ${absolutePath})`);
-      }
-      cache.set(cacheKey, value);
-      return value;
-    }
+    const cacheKey = trimmed;
     if (cache.has(cacheKey)) {
       return cache.get(cacheKey);
     }
-    value = tryLoadFuncdrawPackage(trimmed, resolver, options);
+    let value = tryLoadFuncdrawPackage(trimmed, resolver, options);
     if (!value) {
       // eslint-disable-next-line import/no-dynamic-require, global-require
       value = resolver(trimmed);
@@ -1499,7 +1460,7 @@ const printExpressionList = (funcDraw) => {
 const createFuncDraw = (resolver, options) => {
   const timeValue = typeof options.time === 'number' && Number.isFinite(options.time) ? options.time : undefined;
   const baseProvider = new CliFsDataProvider();
-  const importFn = createModuleImportFunction(options.root || process.cwd(), {
+  const importFn = createModuleImportFunction(options.packageRoot || process.cwd(), {
     timeValue,
     timeName: options.timeName
   });
@@ -1550,7 +1511,17 @@ const main = () => {
     return;
   }
 
-  const resolver = new FilesystemExpressionCollectionResolver(options.root);
+  let packageRoot;
+  try {
+    packageRoot = ensureFuncdrawPackageRoot(options.packageRoot);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+    return;
+  }
+  options.packageRoot = packageRoot;
+
+  const resolver = new FilesystemExpressionCollectionResolver(options.packageRoot);
   const funcDraw = createFuncDraw(resolver, options);
 
   if (options.listOnly) {
@@ -1559,12 +1530,19 @@ const main = () => {
   }
 
   if (!options.expression) {
-    console.error('Missing --expression.');
+    console.error('Missing expression name.');
     process.exitCode = 1;
     return;
   }
 
-  const expressionSegments = ensurePathSegments(options.expression, 'expression path');
+  let expressionSegments;
+  try {
+    expressionSegments = ensureExpressionReference(options.expression, 'expression name');
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+    return;
+  }
   const evaluation = funcDraw.evaluateExpression(expressionSegments);
   if (!evaluation) {
     console.error(`Expression "${pathToString(expressionSegments)}" was not found.`);
@@ -1596,14 +1574,22 @@ const main = () => {
   const environmentProvider = funcDraw.environmentProvider;
   let viewResult = null;
   if (options.view) {
-    const viewSegments = ensurePathSegments(options.view, 'view path');
-    viewResult = funcDraw.evaluateExpression(viewSegments);
-    if (!viewResult) {
-      warnings.push(`View expression "${pathToString(viewSegments)}" was not found; falling back to default view.`);
-    } else if (viewResult.error) {
-      warnings.push(`View expression error: ${viewResult.error}; falling back to default view.`);
-      warnings.push(...stringifyErrorDetails(viewResult.errorDetails));
-      viewResult = null;
+    let viewSegments;
+    try {
+      viewSegments = ensureExpressionReference(options.view, 'view name');
+    } catch (err) {
+      warnings.push(err instanceof Error ? err.message : String(err));
+      viewSegments = null;
+    }
+    if (viewSegments) {
+      viewResult = funcDraw.evaluateExpression(viewSegments);
+      if (!viewResult) {
+        warnings.push(`View expression "${pathToString(viewSegments)}" was not found; falling back to default view.`);
+      } else if (viewResult.error) {
+        warnings.push(`View expression error: ${viewResult.error}; falling back to default view.`);
+        warnings.push(...stringifyErrorDetails(viewResult.errorDetails));
+        viewResult = null;
+      }
     }
   }
   if (!viewResult) {

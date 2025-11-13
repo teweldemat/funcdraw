@@ -1,7 +1,4 @@
 (typeOrLocationParam, baseLocationParam, widthParam, optionsParam) => {
-  cottage: import("./cottage");
-  townhome: import("./townhome");
-  modern: import("./modern");
   availableTypes: {
     cottage: cottage,
     townhome: townhome,

@@ -26,6 +26,9 @@ const convertModuleValueToTyped = (value: unknown, seen = new WeakSet<object>())
   if (value === null || value === undefined) {
     return makeTypedNull();
   }
+  if (value instanceof BaseFunction) {
+    return Engine.makeValue(FSDataType.Function, value);
+  }
   if (Array.isArray(value)) {
     if (seen.has(value)) {
       throw new Error('Cannot convert cyclic module value.');
@@ -56,16 +59,25 @@ const convertModuleValueToTyped = (value: unknown, seen = new WeakSet<object>())
   if (value instanceof Date) {
     return Engine.makeValue(FSDataType.DateTime, value);
   }
+  if (valueType === 'function') {
+    return Engine.makeValue(FSDataType.Function, value as unknown as BaseFunction);
+  }
   if (valueType === 'object') {
     const objectValue = value as Record<string, unknown>;
     if (seen.has(objectValue)) {
       throw new Error('Cannot convert cyclic module value.');
     }
     seen.add(objectValue);
-    const entries: Array<readonly [string, TypedValue]> = Object.entries(objectValue).map(([key, entry]) => [
-      key,
-      convertModuleValueToTyped(entry, seen)
-    ] as const);
+    const seenKeys = new Set<string>();
+    const entries: Array<readonly [string, TypedValue]> = [];
+    for (const [key, entry] of Object.entries(objectValue)) {
+      const normalized = key.trim().toLowerCase();
+      if (!normalized || seenKeys.has(normalized)) {
+        continue;
+      }
+      seenKeys.add(normalized);
+      entries.push([key, convertModuleValueToTyped(entry, seen)] as const);
+    }
     seen.delete(objectValue);
     return Engine.makeValue(
       FSDataType.KeyValueCollection,

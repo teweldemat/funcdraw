@@ -1,0 +1,17 @@
+{
+  "name": "@sample/city-town-avenue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Townhome boulevard with median park strip and city car.",
+  "scripts": {
+    "render:raw": "npx fd-cli . main --format raw",
+    "render:svg": "npx fd-cli . main view --format svg --out ./city-town-avenue.svg"
+  },
+  "dependencies": {
+    "aurora-library": "file:../../packages/aurora-library",
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-cli": "file:../../fd-cli"
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "@funcdraw/cat-cartoon",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Cartoon-style FuncDraw primitives organized into landscape, animal, and character collections.",
   "license": "MIT",
   "private": false

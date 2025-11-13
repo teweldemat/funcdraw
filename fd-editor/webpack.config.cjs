@@ -335,16 +335,34 @@ const collectModuleSpecifiers = (projectConfig) => {
     }
   };
 
-  if (Array.isArray(projectConfig.catalogEntries)) {
-    for (const entry of projectConfig.catalogEntries) {
-      if (entry && typeof entry === 'object') {
+  const visitCatalogEntries = (entries) => {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+      if (typeof entry.catalogExpression === 'string') {
         scanExpression(entry.catalogExpression);
-        if (entry.workspace && typeof entry.workspace === 'object') {
-          visitWorkspaceExpression(entry.workspace.graphics);
-          visitWorkspaceExpression(entry.workspace.view);
-        }
+      }
+      if (typeof entry.catalogParameters === 'string') {
+        scanExpression(entry.catalogParameters);
+      }
+      if (entry.workspace && typeof entry.workspace === 'object') {
+        visitWorkspaceExpression(entry.workspace.graphics);
+        visitWorkspaceExpression(entry.workspace.view);
+      }
+      if (Array.isArray(entry.catalog)) {
+        visitCatalogEntries(entry.catalog);
       }
     }
+  };
+
+  if (Array.isArray(projectConfig.catalog)) {
+    visitCatalogEntries(projectConfig.catalog);
+  } else if (Array.isArray(projectConfig.catalogEntries)) {
+    visitCatalogEntries(projectConfig.catalogEntries);
   }
 
   if (projectConfig.workspace && typeof projectConfig.workspace === 'object') {

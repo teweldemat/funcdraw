@@ -1,0 +1,17 @@
+{
+  "name": "@sample/city-cottage-block",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FuncDraw scene with cottages framed by a courtyard plaza.",
+  "scripts": {
+    "render:raw": "npx fd-cli . main --format raw",
+    "render:svg": "npx fd-cli . main view --format svg --out ./city-cottage-block.svg"
+  },
+  "dependencies": {
+    "aurora-library": "file:../../packages/aurora-library",
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-cli": "file:../../fd-cli"
+  }
+}

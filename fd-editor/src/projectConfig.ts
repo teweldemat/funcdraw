@@ -69,13 +69,23 @@ type RawFolderDefinition = {
   folders?: unknown;
 };
 
-type ProjectCatalogEntry = {
+type ProjectCatalogLeaf = {
   id: string;
   name: string;
   catalogExpression: string;
-  catalogLanguage: ExpressionLanguage;
   catalogSvg: string;
   descriptionHtml: string;
+  catalogParameters: string | null;
+};
+
+type ProjectCatalogNode = {
+  id: string;
+  name: string;
+  catalogExpression: string | null;
+  catalogParameters: string | null;
+  catalogSvg: string;
+  descriptionHtml: string;
+  catalog: ProjectCatalogNode[];
 };
 
 type WorkspaceDefinition = {
@@ -88,7 +98,8 @@ type WorkspaceDefinition = {
 type ProjectDefinition = {
   title: string;
   description: string | null;
-  catalogEntries: ProjectCatalogEntry[];
+  catalog: ProjectCatalogNode[];
+  catalogEntries: ProjectCatalogLeaf[];
   workspace: WorkspaceDefinition;
   persistState: boolean;
 };
@@ -109,7 +120,7 @@ const buildTabName = (candidate: string, used: Set<string>): string => {
 
 const normalizeTabDefinitions = (
   value: unknown,
-  fallback: ProjectCatalogEntry[]
+  fallback: ProjectCatalogLeaf[]
 ): CustomTabDefinition[] => {
   const definitions: CustomTabDefinition[] = [];
   if (Array.isArray(value)) {
@@ -140,7 +151,7 @@ const normalizeTabDefinitions = (
     definitions.push({
       name,
       expression: entry.catalogExpression,
-      language: entry.catalogLanguage
+      language: 'funcscript'
     });
   });
   return definitions;
@@ -172,11 +183,32 @@ const normalizeFolderDefinitions = (value: unknown): CustomFolderDefinition[] =>
   return normalize(value);
 };
 
-const parseCatalogEntries = (value: unknown): ProjectCatalogEntry[] => {
+const injectCatalogParameters = (expression: string, parameters: string | null): string => {
+  if (!parameters) {
+    return expression;
+  }
+  const trimmedParams = parameters.trim();
+  if (!trimmedParams) {
+    return expression;
+  }
+  const trimmedExpression = expression.trim();
+  if (trimmedExpression.startsWith('{')) {
+    const remainder = trimmedExpression.slice(1).replace(/^\s*/, '');
+    return `{
+  par: ${trimmedParams};
+${remainder}`;
+  }
+  return `{
+  par: ${trimmedParams};
+  return (${trimmedExpression});
+}`;
+};
+
+const parseCatalogNodes = (value: unknown, parentId = 'entry'): ProjectCatalogNode[] => {
   if (!Array.isArray(value)) {
     return [];
   }
-  const entries: ProjectCatalogEntry[] = [];
+  const nodes: ProjectCatalogNode[] = [];
   value.forEach((entry, index) => {
     if (!entry || typeof entry !== 'object') {
       return;
@@ -185,38 +217,64 @@ const parseCatalogEntries = (value: unknown): ProjectCatalogEntry[] => {
       id?: unknown;
       name?: unknown;
       catalogExpression?: unknown;
-      catalogLanguage?: unknown;
+      catalogParameters?: unknown;
       catalogSvg?: unknown;
       descriptionHtml?: unknown;
+      catalog?: unknown;
     };
+    const id = ensureString(raw.id) ?? `${parentId}-${index + 1}`;
+    const name = ensureString(raw.name) ?? id;
     const expression = ensureString(raw.catalogExpression);
+    const parameters = ensureString(raw.catalogParameters);
     const svg = ensureString(raw.catalogSvg) ?? '';
-    if (!expression) {
+    const descriptionHtml = ensureString(raw.descriptionHtml) ?? '';
+    const children = parseCatalogNodes(raw.catalog, id);
+    if (!expression && children.length === 0) {
       return;
     }
-    const id = ensureString(raw.id) ?? `entry-${index + 1}`;
-    const name = ensureString(raw.name) ?? id;
-    const catalogLanguage = resolveLanguage(raw.catalogLanguage, 'funcscript');
-    const descriptionHtml = ensureString(raw.descriptionHtml) ?? '';
-    entries.push({
+    nodes.push({
       id,
       name,
-      catalogExpression: expression,
-      catalogLanguage,
+      catalogExpression: expression ?? null,
+      catalogParameters: parameters ?? null,
       catalogSvg: svg,
-      descriptionHtml
+      descriptionHtml,
+      catalog: children
     });
   });
-  return entries;
+  return nodes;
+};
+
+const flattenCatalogLeaves = (nodes: ProjectCatalogNode[]): ProjectCatalogLeaf[] => {
+  const leaves: ProjectCatalogLeaf[] = [];
+  const traverse = (entries: ProjectCatalogNode[]) => {
+    entries.forEach((entry) => {
+      if (entry.catalogExpression) {
+        leaves.push({
+          id: entry.id,
+          name: entry.name,
+          catalogExpression: injectCatalogParameters(entry.catalogExpression, entry.catalogParameters),
+          catalogSvg: entry.catalogSvg,
+          descriptionHtml: entry.descriptionHtml,
+          catalogParameters: entry.catalogParameters
+        });
+      }
+      if (entry.catalog.length > 0) {
+        traverse(entry.catalog);
+      }
+    });
+  };
+  traverse(nodes);
+  return leaves;
 };
 
 const parseWorkspace = (
   value: unknown,
-  entries: ProjectCatalogEntry[]
+  entries: ProjectCatalogLeaf[]
 ): WorkspaceDefinition => {
   const fallbackGraphics =
     entries.length > 0
-      ? { expression: entries[0].catalogExpression, language: entries[0].catalogLanguage }
+      ? { expression: entries[0].catalogExpression, language: 'funcscript' as ExpressionLanguage }
       : { expression: defaultGraphicsExpression, language: 'funcscript' as ExpressionLanguage };
   const fallbackView = { expression: defaultViewExpression, language: 'funcscript' as ExpressionLanguage };
 
@@ -255,18 +313,21 @@ const parseProjectDefinition = (): ProjectDefinition | null => {
     const raw = parsed as {
       title?: unknown;
       description?: unknown;
+      catalog?: unknown;
       catalogEntries?: unknown;
       workspace?: unknown;
       persistState?: unknown;
     };
     const title = ensureString(raw.title) ?? 'FuncDraw Project';
     const description = ensureString(raw.description);
-    const catalogEntries = parseCatalogEntries(raw.catalogEntries);
+    const catalog = parseCatalogNodes(raw.catalog ?? raw.catalogEntries);
+    const catalogEntries = flattenCatalogLeaves(catalog);
     const workspace = parseWorkspace(raw.workspace, catalogEntries);
     const persistState = typeof raw.persistState === 'boolean' ? raw.persistState : false;
     return {
       title,
       description,
+      catalog,
       catalogEntries,
       workspace,
       persistState

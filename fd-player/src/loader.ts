@@ -37,13 +37,17 @@ const stripCommonRoot = (segmentsList: string[][]): string[][] => {
   return segmentsList.map((segments) => segments.slice(1));
 };
 
-export const normalizeWorkspaceFiles = (files: WorkspaceFile[]): ExpressionEntry[] => {
+export const normalizeWorkspaceFiles = (
+  files: WorkspaceFile[],
+  options?: { stripCommonRoot?: boolean }
+): ExpressionEntry[] => {
   const entries: ExpressionEntry[] = [];
   const normalized = files
     .map((file) => ({ segments: normalizePath(file.path), content: file.content }))
     .filter((entry) => entry.segments.length > 0);
-  const stripped = stripCommonRoot(normalized.map((entry) => entry.segments));
-  stripped.forEach((segments, index) => {
+  const shouldStrip = options?.stripCommonRoot !== false;
+  const processedSegments = shouldStrip ? stripCommonRoot(normalized.map((entry) => entry.segments)) : normalized.map((entry) => entry.segments);
+  processedSegments.forEach((segments, index) => {
     const filename = segments[segments.length - 1];
     const lower = filename.toLowerCase();
     const matches = /\.[^.]+$/.exec(lower);
@@ -118,7 +122,7 @@ export const loadArchiveContent = async (
   const entries = normalizeWorkspaceFiles(workspaceFiles);
   const modules: ArchiveModules = new Map();
   moduleFiles.forEach((files, specifier) => {
-    const normalized = normalizeWorkspaceFiles(files);
+    const normalized = normalizeWorkspaceFiles(files, { stripCommonRoot: false });
     if (normalized.length > 0) {
       modules.set(specifier, normalized);
     }

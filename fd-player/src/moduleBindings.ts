@@ -12,8 +12,24 @@ import {
 } from '@tewelde/funcscript';
 
 const JS_VALUE_SENTINEL = Symbol.for('funcdraw.js.value');
+export const FUNC_DRAW_MODULE_SENTINEL = Symbol('fd-player.funcdraw.module');
 
-export type ModuleImportHandler = ((specifier: unknown) => unknown) | null | undefined;
+export interface FuncdrawModuleValue {
+  [FUNC_DRAW_MODULE_SENTINEL]: true;
+  getTypedValue: () => TypedValue;
+}
+
+const isFuncdrawModuleValue = (value: unknown): value is FuncdrawModuleValue =>
+  Boolean(value && typeof value === 'object' && FUNC_DRAW_MODULE_SENTINEL in (value as object));
+
+export type ModuleImportContext = {
+  folderPath?: string[];
+};
+
+export type ModuleImportHandler =
+  | ((specifier: unknown, context?: ModuleImportContext | null) => unknown)
+  | null
+  | undefined;
 
 const convertNumber = (value: number): TypedValue => {
   if (Number.isInteger(value)) {
@@ -23,8 +39,18 @@ const convertNumber = (value: number): TypedValue => {
 };
 
 const convertModuleValueToTyped = (value: unknown, seen = new WeakSet<object>()): TypedValue => {
+  if (isFuncdrawModuleValue(value)) {
+    return Engine.ensureTyped(value.getTypedValue());
+  }
   if (value === null || value === undefined) {
     return Engine.makeValue(FSDataType.Null, null);
+  }
+  if (value && typeof value === 'object') {
+    try {
+      return Engine.ensureTyped(value as TypedValue);
+    } catch {
+      // fall through to conversion
+    }
   }
   if (Array.isArray(value)) {
     if (seen.has(value)) {
@@ -56,16 +82,28 @@ const convertModuleValueToTyped = (value: unknown, seen = new WeakSet<object>())
   if (value instanceof Date) {
     return Engine.makeValue(FSDataType.DateTime, value);
   }
+  if (value instanceof BaseFunction) {
+    return Engine.makeValue(FSDataType.Function, value);
+  }
+  if (valueType === 'function') {
+    return Engine.makeValue(FSDataType.Function, value as unknown as BaseFunction);
+  }
   if (valueType === 'object') {
     const record = value as Record<string, unknown>;
     if (seen.has(record as object)) {
       throw new Error('Cannot convert cyclic module object value.');
     }
     seen.add(record as object);
-    const entries: Array<readonly [string, TypedValue]> = Object.entries(record).map(([key, entry]) => [
-      key,
-      convertModuleValueToTyped(entry, seen)
-    ] as const);
+    const seenKeys = new Set<string>();
+    const entries: Array<readonly [string, TypedValue]> = [];
+    for (const [key, entry] of Object.entries(record)) {
+      const normalized = key.trim().toLowerCase();
+      if (!normalized || seenKeys.has(normalized)) {
+        continue;
+      }
+      seenKeys.add(normalized);
+      entries.push([key, convertModuleValueToTyped(entry, seen)] as const);
+    }
     seen.delete(record as object);
     return Engine.makeValue(
       FSDataType.KeyValueCollection,
@@ -99,7 +137,10 @@ class FuncscriptImportFunction extends BaseFunction {
       throw new Error('import argument must be a string.');
     }
     const specifier = String(Engine.valueOf(typedSpecifier));
-    const moduleValue = this.importFn(specifier);
+    const context: ModuleImportContext = { folderPath: getProviderFolderPath(provider) };
+    const moduleValue = this.importFn(specifier, context);
+    // eslint-disable-next-line no-console
+    console.log('[fd-player import]', specifier, typeof moduleValue, moduleValue && typeof moduleValue === 'object' && FUNC_DRAW_MODULE_SENTINEL in (moduleValue as object));
     return convertModuleValueToTyped(moduleValue);
   }
 }
@@ -176,4 +217,34 @@ export const createBaseProvider = (importFn: ModuleImportHandler): PlayerFsDataP
   const provider = new PlayerFsDataProvider();
   applyModuleBindings(provider, importFn);
   return provider;
+};
+
+const getProviderFolderPath = (provider: FsDataProvider | null): string[] => {
+  let current: unknown = provider;
+  const visited = new Set<unknown>();
+  while (current && typeof current === 'object' && !visited.has(current)) {
+    visited.add(current);
+    const folderNode = (current as { folderNode?: { path?: string[] } }).folderNode;
+    if (folderNode && Array.isArray(folderNode.path)) {
+      return [...folderNode.path];
+    }
+    const kvcFolder = (current as { kvc?: { folderNode?: { path?: string[] } } }).kvc?.folderNode;
+    if (kvcFolder && Array.isArray(kvcFolder.path)) {
+      return [...kvcFolder.path];
+    }
+    const getParentProvider = (current as { getParentProvider?: () => FsDataProvider | null }).getParentProvider;
+    if (typeof getParentProvider === 'function') {
+      try {
+        const parent = getParentProvider.call(current);
+        if (parent) {
+          current = parent;
+          continue;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    current = (current as { parent?: FsDataProvider | null }).parent ?? null;
+  }
+  return [];
 };

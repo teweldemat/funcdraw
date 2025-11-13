@@ -1,0 +1,14 @@
+{
+  "title": "FuncDraw CLI Dev Demo",
+  "description": "Demonstrates fd-cli evaluation with local file: dependencies before publishing to npm.",
+  "catalogEntries": [
+    {
+      "id": "cli-demo",
+      "name": "CLI Demo Meadow",
+      "catalogExpression": "import(\"aurora-library\").meadow;",
+      "catalogLanguage": "funcscript",
+      "descriptionHtml": "<p>Base meadow primitives sourced from the aurora-library package.</p>"
+    }
+  ],
+  "persistState": false
+}

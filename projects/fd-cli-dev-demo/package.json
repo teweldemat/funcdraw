@@ -1,0 +1,15 @@
+{
+  "name": "@sample/fd-cli-dev-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local FuncDraw workspace used to validate fd-cli module resolution.",
+  "scripts": {
+    "render:raw": "npx fd-cli --root . --expression main --format raw",
+    "render:svg": "npx fd-cli --root . --expression main --format svg --out ./fd-cli-demo.svg"
+  },
+  "dependencies": {
+    "aurora-library": "file:../../packages/aurora-library",
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon",
+    "@funcdraw/fd-cli": "file:../../fd-cli"
+  }
+}

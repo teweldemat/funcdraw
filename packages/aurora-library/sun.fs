@@ -1,4 +1,5 @@
 {
+  flipPoint: (point) => [point[0], -point[1]];
   raysCount: 12;
   makeRay: (index) => {
     angle: index * (2 * math.pi / raysCount);
@@ -6,14 +7,14 @@
     outer: 3.6;
     eval {
       type: 'line',
-      from: [
+      from: flipPoint([
         math.sin(angle) * inner,
         6 + math.cos(angle) * inner
-      ],
-      to: [
+      ]),
+      to: flipPoint([
         math.sin(angle) * outer,
         6 + math.cos(angle) * outer
-      ],
+      ]),
       stroke: '#fde047',
       width: 0.3
     };
@@ -22,7 +23,7 @@
   eval [
     {
       type: 'circle',
-      center: [0, 6],
+      center: flipPoint([0, 6]),
       radius: 2.6,
       stroke: '#fcd34d',
       width: 0.2,
@@ -30,7 +31,7 @@
     },
     {
       type: 'circle',
-      center: [0, 6],
+      center: flipPoint([0, 6]),
       radius: 2.1,
       fill: '#fde047',
       stroke: '#f97316',

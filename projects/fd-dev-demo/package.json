@@ -7,7 +7,8 @@
     "play": "fd-play --root ."
   },
   "dependencies": {
-    "aurora-library": "file:../../packages/aurora-library"
+    "aurora-library": "file:../../packages/aurora-library",
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon"
   },
   "devDependencies": {
     "@funcdraw/fd-play": "file:../../packages/fd-play"

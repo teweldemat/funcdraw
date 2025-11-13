@@ -1,0 +1,15 @@
+{
+  "name": "@sample/fd-dev-demo",
+  "version": "0.1.0",
+  "description": "Local FuncDraw workspace that uses file: dependencies for dev/testing",
+  "private": true,
+  "scripts": {
+    "play": "fd-play --root ."
+  },
+  "dependencies": {
+    "aurora-library": "file:../../packages/aurora-library"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-play": "file:../../packages/fd-play"
+  }
+}

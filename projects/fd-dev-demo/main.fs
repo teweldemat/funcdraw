@@ -1,7 +1,7 @@
 {
   aurora: import("aurora-library");
   cartoon: import("@funcdraw/cat-cartoon");
-  meadow: aurora.meadow;
+  meadow: aurora.meadow();
   featureTree: cartoon.landscape.tree('evergreen', [5, -4], 9);
   marker: {
     type: 'circle';

@@ -5,7 +5,7 @@
     {
       "id": "aurora-meadow",
       "name": "Aurora Meadow",
-      "catalogExpression": "{\n  library: import(\"aurora-library\");\n  return library.meadow;\n}",
+      "catalogExpression": "{\n  library: import(\"aurora-library\");\n  return library.meadow();\n}",
       "catalogLanguage": "funcscript",
       "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><rect x=\"-12\" y=\"-12\" width=\"24\" height=\"24\" fill=\"#38bdf8\"/><rect x=\"-12\" y=\"-4\" width=\"24\" height=\"8\" fill=\"#16a34a\"/><circle cx=\"0\" cy=\"6\" r=\"2.1\" fill=\"#fde047\"/></svg>",
       "descriptionHtml": "<p>Renders the meadow primitives defined in the aurora-library package.</p>"

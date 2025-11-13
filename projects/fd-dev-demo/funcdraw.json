@@ -5,7 +5,7 @@
     {
       "id": "dev-demo",
       "name": "Dev Demo Meadow",
-      "catalogExpression": "import(\"aurora-library\").meadow;",
+      "catalogExpression": "import(\"aurora-library\").meadow();",
       "catalogLanguage": "funcscript",
       "descriptionHtml": "<p>Local meadow scene sourced from the aurora-library file dependency.</p>"
     }

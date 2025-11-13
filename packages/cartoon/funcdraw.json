@@ -9,6 +9,38 @@
       "catalogLanguage": "javascript",
       "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-8 -8 16 16\"><rect x=\"-0.7\" y=\"-4.5\" width=\"1.4\" height=\"4.8\" fill=\"#92400e\"/><polygon points=\"0,-7.5 -4,-3.5 4,-3.5\" fill=\"#166534\"/><polygon points=\"0,-5.5 -3.5,-2.5 3.5,-2.5\" fill=\"#16a34a\"/><circle cx=\"0\" cy=\"-4\" r=\"3.5\" fill=\"rgba(22, 163, 74, 0.25)\"/></svg>",
       "descriptionHtml": "<p>Layered evergreen tree module that can be dropped into any cartoon landscape.</p>"
+    },
+    {
+      "id": "city-car",
+      "name": "City Car",
+      "catalogExpression": "import(\"@funcdraw/cat-cartoon\").city.car([0, -2], 11).graphics",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-12 -8 24 16\"><ellipse cx=\"0\" cy=\"4\" rx=\"8\" ry=\"2\" fill=\"rgba(15,23,42,0.2)\"/><rect x=\"-8\" y=\"-1\" width=\"16\" height=\"5\" rx=\"1.2\" fill=\"#ef4444\" stroke=\"#0f172a\" stroke-width=\"0.4\"/><polygon points=\"-4,-1 -2,-5 4,-5 6,-1\" fill=\"#fee2e2\" stroke=\"#0f172a\" stroke-width=\"0.3\"/><circle cx=\"-4.5\" cy=\"3\" r=\"2\" fill=\"#0f172a\"/><circle cx=\"4.5\" cy=\"3\" r=\"2\" fill=\"#0f172a\"/></svg>",
+      "descriptionHtml": "<p>Rounded coupe with stylized windows, headlights, and reusable wheel geometry.</p>"
+    },
+    {
+      "id": "city-house-cottage",
+      "name": "City House — Cottage",
+      "catalogExpression": "import(\"@funcdraw/cat-cartoon\").city.house('cottage', [0, 0], 10).graphics",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-8 -8 16 16\"><polygon points=\"-6,-2 0,-7 6,-2\" fill=\"#b45309\"/><rect x=\"-5\" y=\"-2\" width=\"10\" height=\"7\" fill=\"#fcd34d\" stroke=\"#78350f\" stroke-width=\"0.3\"/><rect x=\"-1\" y=\"1\" width=\"2\" height=\"3\" fill=\"#92400e\"/><rect x=\"-4\" y=\"-0.5\" width=\"2\" height=\"2\" fill=\"#e0f2fe\"/><rect x=\"2\" y=\"-0.5\" width=\"2\" height=\"2\" fill=\"#e0f2fe\"/></svg>",
+      "descriptionHtml": "<p>Compact home facade with roof trim, twin windows, and a welcoming doorway.</p>"
+    },
+    {
+      "id": "city-house-townhome",
+      "name": "City House — Townhome",
+      "catalogExpression": "import(\"@funcdraw/cat-cartoon\").city.house('townhome', [0, 0], 8).graphics",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-7 -8 14 16\"><rect x=\"-4\" y=\"-6\" width=\"8\" height=\"10\" fill=\"#fef3c7\" stroke=\"#0f172a\" stroke-width=\"0.3\"/><rect x=\"-1\" y=\"2\" width=\"2\" height=\"3\" fill=\"#4c0519\"/><rect x=\"-3.5\" y=\"-4\" width=\"2\" height=\"2\" fill=\"#cffafe\"/><rect x=\"1.5\" y=\"-4\" width=\"2\" height=\"2\" fill=\"#cffafe\"/><rect x=\"-3.5\" y=\"-1\" width=\"2\" height=\"2\" fill=\"#cffafe\"/><rect x=\"1.5\" y=\"-1\" width=\"2\" height=\"2\" fill=\"#cffafe\"/></svg>",
+      "descriptionHtml": "<p>Vertical townhouse with stacked windows, accent column, and inset stoop.</p>"
+    },
+    {
+      "id": "city-house-modern",
+      "name": "City House — Modern",
+      "catalogExpression": "import(\"@funcdraw/cat-cartoon\").city.house('modern', [0, 0], 12).graphics",
+      "catalogLanguage": "javascript",
+      "catalogSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-10 -8 20 16\"><rect x=\"-10\" y=\"0\" width=\"20\" height=\"3\" fill=\"#cbd5f5\"/><rect x=\"-10\" y=\"-5\" width=\"9\" height=\"5\" fill=\"#fcd34d\" stroke=\"#0f172a\" stroke-width=\"0.3\"/><rect x=\"-1\" y=\"-7\" width=\"11\" height=\"7\" fill=\"#f8fafc\" stroke=\"#0f172a\" stroke-width=\"0.3\"/><rect x=\"0.5\" y=\"-6\" width=\"2.5\" height=\"5.5\" fill=\"rgba(14,165,233,0.5)\"/><rect x=\"3.4\" y=\"-6\" width=\"2.5\" height=\"5.5\" fill=\"rgba(14,165,233,0.5)\"/><rect x=\"6.4\" y=\"-6\" width=\"2.5\" height=\"5.5\" fill=\"rgba(14,165,233,0.5)\"/></svg>",
+      "descriptionHtml": "<p>Modern split-level facade with glass atrium panels and bold accent lighting.</p>"
     }
   ],
   "persistState": false

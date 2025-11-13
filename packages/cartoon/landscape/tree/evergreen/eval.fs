@@ -33,5 +33,8 @@
       ornamentShapes
     ];
     width: 6.5 * scale;
+    height: height;
+    above: height;
+    below: 0;
   };
 }

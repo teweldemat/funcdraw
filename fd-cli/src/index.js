@@ -835,7 +835,7 @@ const collectPrimitives = (node, pathLabel, warnings, unknownTypes) => {
     }
 
     if (typeof type === 'string') {
-      if (!['line', 'rect', 'circle', 'polygon', 'text'].includes(type)) {
+      if (!['line', 'rect', 'circle', 'ellipse', 'polygon', 'text'].includes(type)) {
         unknownTypes.add(type);
       }
       if (transform !== undefined && transform !== null) {
@@ -968,6 +968,20 @@ const prepareGraphics = (extent, layers) => {
             prepared.push({ type: 'circle', center, radius, stroke, fill, width });
             break;
           }
+          case 'ellipse': {
+            const center = ensurePoint(primitive.data.center);
+            const radiusX = ensureNumber(primitive.data.radiusX);
+            const radiusY = ensureNumber(primitive.data.radiusY);
+            if (!center || radiusX === null || radiusY === null || radiusX <= 0 || radiusY <= 0) {
+              warnings.push(`Ellipse in ${ctx} requires center plus positive radiusX and radiusY values.`);
+              break;
+            }
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : DEFAULT_STROKE;
+            const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
+            const width = ensureNumber(primitive.data.width) ?? DEFAULT_STROKE_WIDTH;
+            prepared.push({ type: 'ellipse', center, radiusX, radiusY, stroke, fill, width });
+            break;
+          }
           case 'polygon': {
             const points = ensurePoints(primitive.data.points);
             if (!points) {
@@ -1016,13 +1030,13 @@ const projectPointBuilder = (extent, canvasWidth, canvasHeight, padding) => {
   const drawWidth = viewWidth * scale;
   const drawHeight = viewHeight * scale;
   const originX = (canvasWidth - drawWidth) / 2 - extent.minX * scale;
-  const originY = (canvasHeight - drawHeight) / 2 + extent.maxY * scale;
+  const originY = (canvasHeight - drawHeight) / 2 - extent.minY * scale;
   return {
     scale,
     project(point) {
       const [tx, ty] = point;
       const x = originX + tx * scale;
-      const y = originY - ty * scale;
+      const y = originY + ty * scale;
       return { x, y };
     }
   };
@@ -1116,6 +1130,18 @@ const renderSvgDocument = (extent, graphics, options) => {
     return `<circle cx="${formatNumber(center.x)}" cy="${formatNumber(center.y)}" r="${formatNumber(radius)}"${fill}${stroke} />`;
   };
 
+  const ellipseElement = (primitive) => {
+    const center = project(primitive.center);
+    const radiusX = Math.max(0, primitive.radiusX * scale);
+    const radiusY = Math.max(0, primitive.radiusY * scale);
+    const fill = primitive.fill ? ` fill="${escapeAttr(primitive.fill)}"` : ' fill="none"';
+    const stroke =
+      primitive.stroke && primitive.width > 0
+        ? ` stroke="${escapeAttr(primitive.stroke)}" stroke-width="${formatNumber(Math.max(1, primitive.width * scale))}"`
+        : '';
+    return `<ellipse cx="${formatNumber(center.x)}" cy="${formatNumber(center.y)}" rx="${formatNumber(radiusX)}" ry="${formatNumber(radiusY)}"${fill}${stroke} />`;
+  };
+
   const polygonElement = (primitive) => {
     if (primitive.points.length < 3) {
       return '';
@@ -1160,6 +1186,9 @@ const renderSvgDocument = (extent, graphics, options) => {
           break;
         case 'circle':
           lines.push(circleElement(primitive));
+          break;
+        case 'ellipse':
+          lines.push(ellipseElement(primitive));
           break;
         case 'polygon':
           lines.push(polygonElement(primitive));

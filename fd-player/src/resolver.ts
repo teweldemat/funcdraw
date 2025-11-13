@@ -3,7 +3,7 @@ import type {
   ExpressionLanguage,
   ExpressionListItem
 } from '@funcdraw/core';
-import type { ExpressionEntry } from './types';
+import type { ExpressionEntry } from './types.js';
 
 const ROOT_SEGMENT = '__root__';
 

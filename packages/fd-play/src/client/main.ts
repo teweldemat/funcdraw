@@ -1,4 +1,4 @@
-import { FuncdrawPlayer } from '@funcdraw/fd-player';
+import { FuncdrawPlayer, MemoryExpressionResolver, ModuleRegistry, type ExpressionEntry } from '@funcdraw/fd-player';
 
 declare global {
   interface Window {
@@ -26,10 +26,25 @@ if (!canvas) {
 const player = new FuncdrawPlayer({ canvas });
 window.__fdPlayer = player;
 
+type WorkspacePayload = {
+  entries: ExpressionEntry[];
+  modules: Record<string, ExpressionEntry[]>;
+};
+
 const loadModel = async () => {
   setStatus('Loading workspace…');
   try {
-    await player.loadArchiveFromUrl(`/model.fdmodel?ts=${Date.now()}`);
+    const response = await fetch(`/workspace.json?ts=${Date.now()}`);
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const payload = (await response.json()) as WorkspacePayload;
+    const resolver = new MemoryExpressionResolver(payload.entries ?? []);
+    const modulesEntries = new Map<string, ExpressionEntry[]>(
+      Object.entries(payload.modules ?? {})
+    );
+    const moduleRegistry = modulesEntries.size > 0 ? new ModuleRegistry(modulesEntries) : null;
+    player.setResolver(resolver, moduleRegistry);
     player.render();
     const warnings = player.getWarnings();
     if (warnings.length > 0) {

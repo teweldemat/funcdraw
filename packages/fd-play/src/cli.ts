@@ -5,14 +5,14 @@ import { readdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import esbuild from 'esbuild';
-import JSZip from 'jszip';
 import open from 'open';
+import { normalizeWorkspaceFiles } from '@funcdraw/fd-player/dist/loader.js';
+import type { ExpressionEntry } from '@funcdraw/fd-player/dist/types.js';
 
-const MODEL_MIME = 'application/vnd.funcdraw-model+zip';
 const DEFAULT_PORT = 4123;
 const IGNORED_FOLDERS = new Set(['node_modules', '.git', 'dist', 'build', '.turbo']);
-const MODULE_FOLDER = '__modules__';
 
 const program = new Command();
 program
@@ -136,8 +136,6 @@ const readWorkspaceFiles = async (dir: string, prefix = ''): Promise<{ path: str
   return results;
 };
 
-const encodeModuleSpecifier = (specifier: string) => encodeURIComponent(specifier);
-
 const resolveWorkspaceRoot = (packageRoot: string) => {
   const nestedWorkspace = path.join(packageRoot, 'workspace');
   return existsSync(nestedWorkspace) ? nestedWorkspace : packageRoot;
@@ -165,15 +163,35 @@ const collectFileDependencies = async (
     return new Map();
   }
   const modules = new Map<string, { path: string; content: string }[]>();
-  for (const [name, spec] of Object.entries(dependencies as Record<string, unknown>)) {
-    if (typeof spec !== 'string' || !spec.startsWith('file:')) {
-      continue;
+  const projectRequire = createRequire(packageJsonPath);
+
+  const resolveDependencyRoot = (name: string, spec: unknown): string | null => {
+    if (typeof spec === 'string' && spec.startsWith('file:')) {
+      const resolved = path.resolve(projectRoot, spec.slice(5));
+      return existsSync(resolved) ? resolved : null;
     }
-    const dependencyRoot = path.resolve(projectRoot, spec.slice(5));
-    if (!existsSync(dependencyRoot)) {
+    const nodeModulesPath = path.join(projectRoot, 'node_modules', name);
+    if (existsSync(nodeModulesPath)) {
+      return nodeModulesPath;
+    }
+    try {
+      const resolvedPackage = projectRequire.resolve(`${name}/package.json`);
+      return path.dirname(resolvedPackage);
+    } catch {
+      return null;
+    }
+  };
+
+  for (const [name, spec] of Object.entries(dependencies as Record<string, unknown>)) {
+    const dependencyRoot = resolveDependencyRoot(name, spec);
+    if (!dependencyRoot) {
       continue;
     }
     const workspaceDir = resolveWorkspaceRoot(dependencyRoot);
+    const hasManifest = existsSync(path.join(dependencyRoot, 'funcdraw.json')) || existsSync(path.join(workspaceDir, 'funcdraw.json'));
+    if (!hasManifest) {
+      continue;
+    }
     try {
       const files = await readWorkspaceFiles(workspaceDir);
       if (files.length > 0) {
@@ -186,24 +204,21 @@ const collectFileDependencies = async (
   return modules;
 };
 
-const createModelArchive = async (root: string): Promise<Buffer> => {
+const createWorkspacePayload = async (root: string) => {
   const files = await readWorkspaceFiles(root);
   if (files.length === 0) {
     throw new Error('No FuncDraw expressions (.fs or .js) were found.');
   }
+  const entries = normalizeWorkspaceFiles(files);
   const dependencyFiles = await collectFileDependencies(root);
-  const zip = new JSZip();
-  const rootFolder = path.basename(root) || 'workspace';
-  files.forEach((file) => {
-    zip.file(`${rootFolder}/${file.path}`, file.content);
-  });
+  const modules: Record<string, ExpressionEntry[]> = {};
   dependencyFiles.forEach((moduleFiles, specifier) => {
-    const folderName = encodeModuleSpecifier(specifier);
-    moduleFiles.forEach((file) => {
-      zip.file(`${rootFolder}/${MODULE_FOLDER}/${folderName}/${file.path}`, file.content);
-    });
+    const normalized = normalizeWorkspaceFiles(moduleFiles, { stripCommonRoot: false });
+    if (normalized.length > 0) {
+      modules[specifier] = normalized;
+    }
   });
-  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  return { entries, modules };
 };
 
 const clientBundlePromise = buildClientBundle();
@@ -224,15 +239,15 @@ const server = createServer(async (req, res) => {
       res.end(bundle);
       return;
     }
-    if (pathname.startsWith('/model.fdmodel')) {
+    if (pathname === '/workspace.json') {
       try {
-        const archive = await createModelArchive(workspaceRoot);
-        res.setHeader('Content-Type', MODEL_MIME);
+        const payload = await createWorkspacePayload(workspaceRoot);
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Cache-Control', 'no-store');
-        res.end(archive);
+        res.end(JSON.stringify(payload));
       } catch (err) {
         res.statusCode = 500;
-        res.end(err instanceof Error ? err.message : 'Failed to build model archive');
+        res.end(err instanceof Error ? err.message : 'Failed to prepare workspace payload');
       }
       return;
     }

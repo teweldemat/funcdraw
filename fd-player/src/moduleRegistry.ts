@@ -1,12 +1,12 @@
 import { FuncDraw } from '@funcdraw/core';
-import { MemoryExpressionResolver } from './resolver';
-import type { ExpressionEntry } from './types';
+import { MemoryExpressionResolver } from './resolver.js';
+import type { ExpressionEntry } from './types.js';
 import {
   createBaseProvider,
   FUNC_DRAW_MODULE_SENTINEL,
   type ModuleImportContext,
   type ModuleImportHandler
-} from './moduleBindings';
+} from './moduleBindings.js';
 
 export type ModuleEntryMap = Map<string, ExpressionEntry[]>;
 

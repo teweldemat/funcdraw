@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import type { ExpressionLanguage } from '@funcdraw/core';
-import type { ExpressionEntry, WorkspaceFile } from './types';
+import type { ExpressionEntry, WorkspaceFile } from './types.js';
 
 const EXPRESSION_EXTENSIONS = new Set(['.fs', '.js']);
 const MODULE_FOLDER = '__modules__';

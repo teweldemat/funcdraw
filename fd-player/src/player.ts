@@ -1,11 +1,11 @@
 import { FuncDraw } from '@funcdraw/core';
 import type { ExpressionLanguage } from '@funcdraw/core';
-import { MemoryExpressionResolver } from './resolver';
-import { createInlineEntries, loadArchiveContent, normalizeWorkspaceFiles, DEFAULT_VIEW_EXPRESSION } from './loader';
-import { interpretGraphics, interpretView, prepareGraphics, renderGraphicsToCanvas, toPlainValue } from './rendering';
-import type { ExpressionEntry, FuncdrawPlayerOptions } from './types';
-import { createBaseProvider } from './moduleBindings';
-import { ModuleRegistry } from './moduleRegistry';
+import type { ExpressionCollectionResolver, ExpressionListItem } from '@funcdraw/core';
+import { interpretGraphics, interpretView, prepareGraphics, renderGraphicsToCanvas, toPlainValue } from './rendering.js';
+import type { FuncdrawPlayerOptions } from './types.js';
+import { createBaseProvider } from './moduleBindings.js';
+import { ModuleRegistry, type ModuleEntryMap } from './moduleRegistry.js';
+import { DEFAULT_VIEW_EXPRESSION } from './loader.js';
 
 export class FuncdrawPlayer {
   private canvas: HTMLCanvasElement;
@@ -15,7 +15,7 @@ export class FuncdrawPlayer {
   private gridColor?: string;
   private padding?: number;
   private time?: number;
-  private resolver: MemoryExpressionResolver | null = null;
+  private resolver: ExpressionCollectionResolver | null = null;
   private mainPath: string[] = ['main'];
   private viewPath: string[] = ['view'];
   private warnings: string[] = [];
@@ -32,31 +32,14 @@ export class FuncdrawPlayer {
     this.ensureSize();
   }
 
-  async loadArchiveFromUrl(url: string): Promise<void> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch FuncDraw model from ${url}`);
-    }
-    const buffer = await response.arrayBuffer();
-    await this.loadArchiveFromBinary(buffer);
+  setResolver(resolver: ExpressionCollectionResolver, modules?: ModuleEntryMap | ModuleRegistry | null): void {
+    this.resolver = this.ensureViewResolver(resolver);
+    this.assignModuleRegistry(modules ?? null);
+    this.warnings = [];
   }
 
-  async loadArchiveFromBinary(input: ArrayBuffer | Uint8Array | Blob): Promise<void> {
-    const content = await loadArchiveContent(input);
-    this.setResolver(content.entries);
-    this.moduleRegistry = content.modules.size > 0 ? new ModuleRegistry(content.modules) : null;
-  }
-
-  loadFromExpressions(options: { main: string; view?: string; mainLanguage?: ExpressionLanguage; viewLanguage?: ExpressionLanguage }): void {
-    const entries = createInlineEntries(options);
-    this.setResolver(entries);
-    this.moduleRegistry = null;
-  }
-
-  loadFromWorkspaceFiles(files: { path: string; content: string }[]): void {
-    const entries = normalizeWorkspaceFiles(files);
-    this.setResolver(entries);
-    this.moduleRegistry = null;
+  setModuleEntries(modules: ModuleEntryMap | null): void {
+    this.assignModuleRegistry(modules);
   }
 
   setTime(seconds: number | undefined): void {
@@ -87,7 +70,7 @@ export class FuncdrawPlayer {
 
   render(): void {
     if (!this.resolver) {
-      throw new Error('No FuncDraw model has been loaded into the player.');
+      throw new Error('No FuncDraw resolver has been configured for the player.');
     }
     this.ensureSize();
     const importFn = this.moduleRegistry?.getImportFunction() ?? null;
@@ -138,20 +121,52 @@ export class FuncdrawPlayer {
     }
   }
 
-  private setResolver(entries: ExpressionEntry[]) {
-    const working = entries.slice();
-    const hasView = working.some(
-      (entry) => entry.path.length > 0 && entry.path[entry.path.length - 1].toLowerCase() === 'view'
-    );
-    if (!hasView) {
-      working.push({
-        path: ['view'],
-        language: 'funcscript',
-        source: DEFAULT_VIEW_EXPRESSION,
-        createdAt: working.length
-      });
+  private assignModuleRegistry(modules: ModuleEntryMap | ModuleRegistry | null) {
+    if (!modules) {
+      this.moduleRegistry = null;
+      return;
     }
-    this.resolver = new MemoryExpressionResolver(working);
-    this.warnings = [];
+    if (modules instanceof ModuleRegistry) {
+      this.moduleRegistry = modules;
+      return;
+    }
+    this.moduleRegistry = modules.size > 0 ? new ModuleRegistry(modules) : null;
+  }
+
+  private ensureViewResolver(resolver: ExpressionCollectionResolver): ExpressionCollectionResolver {
+    const hasView = resolver
+      .listItems([])
+      .some((entry) => entry.kind === 'expression' && entry.name.toLowerCase() === 'view');
+    if (hasView) {
+      return resolver;
+    }
+    return new ViewFallbackResolver(resolver);
+  }
+}
+
+class ViewFallbackResolver implements ExpressionCollectionResolver {
+  constructor(private readonly base: ExpressionCollectionResolver) {}
+
+  listItems(segments: string[]): ExpressionListItem[] {
+    const items = this.base.listItems(segments);
+    if (segments.length === 0 && !items.some((entry) => entry.kind === 'expression' && entry.name.toLowerCase() === 'view')) {
+      return [
+        ...items,
+        {
+          kind: 'expression',
+          name: 'view',
+          createdAt: Number.MAX_SAFE_INTEGER,
+          language: 'funcscript'
+        }
+      ];
+    }
+    return items;
+  }
+
+  getExpression(segments: string[]): string | null {
+    if (segments.length === 1 && segments[0].toLowerCase() === 'view') {
+      return this.base.getExpression(segments) ?? DEFAULT_VIEW_EXPRESSION;
+    }
+    return this.base.getExpression(segments);
   }
 }

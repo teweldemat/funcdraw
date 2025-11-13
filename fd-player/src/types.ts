@@ -32,13 +32,6 @@ export type FuncdrawPlayerOptions = PlayerAppearance & {
   time?: number;
 };
 
-export type InlineExpressionsOptions = {
-  main: string;
-  view?: string;
-  mainLanguage?: ExpressionLanguage;
-  viewLanguage?: ExpressionLanguage;
-};
-
 export type GraphicsLayer = Array<PrimitiveLine | PrimitiveRect | PrimitiveCircle | PrimitiveEllipse | PrimitivePolygon | PrimitiveText>;
 
 export type PreparedGraphics = {

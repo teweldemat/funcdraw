@@ -1,5 +1,5 @@
 import { Engine, FSDataType, FsList, KeyValueCollection, valueOf, typeOf, ensureTyped } from '@tewelde/funcscript';
-import type { PreparedGraphics, PrimitiveLine, PrimitiveRect, PrimitiveCircle, PrimitiveEllipse, PrimitivePolygon, PrimitiveText, ViewExtent } from './types';
+import type { PreparedGraphics, PrimitiveLine, PrimitiveRect, PrimitiveCircle, PrimitiveEllipse, PrimitivePolygon, PrimitiveText, ViewExtent } from './types.js';
 
 const DEFAULT_BACKGROUND = '#0f172a';
 const DEFAULT_GRID_COLOR = 'rgba(148, 163, 184, 0.2)';

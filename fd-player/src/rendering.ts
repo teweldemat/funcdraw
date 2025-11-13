@@ -36,55 +36,81 @@ const ensurePoints = (value: unknown): [number, number][] | null => {
 };
 
 const toPlainValue = (value: unknown): any => {
-  try {
-    const typed = ensureTyped(value as any);
-    const dataType = typeOf(typed);
-    const raw: any = valueOf(typed);
-    switch (dataType) {
-      case FSDataType.Null:
-      case FSDataType.Boolean:
-      case FSDataType.Integer:
-      case FSDataType.Float:
-      case FSDataType.String:
-      case FSDataType.BigInteger:
-      case FSDataType.Guid:
-      case FSDataType.DateTime:
-        return raw;
-      case FSDataType.ByteArray:
-        return raw;
-      case FSDataType.List: {
-        if (raw instanceof FsList && typeof raw.toArray === 'function') {
-          return raw.toArray().map((entry) => toPlainValue(entry));
-        }
-      if (!raw || typeof raw[Symbol.iterator] !== 'function') {
-        return [];
-      }
-      return Array.from(raw as Iterable<unknown>, (entry) => toPlainValue(entry));
-      }
-      case FSDataType.KeyValueCollection: {
-        if (raw instanceof KeyValueCollection && typeof raw.getAll === 'function') {
-          const result: Record<string, unknown> = {};
-          for (const [key, entry] of raw.getAll()) {
-            result[key] = toPlainValue(entry);
-          }
-          return result;
-        }
-        return raw;
-      }
-      case FSDataType.Error: {
-        const err = (raw as { errorType?: string; errorMessage?: string; errorData?: unknown }) ?? {};
-        return {
-          errorType: err.errorType || 'Error',
-          errorMessage: err.errorMessage || '',
-          errorData: err.errorData ?? null
-        };
-      }
-      default:
-        return raw;
-    }
-  } catch (err) {
-    return err instanceof Error ? err.message : String(err);
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string'
+  ) {
+    return value;
   }
+  if (Array.isArray(value)) {
+    return value.map((entry) => toPlainValue(entry));
+  }
+  if (value && typeof value === 'object') {
+    if (value instanceof Date) {
+      return value;
+    }
+    try {
+      const typed = ensureTyped(value as any);
+      const dataType = typeOf(typed);
+      const raw: any = valueOf(typed);
+      switch (dataType) {
+        case FSDataType.Null:
+        case FSDataType.Boolean:
+        case FSDataType.Integer:
+        case FSDataType.Float:
+        case FSDataType.String:
+        case FSDataType.BigInteger:
+        case FSDataType.Guid:
+        case FSDataType.DateTime:
+          return raw;
+        case FSDataType.ByteArray:
+          return raw;
+        case FSDataType.List: {
+          if (raw instanceof FsList && typeof raw.toArray === 'function') {
+            return raw.toArray().map((entry) => toPlainValue(entry));
+          }
+          if (!raw || typeof raw[Symbol.iterator] !== 'function') {
+            return [];
+          }
+          return Array.from(raw as Iterable<unknown>, (entry) => toPlainValue(entry));
+        }
+        case FSDataType.KeyValueCollection: {
+          if (raw instanceof KeyValueCollection && typeof raw.getAll === 'function') {
+            const result: Record<string, unknown> = {};
+            for (const [key, entry] of raw.getAll()) {
+              result[key] = toPlainValue(entry);
+            }
+            return result;
+          }
+          return raw;
+        }
+        case FSDataType.Error: {
+          const err = (raw as { errorType?: string; errorMessage?: string; errorData?: unknown }) ?? {};
+          return {
+            errorType: err.errorType || 'Error',
+            errorMessage: err.errorMessage || '',
+            errorData: err.errorData ?? null
+          };
+        }
+        default:
+          return raw;
+      }
+    } catch (err) {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) {
+        return {};
+      }
+      const result: Record<string, unknown> = {};
+      for (const [key, entry] of entries) {
+        result[key] = toPlainValue(entry);
+      }
+      return result;
+    }
+  }
+  return value;
 };
 
 export const interpretGraphics = (value: unknown) => {

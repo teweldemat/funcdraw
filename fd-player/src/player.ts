@@ -1,9 +1,11 @@
 import { FuncDraw } from '@funcdraw/core';
 import type { ExpressionLanguage } from '@funcdraw/core';
 import { MemoryExpressionResolver } from './resolver';
-import { createInlineEntries, loadArchiveEntries, normalizeWorkspaceFiles, DEFAULT_VIEW_EXPRESSION } from './loader';
+import { createInlineEntries, loadArchiveContent, normalizeWorkspaceFiles, DEFAULT_VIEW_EXPRESSION } from './loader';
 import { interpretGraphics, interpretView, prepareGraphics, renderGraphicsToCanvas, toPlainValue } from './rendering';
 import type { ExpressionEntry, FuncdrawPlayerOptions } from './types';
+import { createBaseProvider } from './moduleBindings';
+import { ModuleRegistry } from './moduleRegistry';
 
 export class FuncdrawPlayer {
   private canvas: HTMLCanvasElement;
@@ -17,6 +19,7 @@ export class FuncdrawPlayer {
   private mainPath: string[] = ['main'];
   private viewPath: string[] = ['view'];
   private warnings: string[] = [];
+  private moduleRegistry: ModuleRegistry | null = null;
 
   constructor(options: FuncdrawPlayerOptions) {
     this.canvas = options.canvas;
@@ -39,18 +42,21 @@ export class FuncdrawPlayer {
   }
 
   async loadArchiveFromBinary(input: ArrayBuffer | Uint8Array | Blob): Promise<void> {
-    const entries = await loadArchiveEntries(input);
-    this.setResolver(entries);
+    const content = await loadArchiveContent(input);
+    this.setResolver(content.entries);
+    this.moduleRegistry = content.modules.size > 0 ? new ModuleRegistry(content.modules) : null;
   }
 
   loadFromExpressions(options: { main: string; view?: string; mainLanguage?: ExpressionLanguage; viewLanguage?: ExpressionLanguage }): void {
     const entries = createInlineEntries(options);
     this.setResolver(entries);
+    this.moduleRegistry = null;
   }
 
   loadFromWorkspaceFiles(files: { path: string; content: string }[]): void {
     const entries = normalizeWorkspaceFiles(files);
     this.setResolver(entries);
+    this.moduleRegistry = null;
   }
 
   setTime(seconds: number | undefined): void {
@@ -84,7 +90,9 @@ export class FuncdrawPlayer {
       throw new Error('No FuncDraw model has been loaded into the player.');
     }
     this.ensureSize();
-    const { evaluateExpression } = FuncDraw.evaluate(this.resolver, this.time);
+    const importFn = this.moduleRegistry?.getImportFunction() ?? null;
+    const provider = createBaseProvider(importFn);
+    const { evaluateExpression } = FuncDraw.evaluate(this.resolver, this.time, { baseProvider: provider });
 
     const evaluatePath = (path: string[]) => {
       const result = evaluateExpression(path);

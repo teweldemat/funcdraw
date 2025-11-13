@@ -12,6 +12,7 @@ import open from 'open';
 const MODEL_MIME = 'application/vnd.funcdraw-model+zip';
 const DEFAULT_PORT = 4123;
 const IGNORED_FOLDERS = new Set(['node_modules', '.git', 'dist', 'build', '.turbo']);
+const MODULE_FOLDER = '__modules__';
 
 const program = new Command();
 program
@@ -135,15 +136,72 @@ const readWorkspaceFiles = async (dir: string, prefix = ''): Promise<{ path: str
   return results;
 };
 
+const encodeModuleSpecifier = (specifier: string) => encodeURIComponent(specifier);
+
+const resolveWorkspaceRoot = (packageRoot: string) => {
+  const nestedWorkspace = path.join(packageRoot, 'workspace');
+  return existsSync(nestedWorkspace) ? nestedWorkspace : packageRoot;
+};
+
+const collectFileDependencies = async (
+  projectRoot: string
+): Promise<Map<string, { path: string; content: string }[]>> => {
+  const packageJsonPath = path.join(projectRoot, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return new Map();
+  }
+  let parsed: unknown;
+  try {
+    const raw = await readFile(packageJsonPath, 'utf8');
+    parsed = JSON.parse(raw);
+  } catch {
+    return new Map();
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return new Map();
+  }
+  const dependencies = (parsed as { dependencies?: Record<string, unknown> }).dependencies;
+  if (!dependencies || typeof dependencies !== 'object') {
+    return new Map();
+  }
+  const modules = new Map<string, { path: string; content: string }[]>();
+  for (const [name, spec] of Object.entries(dependencies as Record<string, unknown>)) {
+    if (typeof spec !== 'string' || !spec.startsWith('file:')) {
+      continue;
+    }
+    const dependencyRoot = path.resolve(projectRoot, spec.slice(5));
+    if (!existsSync(dependencyRoot)) {
+      continue;
+    }
+    const workspaceDir = resolveWorkspaceRoot(dependencyRoot);
+    try {
+      const files = await readWorkspaceFiles(workspaceDir);
+      if (files.length > 0) {
+        modules.set(name, files);
+      }
+    } catch {
+      // Ignore dependency read errors so one bad dependency does not stop playback.
+    }
+  }
+  return modules;
+};
+
 const createModelArchive = async (root: string): Promise<Buffer> => {
   const files = await readWorkspaceFiles(root);
   if (files.length === 0) {
     throw new Error('No FuncDraw expressions (.fs or .js) were found.');
   }
+  const dependencyFiles = await collectFileDependencies(root);
   const zip = new JSZip();
   const rootFolder = path.basename(root) || 'workspace';
   files.forEach((file) => {
     zip.file(`${rootFolder}/${file.path}`, file.content);
+  });
+  dependencyFiles.forEach((moduleFiles, specifier) => {
+    const folderName = encodeModuleSpecifier(specifier);
+    moduleFiles.forEach((file) => {
+      zip.file(`${rootFolder}/${MODULE_FOLDER}/${folderName}/${file.path}`, file.content);
+    });
   });
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 };

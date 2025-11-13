@@ -3,6 +3,7 @@ node_modules/
 
 # Build outputs
 dist/
+**/dist/
 build/
 coverage/
 *.tsbuildinfo
@@ -22,5 +23,6 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 fd-player/.npm-cache
+**/.npm-cache/
 artifacts
 .vercel

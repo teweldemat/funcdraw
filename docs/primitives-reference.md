@@ -1,6 +1,6 @@
 # Primitives Reference
 
-FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a `graphics` expression. Each primitive is an object with a `type` string plus the drawing fields listed below (no nested `data` wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Player and the `fd-cli` renderer.
+FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a `graphics` expression. Each primitive is an object with a `type` string plus the drawing fields listed below (no nested `data` wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Editor, the standalone `@funcdraw/fd-player` runtime, and the `fd-cli` renderer.
 
 ## Shared rules
 - Coordinates are 2-element arrays `[x, y]` expressed in the same units as your `view` extent.

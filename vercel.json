@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run vercel-build",
-  "devCommand": "npm run dev:fd-player",
+  "devCommand": "npm run dev:fd-editor",
   "installCommand": "npm install",
-  "outputDirectory": "fd-player/dist",
+  "outputDirectory": "fd-editor/dist",
   "rewrites": [
     { "source": "/docs/(.*)\\.md", "destination": "/docs/$1.html" },
     { "source": "/docs/(.*)", "destination": "/docs/$1" },

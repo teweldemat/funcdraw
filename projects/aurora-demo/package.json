@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "play": "node ../../scripts/play-project.mjs"
+    "play": "fd-play --root ."
   },
   "dependencies": {
     "aurora-library": "file:../../packages/aurora-library"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-play": "file:../../packages/fd-play"
   }
 }

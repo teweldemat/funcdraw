@@ -5,7 +5,7 @@ import type {
 } from '@funcdraw/core';
 import type { CustomTabDefinition } from './examples';
 
-export const STORAGE_KEY = 'fd-player-state';
+export const STORAGE_KEY = 'fd-editor-state';
 
 export type CustomTabState = {
   id: string;

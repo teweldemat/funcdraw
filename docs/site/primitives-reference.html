@@ -69,12 +69,12 @@
 <body>
   <header>
     <h1>FuncDraw Documentation</h1>
-    <nav><a href="/docs/index.html">FuncDraw Docs</a><a href="/docs/getting-started.html">Getting Started</a><a href="/docs/primitives-reference.html">Primitives Reference</a><a href="/docs/programming-model.html">Programming Model</a></nav>
+    <nav><a href="/docs/index.html">FuncDraw Docs</a><a href="/docs/funcdraw-name-resolution.html">How names are resolved in FuncDraw workspaces</a><a href="/docs/getting-started.html">Getting Started</a><a href="/docs/primitives-reference.html">Primitives Reference</a><a href="/docs/programming-model.html">Programming Model</a></nav>
   </header>
   <main>
     <article>
       <h1>Primitives Reference</h1>
-<p>FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a <code>graphics</code> expression. Each primitive is an object with a <code>type</code> string plus the drawing fields listed below (no nested <code>data</code> wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Player and the <code>fd-cli</code> renderer.</p>
+<p>FuncDraw renders graphics by walking the array (or nested arrays) of primitive objects you return from a <code>graphics</code> expression. Each primitive is an object with a <code>type</code> string plus the drawing fields listed below (no nested <code>data</code> wrapper required). Validation and defaults match the logic used by the hosted FuncDraw Editor, the standalone <code>@funcdraw/fd-player</code> runtime, and the <code>fd-cli</code> renderer.</p>
 <h2>Shared rules</h2>
 <ul>
 <li>Coordinates are 2-element arrays <code>[x, y]</code> expressed in the same units as your <code>view</code> extent.</li>

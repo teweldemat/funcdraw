@@ -9,6 +9,7 @@
   },
   "workspaces": [
     "fd-cli",
+    "fd-editor",
     "fd-player",
     "funcdraw",
     "packages/*"
@@ -18,9 +19,10 @@
     "test": "npm run test --workspaces --if-present",
     "docs:build": "node ./scripts/build-docs.mjs",
     "copy-docs": "npm run docs:build && node ./scripts/copy-docs.mjs",
-    "build:fd-player": "npm run build --workspace fd-player && npm run copy-docs",
-    "dev:fd-player": "npm run docs:build && npm run dev --workspace fd-player",
-    "vercel-build": "npm run build:fd-player"
+    "build:fd-editor": "npm run build --workspace fd-editor && npm run copy-docs",
+    "dev:fd-editor": "npm run docs:build && npm run dev --workspace fd-editor",
+    "build:fd-player": "npm run build --workspace fd-player",
+    "vercel-build": "npm run build:fd-editor"
   },
   "dependencies": {
     "@tewelde/funcscript": "^0.2.5",

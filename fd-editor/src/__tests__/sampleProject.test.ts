@@ -222,6 +222,12 @@ const loadFuncdrawPackageSnapshot = (packageRoot: string) => {
   return exports;
 };
 
+type CartoonSnapshot = {
+  landscape?: {
+    tree?: unknown;
+  };
+};
+
 describe('aurora demo project', () => {
   it('imports the aurora-library package defined in FuncScript', () => {
     const result = evaluateProject(
@@ -236,12 +242,16 @@ describe('aurora demo project', () => {
 
 describe('cartoon library package', () => {
   it('exposes the tree module with optional type selection', () => {
-    const snapshot = loadFuncdrawPackageSnapshot(path.resolve(__dirname, '../../../packages/cartoon'));
+    const snapshot = loadFuncdrawPackageSnapshot(
+      path.resolve(__dirname, '../../../packages/cartoon')
+    ) as CartoonSnapshot;
     expect(snapshot).not.toBeNull();
     expect(snapshot?.landscape?.tree).toBeTruthy();
-    const treeModule = snapshot.landscape.tree;
+    const treeModule = snapshot.landscape?.tree;
     expect(treeModule).toBeTruthy();
-    expect(typeof treeModule).toBe('object');
-    expect(typeof treeModule.evaluate).toBe('function');
+    if (treeModule) {
+      expect(typeof treeModule).toBe('object');
+      expect(typeof (treeModule as Record<string, unknown>).evaluate).toBe('function');
+    }
   });
 });

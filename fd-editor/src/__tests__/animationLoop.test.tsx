@@ -95,7 +95,7 @@ const createMockContext = () => {
   }) as unknown as CanvasRenderingContext2D;
 };
 
-describe('fd-player animation loop', () => {
+describe('fd-editor animation loop', () => {
   let consoleError: MockInstance;
   let requestAnimationFrameSpy: MockInstance;
   let cancelAnimationFrameSpy: MockInstance;

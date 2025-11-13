@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FuncDraw Docs · FuncDraw Docs</title>
+  <title>How names are resolved in FuncDraw workspaces · FuncDraw Docs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -73,14 +73,30 @@
   </header>
   <main>
     <article>
-      <h1>FuncDraw Docs</h1>
-<p>Welcome! These docs live under <code>docs/</code> so GitHub Pages can host them directly. Pick a topic to dive in:</p>
+      <h1>How names are resolved in FuncDraw workspaces</h1>
+<h2>Resolution rules within a workspace</h2>
+<p>In FuncDraw, when a name is referenced, the value is first looked up locally within the expression. If it is not found there, the search continues among the names of sibling expressions, then among the siblings of the parent collection or module, and so on up the hierarchy.
+Because of this, expressions and folders do not need to be explicitly imported within a workspace.</p>
+<h2>Imports</h2>
+<p>The <code>import</code> function in FuncScript (<code>fdimport</code> in JavaScript contexts) is used to import packages from node_modules folders. All root items—expressions, collections, and modules—are assembled into a <code>KeyValueCollection</code> (an object in JavaScript). Imported modules do not need to specify what they export.
+Name references inside imported packages follow the same workspace name resolution rules described above.</p>
+<h2>Package Structure</h2>
 <ul>
-<li><a href="getting-started.md">Getting Started</a> – tour the hosted FuncDraw Editor and learn how to iterate on an example.</li>
-<li><a href="programming-model.md">Programming Model</a> – understand how expressions, collections, and module folders turn into a renderable graph.</li>
-<li><a href="primitives-reference.md">Primitives Reference</a> – catalog of shape objects the runtime understands.</li>
+<li>package.json</li>
+<li>funcdraw.json</li>
+<li><expression>.fs|js</li>
+<li><collection>.fs|js<ul>
+<li><expression>.fs|js</li>
+<li><collection>.fs|js<ul>
+<li>&lt;expression</li>
 </ul>
-<p>Looking for the hosted experience? Open <a href="https://funcdraw.app">https://funcdraw.app</a> to launch the FuncDraw Editor.</p>
+</li>
+</ul>
+</li>
+<li><module>
+  - <eval>.fs|js
+  - <expression>.fs|js</li>
+</ul>
 
     </article>
   </main>

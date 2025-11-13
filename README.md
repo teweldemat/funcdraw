@@ -2,12 +2,14 @@
 
 FuncDraw is a vector graphics authoring toolkit that treats every shape, color, and animation cue as the result of a function. Instead of pushing pixels around, you define small reusable functions and compose them to generate complete scenes. The runtime can evaluate those definitions from JavaScript or FuncScript, a lightweight functional DSL designed for deterministic rendering.
 
-Hosted FuncDraw Player: https://funcdraw.app
+Hosted FuncDraw Editor: https://funcdraw.app
 
 ## Project Pieces
 - Core runtime – powers both the player and CLI experiences by turning expression trees into typed values.
 - Command line tools (`@tewelde/fd-cli`) – evaluate expressions against a workspace on disk and emit JSON, SVG, or PNG snapshots.
-- FuncDraw Player – available at https://funcdraw.app and designed for interactive authoring in the browser.
+- FuncDraw Editor (`@funcdraw/fd-editor`) – available at https://funcdraw.app and designed for interactive authoring in the browser.
+- FuncDraw Player (`@funcdraw/fd-player`) – lightweight JavaScript runtime that renders FuncDraw packages onto any HTML canvas.
+- FuncDraw Play CLI (`@funcdraw/fd-play`) – spins up a local dev server so `npm run play` can open the editor-grade runtime against your workspace.
 
 ## Language Support
 - **JavaScript** for direct embedding in Node.js and front-end projects.

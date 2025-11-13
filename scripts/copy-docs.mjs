@@ -7,7 +7,7 @@ const rootDir = path.resolve(__dirname, '..');
 const docsDir = path.join(rootDir, 'docs');
 const siteDir = path.join(docsDir, 'site');
 const playerDir = path.join(docsDir, 'player');
-const targetDir = path.join(rootDir, 'fd-player', 'dist', 'docs');
+const targetDir = path.join(rootDir, 'fd-editor', 'dist', 'docs');
 
 async function ensureDirExists(dir, label) {
   try {

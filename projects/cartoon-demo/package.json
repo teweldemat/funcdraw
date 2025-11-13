@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "play": "node ../../scripts/play-project.mjs"
+    "play": "fd-play --root ."
   },
   "dependencies": {
     "@funcdraw/cat-cartoon": "file:../../packages/cartoon"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-play": "file:../../packages/fd-play"
   }
 }

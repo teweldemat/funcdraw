@@ -1,3 +1,3 @@
 {
-  return { left: -20, bottom: -10, right: 20, top: 10 };
+  return { left: -24, bottom: -12, right: 24, top: 12 };
 }

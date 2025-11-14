@@ -1,12 +1,12 @@
 {
-  "title": "Diagram Player Demo",
-  "description": "Shows basic diagram boxes side by side.",
+  "title": "Diagram CLI Demo",
+  "description": "CLI scene showing two labeled boxes rendered from the diagram library.",
   "catalog": [
     {
-      "id": "charging-diagram",
-      "name": "EV Charging Diagram",
-      "catalogExpression": "{\\n  diagram: import('@funcdraw/diagram');\\n  source: diagram.box([-8, 0], [12, 6], { label: 'Energy Source' });\\n  target: diagram.box([8, 0], [12, 6], { label: 'Charging Hub' });\\n  eval [source.graphics, target.graphics];\\n}",
-      "descriptionHtml": "<p>Two labeled boxes rendered via the diagram library.</p>"
+      "id": "cli-charging",
+      "name": "CLI Charging Diagram",
+      "catalogExpression": "{\\n  diagram: import('@funcdraw/diagram');\\n  source: diagram.box([-8, 0], [10, 6], { label: 'Source' });\\n  target: diagram.box([8, 0], [10, 6], { label: 'Target' });\\n  queue: diagram.box([-8, -9], [9, 5], { label: 'Queue'; fill: '#fef3c7'; stroke: '#b45309'; strokeWidth: 0.25; labelSize: 2.1; });\\n  connector: diagram.connector.line({ start: source.attachments.right; end: target.attachments.left; });\\n  sourceTop: source.attachments.top.point;\\n  targetTop: target.attachments.top.point;\\n  elbowY: sourceTop[1] - 4;\\n  topRoute: diagram.connector.polyline({\\n    start: source.attachments.top;\\n    end: target.attachments.top;\\n    via: [\\n      [sourceTop[0], elbowY],\\n      [targetTop[0], elbowY]\\n    ];\\n    style: { stroke: '#22c55e'; width: 0.3; dash: [0.6, 0.4]; };\\n    arrow: { stroke: '#15803d'; fill: '#22c55e'; headLength: 0.9; baseWidth: 0.65; };\\n  });\\n  queueRight: queue.attachments.right.point;\\n  targetBottom: target.attachments.bottom.point;\\n  elbowX: queueRight[0] + 6;\\n  elbowY2: targetBottom[1] + 3;\\n  bottomRoute: diagram.connector.polyline({\\n    start: queue.attachments.right;\\n    end: target.attachments.bottom;\\n    via: [\\n      [elbowX, queueRight[1]],\\n      [elbowX, elbowY2],\\n      [targetBottom[0], elbowY2]\\n    ];\\n    style: { stroke: '#a855f7'; width: 0.3; dash: [0.4, 0.4]; };\\n    arrow: { stroke: '#7c3aed'; fill: '#a855f7'; headLength: 0.8; baseWidth: 0.55; };\\n    startArrow: { stroke: '#7c3aed'; fill: '#a855f7'; headLength: 0.8; baseWidth: 0.55; };\\n  });\\n  eval [source.graphics, target.graphics, queue.graphics, connector.graphics, topRoute.graphics, bottomRoute.graphics];\\n}",
+      "descriptionHtml": "<p>Use fd-cli to render two diagram boxes without connectors.</p>"
     }
   ],
   "persistState": false

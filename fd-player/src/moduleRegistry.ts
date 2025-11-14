@@ -1,5 +1,10 @@
 import { FuncDraw } from '@funcdraw/core';
-import { Engine, SimpleKeyValueCollection, type TypedValue } from '@tewelde/funcscript';
+import {
+  Engine,
+  SimpleKeyValueCollection,
+  type TypedValue,
+  type FuncScriptInput
+} from '@tewelde/funcscript';
 import { MemoryExpressionResolver } from './resolver.js';
 import type { ExpressionEntry } from './types.js';
 import {
@@ -155,8 +160,9 @@ export class ModuleRegistry {
               `Failed to evaluate module "${moduleName}" expression ${itemPath.join('/')}: ${evaluation.error}`
             );
           }
-          const typed = evaluation.typed ?? Engine.ensureTyped(evaluation.value ?? null);
-          entries.push([item.name, Engine.ensureTyped(typed)]);
+          const fallback = (evaluation.value ?? null) as FuncScriptInput;
+          const typed = evaluation.typed ?? Engine.ensureTyped(fallback);
+          entries.push([item.name, typed]);
         }
       });
       return new SimpleKeyValueCollection(null, entries);

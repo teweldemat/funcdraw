@@ -1,8 +1,8 @@
 {
   eval {
-    minX: 0;
-    maxX: 800;
-    minY: 0;
-    maxY: 600;
+    left: 0;
+    right: 800;
+    bottom: 0;
+    top: 600;
   };
 }

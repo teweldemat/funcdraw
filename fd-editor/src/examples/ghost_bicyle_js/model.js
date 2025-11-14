@@ -1,9 +1,9 @@
 {
   const baseViewBounds = {
-    minX: -60,
-    maxX: 60,
-    minY: -40,
-    maxY: 40
+    left: -60,
+    right: 60,
+    bottom: -40,
+    top: 40
   };
 
   const fsDiv = (numerator, denominator) =>
@@ -11,10 +11,10 @@
       ? Math.trunc(numerator / denominator)
       : numerator / denominator;
 
-  const baseViewWidth = baseViewBounds.maxX - baseViewBounds.minX;
-  const baseViewHeight = baseViewBounds.maxY - baseViewBounds.minY;
-  const baseCenterX = (baseViewBounds.minX + baseViewBounds.maxX) / 2;
-  const baseCenterY = (baseViewBounds.minY + baseViewBounds.maxY) / 2;
+  const baseViewWidth = baseViewBounds.right - baseViewBounds.left;
+  const baseViewHeight = baseViewBounds.top - baseViewBounds.bottom;
+  const baseCenterX = (baseViewBounds.left + baseViewBounds.right) / 2;
+  const baseCenterY = (baseViewBounds.bottom + baseViewBounds.top) / 2;
   const baseSkyHeight = baseViewHeight / 2;
 
   const viewZoomStrength = 1.6;
@@ -38,14 +38,14 @@
   const viewWidth = baseViewWidth * viewZoomFactor;
   const viewHeight = baseViewHeight * viewZoomFactor;
   const viewBounds = {
-    minX: baseCenterX - viewWidth / 2,
-    maxX: baseCenterX + viewWidth / 2,
-    minY: baseCenterY - viewHeight / 2,
-    maxY: baseCenterY + viewHeight / 2
+    left: baseCenterX - viewWidth / 2,
+    right: baseCenterX + viewWidth / 2,
+    bottom: baseCenterY - viewHeight / 2,
+    top: baseCenterY + viewHeight / 2
   };
 
   const skyHeight = viewHeight / 2;
-  const skyOrigin = [viewBounds.minX, viewBounds.minY + skyHeight];
+  const skyOrigin = [viewBounds.left, viewBounds.bottom + skyHeight];
 
   const wrapShift = (value, span) => value - Math.floor(value / span) * span;
 
@@ -59,11 +59,11 @@
   const skylineHeightBase = baseSkyHeight * 0.35;
   const skylineHeight = skylineHeightBase * skylineScaleFactor;
   const skylineOriginY = skyOrigin[1];
-  const skylineOrigin = [viewBounds.minX, skylineOriginY];
+  const skylineOrigin = [viewBounds.left, skylineOriginY];
   const skylineLayer = sky_line(skylineOrigin, viewWidth, skylineHeight, skylineShift);
 
   const groundHeight = baseSkyHeight;
-  const groundOrigin = [viewBounds.minX, skylineOriginY - groundHeight];
+  const groundOrigin = [viewBounds.left, skylineOriginY - groundHeight];
   const groundLayer = ground(groundOrigin, viewWidth, groundHeight, groundShift);
 
   const birdBoundsBaseWidth = baseViewWidth * 0.4;
@@ -71,7 +71,7 @@
   const birdBoundsWidth = birdBoundsBaseWidth * (1 + zoomProgress * birdZoomStrength);
   const birdBoundsHeight = birdBoundsBaseHeight * (1 + zoomProgress * (birdZoomStrength * 0.6));
   const birdZoomShift = viewWidth * 0.05 * zoomProgress;
-  const birdOriginX = viewBounds.minX + viewWidth * 0.35 - birdZoomShift + birdDriftShift;
+  const birdOriginX = viewBounds.left + viewWidth * 0.35 - birdZoomShift + birdDriftShift;
   const birdOriginY = skyOrigin[1] + skyHeight * 0.65;
   const flockBounds = { width: birdBoundsWidth, height: birdBoundsHeight };
   const flockOrigin = [birdOriginX, birdOriginY];
@@ -84,7 +84,7 @@
 
   const wheelBase = 25;
   const wheelRadius = 9;
-  const viewCenterX = (viewBounds.minX + viewBounds.maxX) / 2;
+  const viewCenterX = (viewBounds.left + viewBounds.right) / 2;
   const rearWheelX = viewCenterX - fsDiv(wheelBase, 2);
   const wheelCenterY = leftLaneMidY + wheelRadius;
   const wheelAngle = -(groundShift / wheelRadius);

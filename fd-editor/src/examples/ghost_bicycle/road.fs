@@ -2,8 +2,8 @@
   roadPadding: 120;
   roadWidth: 1.8;
   roadOffsetBelowGround: 0.4;
-  roadLength: bounds.maxX - bounds.minX + roadPadding * 2;
-  roadStartX: bounds.minX - roadPadding;
+  roadLength: bounds.right - bounds.left + roadPadding * 2;
+  roadStartX: bounds.left - roadPadding;
   roadY: groundLineY - roadOffsetBelowGround - roadWidth;
 
   asphalt: {
@@ -19,9 +19,9 @@
   markerGap: 6;
   markerHeight: 0.2;
   markerStep: markerLength + markerGap;
-  markerVisibleWidth: bounds.maxX - bounds.minX + roadPadding * 2;
+  markerVisibleWidth: bounds.right - bounds.left + roadPadding * 2;
   markerCount: math.ceil(markerVisibleWidth / markerStep) + 2;
-  markerFirstX: math.floor((bounds.minX - roadPadding) / markerStep) * markerStep;
+  markerFirstX: math.floor((bounds.left - roadPadding) / markerStep) * markerStep;
   laneMarkers: range(0, markerCount) map (index) => {
     startX: markerFirstX + index * markerStep;
     eval {

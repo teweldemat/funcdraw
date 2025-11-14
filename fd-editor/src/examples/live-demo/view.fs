@@ -1,4 +1,4 @@
-minX: -60;
-maxX: 60;
-minY: -40;
-maxY: 40;
+left: -60;
+right: 60;
+bottom: -40;
+top: 40;

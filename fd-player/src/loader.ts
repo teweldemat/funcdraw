@@ -160,5 +160,5 @@ export const createInlineEntries = (options: {
 };
 
 export const DEFAULT_VIEW_EXPRESSION = `{
-  return { minX:-10, minY:-10, maxX:10, maxY:10 };
+  return { left:-10, bottom:-10, right:10, top:10 };
 }`;

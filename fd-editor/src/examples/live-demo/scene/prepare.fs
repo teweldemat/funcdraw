@@ -27,8 +27,8 @@
   infoContainer: stageResult.infoContainerDimensions ?? infoContainerDefault;
   previewContainer: stageResult.previewContainerDimensions ?? infoContainerDefault;
   entryContainer: stageResult.entryContainerDimensions ?? infoContainerDefault;
-  viewMinY: viewData.minY ?? -40;
-  viewMaxY: viewData.maxY ?? 40;
+  viewMinY: viewData.bottom ?? -40;
+  viewMaxY: viewData.top ?? 40;
   viewHeightValue: viewMaxY - viewMinY;
   stageGraphics: stageResult.stageGraphic ?? [];
 

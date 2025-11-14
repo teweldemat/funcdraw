@@ -1,18 +1,18 @@
 {
   viewBounds: {
-    minX: 0;
-    maxX: 800;
-    minY: 0;
-    maxY: 600;
+    left: 0;
+    right: 800;
+    bottom: 0;
+    top: 600;
   };
 
-  viewWidth: viewBounds.maxX - viewBounds.minX;
-  viewHeight: viewBounds.maxY - viewBounds.minY;
+  viewWidth: viewBounds.right - viewBounds.left;
+  viewHeight: viewBounds.top - viewBounds.bottom;
   cardPaddingX: viewWidth * 0.1;
   cardPaddingY: viewHeight * 0.1;
   cardWidth: viewWidth - cardPaddingX * 2;
   cardHeight: viewHeight - cardPaddingY * 2;
-  cardOrigin: [viewBounds.minX + cardPaddingX, viewBounds.minY + cardPaddingY];
+  cardOrigin: [viewBounds.left + cardPaddingX, viewBounds.bottom + cardPaddingY];
   contentPaddingX: cardWidth * 0.05;
   contentPaddingTop: cardHeight * 0.08;
   contentPaddingBottom: cardHeight * 0.1;

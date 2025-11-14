@@ -164,20 +164,20 @@ export const interpretGraphics = (value: unknown) => {
 export const interpretView = (value: unknown) => {
   const plain = toPlainValue(value);
   if (!plain || typeof plain !== 'object' || Array.isArray(plain)) {
-    return { extent: null as ViewExtent | null, warning: 'View expression must return { minX, minY, maxX, maxY }.' };
+    return { extent: null as ViewExtent | null, warning: 'View expression must return { left, bottom, right, top }.' };
   }
   const record = plain as Record<string, unknown>;
-  const minX = ensureNumber(record.minX);
-  const maxX = ensureNumber(record.maxX);
-  const minY = ensureNumber(record.minY);
-  const maxY = ensureNumber(record.maxY);
-  if (minX === null || maxX === null || minY === null || maxY === null) {
+  const left = ensureNumber(record.left ?? record.minX);
+  const right = ensureNumber(record.right ?? record.maxX);
+  const bottom = ensureNumber(record.bottom ?? record.minY);
+  const top = ensureNumber(record.top ?? record.maxY);
+  if (left === null || right === null || bottom === null || top === null) {
     return { extent: null as ViewExtent | null, warning: 'All extent fields must be finite numbers.' };
   }
-  if (maxX <= minX || maxY <= minY) {
+  if (right <= left || top <= bottom) {
     return { extent: null as ViewExtent | null, warning: 'Extent must define a positive width and height.' };
   }
-  return { extent: { minX, maxX, minY, maxY }, warning: null };
+  return { extent: { left, right, bottom, top }, warning: null };
 };
 
 export const prepareGraphics = (extent: ViewExtent, layers: any[][] | null): PreparedGraphics => {
@@ -314,15 +314,15 @@ export const prepareGraphics = (extent: ViewExtent, layers: any[][] | null): Pre
 };
 
 const projectPointBuilder = (extent: ViewExtent, canvasWidth: number, canvasHeight: number, padding: number) => {
-  const viewWidth = extent.maxX - extent.minX;
-  const viewHeight = extent.maxY - extent.minY;
+  const viewWidth = extent.right - extent.left;
+  const viewHeight = extent.top - extent.bottom;
   const scaleX = (canvasWidth - padding * 2) / viewWidth;
   const scaleY = (canvasHeight - padding * 2) / viewHeight;
   const scale = Math.max(0.0001, Math.min(scaleX, scaleY));
   const drawWidth = viewWidth * scale;
   const drawHeight = viewHeight * scale;
-  const originX = (canvasWidth - drawWidth) / 2 - extent.minX * scale;
-  const originY = (canvasHeight - drawHeight) / 2 - extent.minY * scale;
+  const originX = (canvasWidth - drawWidth) / 2 - extent.left * scale;
+  const originY = (canvasHeight - drawHeight) / 2 - extent.bottom * scale;
   return {
     scale,
     project(point: [number, number]) {
@@ -365,20 +365,20 @@ export const renderGraphicsToCanvas = (
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 6]);
 
-  if (extent.minY <= 0 && extent.maxY >= 0) {
-    const left = project([extent.minX, 0]);
-    const right = project([extent.maxX, 0]);
+  if (extent.bottom <= 0 && extent.top >= 0) {
+    const leftPoint = project([extent.left, 0]);
+    const rightPoint = project([extent.right, 0]);
     ctx.beginPath();
-    ctx.moveTo(left.x, left.y);
-    ctx.lineTo(right.x, right.y);
+    ctx.moveTo(leftPoint.x, leftPoint.y);
+    ctx.lineTo(rightPoint.x, rightPoint.y);
     ctx.stroke();
   }
-  if (extent.minX <= 0 && extent.maxX >= 0) {
-    const bottom = project([0, extent.minY]);
-    const top = project([0, extent.maxY]);
+  if (extent.left <= 0 && extent.right >= 0) {
+    const bottomPoint = project([0, extent.bottom]);
+    const topPoint = project([0, extent.top]);
     ctx.beginPath();
-    ctx.moveTo(bottom.x, bottom.y);
-    ctx.lineTo(top.x, top.y);
+    ctx.moveTo(bottomPoint.x, bottomPoint.y);
+    ctx.lineTo(topPoint.x, topPoint.y);
     ctx.stroke();
   }
 

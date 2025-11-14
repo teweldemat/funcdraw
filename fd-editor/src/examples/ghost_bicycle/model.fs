@@ -1,15 +1,15 @@
 {
   baseViewBounds: {
-    minX: -60;
-    maxX: 60;
-    minY: -40;
-    maxY: 40;
+    left: -60;
+    right: 60;
+    bottom: -40;
+    top: 40;
   };
 
-  baseViewWidth: baseViewBounds.maxX - baseViewBounds.minX;
-  baseViewHeight: baseViewBounds.maxY - baseViewBounds.minY;
-  baseCenterX: (baseViewBounds.minX + baseViewBounds.maxX) / 2;
-  baseCenterY: (baseViewBounds.minY + baseViewBounds.maxY) / 2;
+  baseViewWidth: baseViewBounds.right - baseViewBounds.left;
+  baseViewHeight: baseViewBounds.top - baseViewBounds.bottom;
+  baseCenterX: (baseViewBounds.left + baseViewBounds.right) / 2;
+  baseCenterY: (baseViewBounds.bottom + baseViewBounds.top) / 2;
   baseSkyHeight: baseViewHeight / 2;
 
   viewZoomStrength: 1.6;
@@ -33,14 +33,14 @@
   viewWidth: baseViewWidth * viewZoomFactor;
   viewHeight: baseViewHeight * viewZoomFactor;
   viewBounds: {
-    minX: baseCenterX - viewWidth / 2;
-    maxX: baseCenterX + viewWidth / 2;
-    minY: baseCenterY - viewHeight / 2;
-    maxY: baseCenterY + viewHeight / 2;
+    left: baseCenterX - viewWidth / 2;
+    right: baseCenterX + viewWidth / 2;
+    bottom: baseCenterY - viewHeight / 2;
+    top: baseCenterY + viewHeight / 2;
   };
 
   skyHeight: viewHeight / 2;
-  skyOrigin: [viewBounds.minX, viewBounds.minY + skyHeight];
+  skyOrigin: [viewBounds.left, viewBounds.bottom + skyHeight];
 
   wrapShift: (value, span) => {
     wrapped: value - math.floor(value / span) * span;
@@ -57,11 +57,11 @@
   skylineHeightBase: baseSkyHeight * 0.35;
   skylineHeight: skylineHeightBase * skylineScaleFactor;
   skylineOriginY: skyOrigin[1];
-  skylineOrigin: [viewBounds.minX, skylineOriginY];
+  skylineOrigin: [viewBounds.left, skylineOriginY];
   skylineLayer: sky_line(skylineOrigin, viewWidth, skylineHeight, skylineShift);
 
   groundHeight: baseSkyHeight;
-  groundOrigin: [viewBounds.minX, skylineOriginY - groundHeight];
+  groundOrigin: [viewBounds.left, skylineOriginY - groundHeight];
   groundLayer: ground(groundOrigin, viewWidth, groundHeight, groundShift);
 
   birdBoundsBaseWidth: baseViewWidth * 0.4;
@@ -69,7 +69,7 @@
   birdBoundsWidth: birdBoundsBaseWidth * (1 + zoomProgress * birdZoomStrength);
   birdBoundsHeight: birdBoundsBaseHeight * (1 + zoomProgress * (birdZoomStrength * 0.6));
   birdZoomShift: viewWidth * 0.05 * zoomProgress;
-  birdOriginX: viewBounds.minX + viewWidth * 0.35 - birdZoomShift + birdDriftShift;
+  birdOriginX: viewBounds.left + viewWidth * 0.35 - birdZoomShift + birdDriftShift;
   birdOriginY: skyOrigin[1] + skyHeight * 0.65;
   flockBounds: { width: birdBoundsWidth; height: birdBoundsHeight };
   flockOrigin: [birdOriginX, birdOriginY];
@@ -82,7 +82,7 @@
 
   wheelBase: 25;
   wheelRadius: 9;
-  viewCenterX: (viewBounds.minX + viewBounds.maxX) / 2;
+  viewCenterX: (viewBounds.left + viewBounds.right) / 2;
   rearWheelX: viewCenterX - wheelBase / 2;
   wheelCenterY: leftLaneMidY + wheelRadius;
   wheelAngle: -(groundShift / wheelRadius);

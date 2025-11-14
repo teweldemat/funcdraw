@@ -5,14 +5,14 @@
   accent: accentParam ?? '#38bdf8';
 
   viewBounds: context.viewBounds ?? {
-    minX: -60;
-    maxX: 60;
-    minY: -35;
-    maxY: 35;
+    left: -60;
+    right: 60;
+    bottom: -35;
+    top: 35;
   };
-  cardOrigin: context.cardOrigin ?? [viewBounds.minX + 6, viewBounds.minY + 6];
-  cardWidth: context.cardWidth ?? (viewBounds.maxX - viewBounds.minX - 12);
-  cardHeight: context.cardHeight ?? (viewBounds.maxY - viewBounds.minY - 12);
+  cardOrigin: context.cardOrigin ?? [viewBounds.left + 6, viewBounds.bottom + 6];
+  cardWidth: context.cardWidth ?? (viewBounds.right - viewBounds.left - 12);
+  cardHeight: context.cardHeight ?? (viewBounds.top - viewBounds.bottom - 12);
   contentPaddingX: context.contentPaddingX ?? 6;
   contentPaddingTop: context.contentPaddingTop ?? 10;
   backgroundColor: context.backgroundColor ?? '#0f172a';
@@ -21,8 +21,8 @@
 
   background: {
     type: 'rect';
-    position: [viewBounds.minX, viewBounds.minY];
-    size: [viewBounds.maxX - viewBounds.minX, viewBounds.maxY - viewBounds.minY];
+    position: [viewBounds.left, viewBounds.bottom];
+    size: [viewBounds.right - viewBounds.left, viewBounds.top - viewBounds.bottom];
     fill: backgroundColor;
     stroke: '#1e293b';
     width: 0.6;

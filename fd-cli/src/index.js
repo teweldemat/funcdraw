@@ -41,7 +41,7 @@ const {
 } = FuncScript;
 
 const DEFAULT_VIEW_EXPRESSION = `{
-  return { minX:-10, minY:-10, maxX:10, maxY:10 };
+  return { left:-10, bottom:-10, right:10, top:10 };
 }`;
 const DEFAULT_BACKGROUND = '#0f172a';
 const DEFAULT_GRID_COLOR = 'rgba(148, 163, 184, 0.2)';
@@ -902,21 +902,30 @@ const interpretView = (value) => {
     return { extent: null, warning: 'View expression returned null.' };
   }
   if (Array.isArray(value) || typeof value !== 'object') {
-    return { extent: null, warning: 'View expression must return { minX, minY, maxX, maxY }.' };
+    return { extent: null, warning: 'View expression must return { left, bottom, right, top }.' };
   }
   const record = value;
-  const minX = ensureNumber(record.minX);
-  const maxX = ensureNumber(record.maxX);
-  const minY = ensureNumber(record.minY);
-  const maxY = ensureNumber(record.maxY);
-  if (minX === null || maxX === null || minY === null || maxY === null) {
+  const left = ensureNumber(record.left ?? record.minX);
+  const right = ensureNumber(record.right ?? record.maxX);
+  const bottom = ensureNumber(record.bottom ?? record.minY);
+  const top = ensureNumber(record.top ?? record.maxY);
+  if (left === null || right === null || bottom === null || top === null) {
     return { extent: null, warning: 'All extent fields must be finite numbers.' };
   }
-  if (maxX <= minX || maxY <= minY) {
+  if (right <= left || top <= bottom) {
     return { extent: null, warning: 'Extent must define a positive width and height.' };
   }
   return {
-    extent: { minX, maxX, minY, maxY },
+    extent: {
+      minX: left,
+      maxX: right,
+      minY: bottom,
+      maxY: top,
+      left,
+      right,
+      bottom,
+      top
+    },
     warning: null
   };
 };
@@ -1032,15 +1041,15 @@ const prepareGraphics = (extent, layers) => {
 };
 
 const projectPointBuilder = (extent, canvasWidth, canvasHeight, padding) => {
-  const viewWidth = extent.maxX - extent.minX;
-  const viewHeight = extent.maxY - extent.minY;
+  const viewWidth = extent.right - extent.left;
+  const viewHeight = extent.top - extent.bottom;
   const scaleX = (canvasWidth - padding * 2) / viewWidth;
   const scaleY = (canvasHeight - padding * 2) / viewHeight;
   const scale = Math.max(0.0001, Math.min(scaleX, scaleY));
   const drawWidth = viewWidth * scale;
   const drawHeight = viewHeight * scale;
-  const originX = (canvasWidth - drawWidth) / 2 - extent.minX * scale;
-  const originY = (canvasHeight - drawHeight) / 2 - extent.minY * scale;
+  const originX = (canvasWidth - drawWidth) / 2 - extent.left * scale;
+  const originY = (canvasHeight - drawHeight) / 2 - extent.bottom * scale;
   return {
     scale,
     project(point) {
@@ -1074,20 +1083,20 @@ const renderSvgDocument = (extent, graphics, options) => {
 
   const drawAxis = () => {
     const axisLines = [];
-    if (extent.minY <= 0 && extent.maxY >= 0) {
-      const left = project([extent.minX, 0]);
-      const right = project([extent.maxX, 0]);
+    if (extent.bottom <= 0 && extent.top >= 0) {
+      const leftPoint = project([extent.left, 0]);
+      const rightPoint = project([extent.right, 0]);
       axisLines.push(
-        `<line x1="${formatNumber(left.x)}" y1="${formatNumber(left.y)}" x2="${formatNumber(right.x)}" y2="${formatNumber(right.y)}" stroke="${escapeAttr(
+        `<line x1="${formatNumber(leftPoint.x)}" y1="${formatNumber(leftPoint.y)}" x2="${formatNumber(rightPoint.x)}" y2="${formatNumber(rightPoint.y)}" stroke="${escapeAttr(
           gridColor
         )}" stroke-width="1" stroke-dasharray="4 6" />`
       );
     }
-    if (extent.minX <= 0 && extent.maxX >= 0) {
-      const bottom = project([0, extent.minY]);
-      const top = project([0, extent.maxY]);
+    if (extent.left <= 0 && extent.right >= 0) {
+      const bottomPoint = project([0, extent.bottom]);
+      const topPoint = project([0, extent.top]);
       axisLines.push(
-        `<line x1="${formatNumber(bottom.x)}" y1="${formatNumber(bottom.y)}" x2="${formatNumber(top.x)}" y2="${formatNumber(top.y)}" stroke="${escapeAttr(
+        `<line x1="${formatNumber(bottomPoint.x)}" y1="${formatNumber(bottomPoint.y)}" x2="${formatNumber(topPoint.x)}" y2="${formatNumber(topPoint.y)}" stroke="${escapeAttr(
           gridColor
         )}" stroke-width="1" stroke-dasharray="4 6" />`
       );

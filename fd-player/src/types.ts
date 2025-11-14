@@ -13,10 +13,10 @@ export type WorkspaceFile = {
 };
 
 export type ViewExtent = {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
+  left: number;
+  bottom: number;
+  right: number;
+  top: number;
 };
 
 export type PlayerAppearance = {

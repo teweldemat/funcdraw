@@ -25,10 +25,10 @@ export type Primitive = {
 export type PrimitiveLayer = Primitive[];
 
 export type ViewExtent = {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
+  left: number;
+  right: number;
+  bottom: number;
+  top: number;
 };
 
 export type PreparedLine = {
@@ -106,7 +106,7 @@ export type GraphicsInterpretation = {
 };
 
 export const defaultViewExpression = `{
-  return { minX:-10, minY:-10, maxX:10, maxY:10 };
+  return { left:-10, bottom:-10, right:10, top:10 };
 }`;
 
 export const defaultGraphicsExpression = `{
@@ -734,27 +734,27 @@ export const interpretView = (value: unknown): ViewInterpretation => {
     return { extent: null, warning: 'View expression returned null. Provide numeric bounds.' };
   }
   if (Array.isArray(value) || typeof value !== 'object') {
-    return { extent: null, warning: 'View expression must return { minX, minY, maxX, maxY }.' };
+    return { extent: null, warning: 'View expression must return { left, bottom, right, top }.' };
   }
   const record = value as Record<string, unknown>;
-  const minX = ensureNumber(record.minX);
-  const maxX = ensureNumber(record.maxX);
-  const minY = ensureNumber(record.minY);
-  const maxY = ensureNumber(record.maxY);
-  if (minX === null || maxX === null || minY === null || maxY === null) {
+  const left = ensureNumber(record.left ?? record.minX);
+  const right = ensureNumber(record.right ?? record.maxX);
+  const bottom = ensureNumber(record.bottom ?? record.minY);
+  const top = ensureNumber(record.top ?? record.maxY);
+  if (left === null || right === null || bottom === null || top === null) {
     return {
       extent: null,
       warning: 'All extent fields must be finite numbers.'
     };
   }
-  if (maxX <= minX || maxY <= minY) {
+  if (right <= left || top <= bottom) {
     return {
       extent: null,
-      warning: 'Extent must define a positive width and height (max > min).'
+      warning: 'Extent must define a positive width and height (right > left, top > bottom).'
     };
   }
   return {
-    extent: { minX, maxX, minY, maxY },
+    extent: { left, right, bottom, top },
     warning: null
   };
 };
@@ -1010,16 +1010,16 @@ export const projectPointBuilder = (
   canvasHeight: number,
   padding: number
 ) => {
-  const viewWidth = extent.maxX - extent.minX;
-  const viewHeight = extent.maxY - extent.minY;
+  const viewWidth = extent.right - extent.left;
+  const viewHeight = extent.top - extent.bottom;
   const scaleX = (canvasWidth - padding * 2) / viewWidth;
   const scaleY = (canvasHeight - padding * 2) / viewHeight;
   const scale = Math.max(0.0001, Math.min(scaleX, scaleY));
 
   const drawWidth = viewWidth * scale;
   const drawHeight = viewHeight * scale;
-  const originX = (canvasWidth - drawWidth) / 2 - extent.minX * scale;
-  const originY = (canvasHeight - drawHeight) / 2 + extent.maxY * scale;
+  const originX = (canvasWidth - drawWidth) / 2 - extent.left * scale;
+  const originY = (canvasHeight - drawHeight) / 2 + extent.top * scale;
 
   return {
     scale,
@@ -1090,24 +1090,24 @@ export const renderSvgDocument = (
 
   const drawAxis = (): string[] => {
     const axisLines: string[] = [];
-    if (extent.minY <= 0 && extent.maxY >= 0) {
-      const left = project([extent.minX, 0]);
-      const right = project([extent.maxX, 0]);
+    if (extent.bottom <= 0 && extent.top >= 0) {
+      const leftPoint = project([extent.left, 0]);
+      const rightPoint = project([extent.right, 0]);
       axisLines.push(
-        `<line x1="${formatSvgNumber(left.x)}" y1="${formatSvgNumber(left.y)}" x2="${formatSvgNumber(
-          right.x
-        )}" y2="${formatSvgNumber(right.y)}" stroke="${escapeXmlAttr(
+        `<line x1="${formatSvgNumber(leftPoint.x)}" y1="${formatSvgNumber(leftPoint.y)}" x2="${formatSvgNumber(
+          rightPoint.x
+        )}" y2="${formatSvgNumber(rightPoint.y)}" stroke="${escapeXmlAttr(
           gridColor
         )}" stroke-width="1" stroke-dasharray="4 6" />`
       );
     }
-    if (extent.minX <= 0 && extent.maxX >= 0) {
-      const bottom = project([0, extent.minY]);
-      const top = project([0, extent.maxY]);
+    if (extent.left <= 0 && extent.right >= 0) {
+      const bottomPoint = project([0, extent.bottom]);
+      const topPoint = project([0, extent.top]);
       axisLines.push(
-        `<line x1="${formatSvgNumber(bottom.x)}" y1="${formatSvgNumber(bottom.y)}" x2="${formatSvgNumber(
-          top.x
-        )}" y2="${formatSvgNumber(top.y)}" stroke="${escapeXmlAttr(
+        `<line x1="${formatSvgNumber(bottomPoint.x)}" y1="${formatSvgNumber(bottomPoint.y)}" x2="${formatSvgNumber(
+          topPoint.x
+        )}" y2="${formatSvgNumber(topPoint.y)}" stroke="${escapeXmlAttr(
           gridColor
         )}" stroke-width="1" stroke-dasharray="4 6" />`
       );

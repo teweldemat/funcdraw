@@ -1,3 +1,3 @@
 {
-  eval { minX:-30, minY:-20, maxX:30, maxY:20 };
+  eval { left:-30, bottom:-20, right:30, top:20 };
 }

@@ -1,8 +1,8 @@
 {
   eval {
-    minX:-40;
-    minY:-28;
-    maxX:40;
-    maxY:32;
+    left:-40;
+    bottom:-28;
+    right:40;
+    top:32;
   };
 }

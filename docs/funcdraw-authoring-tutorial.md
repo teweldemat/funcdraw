@@ -81,10 +81,10 @@ This keeps the circle framed nicely. Create `view.fs` next to `main.fs`:
 ```fs
 {
   eval {
-    minX: -20;
-    minY: -20;
-    maxX: 20;
-    maxY: 20;
+    left: -20;
+    bottom: -20;
+    right: 20;
+    top: 20;
   };
 }
 ```

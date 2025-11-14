@@ -367,17 +367,17 @@ const drawScene = (
     context.lineWidth = 1;
     context.strokeStyle = GRID_COLOR;
     context.beginPath();
-    if (extent.minY <= 0 && extent.maxY >= 0) {
-      const left = project([extent.minX, 0]);
-      const right = project([extent.maxX, 0]);
-      context.moveTo(left.x, left.y);
-      context.lineTo(right.x, right.y);
+    if (extent.bottom <= 0 && extent.top >= 0) {
+      const leftPoint = project([extent.left, 0]);
+      const rightPoint = project([extent.right, 0]);
+      context.moveTo(leftPoint.x, leftPoint.y);
+      context.lineTo(rightPoint.x, rightPoint.y);
     }
-    if (extent.minX <= 0 && extent.maxX >= 0) {
-      const bottom = project([0, extent.minY]);
-      const top = project([0, extent.maxY]);
-      context.moveTo(bottom.x, bottom.y);
-      context.lineTo(top.x, top.y);
+    if (extent.left <= 0 && extent.right >= 0) {
+      const bottomPoint = project([0, extent.bottom]);
+      const topPoint = project([0, extent.top]);
+      context.moveTo(bottomPoint.x, bottomPoint.y);
+      context.lineTo(topPoint.x, topPoint.y);
     }
     context.stroke();
     context.restore();
@@ -2185,8 +2185,8 @@ const App = (): JSX.Element => {
       if (!extent) {
         return { cssWidth: wrapperWidth, cssHeight: wrapperHeight };
       }
-      const viewWidth = Math.max(0.001, extent.maxX - extent.minX);
-      const viewHeight = Math.max(0.001, extent.maxY - extent.minY);
+      const viewWidth = Math.max(0.001, extent.right - extent.left);
+      const viewHeight = Math.max(0.001, extent.top - extent.bottom);
       const viewAspect = viewWidth / viewHeight;
       const wrapperAspect = wrapperWidth / wrapperHeight;
       let cssWidth = wrapperWidth;

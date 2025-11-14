@@ -8,8 +8,8 @@
     x1:-10.0;
     x2:10.0;
 
-    yMin:view.minY;
-    yMax:view.maxY;
+    yMin:view.bottom;
+    yMax:view.top;
 
     // generate (x, f(x)) pairs
     data:range(0,n) map (i)=>{

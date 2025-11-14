@@ -4,7 +4,7 @@ A FuncDraw project consists of pure expressions that define what to render and h
 
 ## Model anatomy
 - **Main expression** – The entry point whose `eval` block emits the list (or lists) of primitives to display on screen. The player evaluates this tab every time you edit.
-- **View expression** – An optional tab whose `eval` block emits `{ minX, minY, maxX, maxY }`, specifying deterministic camera bounds for the renderer. If it’s missing, the CLI defaults to a neutral framing.
+- **View expression** – An optional tab whose `eval` block emits `{ left, bottom, right, top }`, specifying deterministic camera bounds for the renderer. If it’s missing, the CLI defaults to a neutral framing.
 - **Collections** – Folders that organize expressions, other collections, or modules into a single namespace. Everything inside can be referenced using dot syntax (`collections.hero`, `collections.metrics.cards`, etc.), making it easy to compose and reuse helpers.
 - **Modules** – Folders that act like callable helpers. Each module exposes a single expression named `eval`; referencing the module runs that `eval`, which can use any private expressions inside the same folder before yielding a value.
 

@@ -1,1 +1,1 @@
-{ minX:-10, minY:-10, maxX:10, maxY:10 }
+{ left:-10, bottom:-10, right:10, top:10 }

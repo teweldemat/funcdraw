@@ -1,6 +1,6 @@
 {
-  viewWidth: view.maxX - view.minX;
-  viewHeight: view.maxY - view.minY;
+  viewWidth: view.right - view.left;
+  viewHeight: view.top - view.bottom;
 
   clamp: (valueParam, minParam, maxParam) => {
     value: valueParam ?? 0;
@@ -15,14 +15,14 @@
 
   background: {
     type: 'rect';
-    position: [view.minX, view.minY];
+    position: [view.left, view.bottom];
     size: [viewWidth, viewHeight];
     fill: '#020617';
     stroke: '#0f172a';
     width: 0.8;
   };
 
-  sectionLeft: view.minX + viewWidth * 0.04;
+  sectionLeft: view.left + viewWidth * 0.04;
   sectionWidth: viewWidth * 0.92;
   topHeight: viewHeight * 0.18;
   verticalGap: viewHeight * 0.02;
@@ -33,7 +33,7 @@
   previewWidth: clamp(previewWidthRaw, sectionWidth * 0.2, sectionWidth);
   contentHeight: viewHeight * 0.62;
 
-  infoOriginY: view.maxY - topHeight - verticalGap;
+  infoOriginY: view.top - topHeight - verticalGap;
   contentOriginY: infoOriginY - verticalGap - contentHeight;
 
   infoRectSize: [sectionWidth, topHeight];

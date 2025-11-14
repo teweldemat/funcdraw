@@ -2,8 +2,8 @@ return (groundLineY, bounds) => {
   const roadPadding = 120;
   const roadWidth = 1.8;
   const roadOffsetBelowGround = 0.4;
-  const roadLength = bounds.maxX - bounds.minX + roadPadding * 2;
-  const roadStartX = bounds.minX - roadPadding;
+  const roadLength = bounds.right - bounds.left + roadPadding * 2;
+  const roadStartX = bounds.left - roadPadding;
   const roadY = groundLineY - roadOffsetBelowGround - roadWidth;
 
   const asphalt = {
@@ -19,9 +19,9 @@ return (groundLineY, bounds) => {
   const markerGap = 6;
   const markerHeight = 0.2;
   const markerStep = markerLength + markerGap;
-  const markerVisibleWidth = bounds.maxX - bounds.minX + roadPadding * 2;
+  const markerVisibleWidth = bounds.right - bounds.left + roadPadding * 2;
   const markerCount = Math.ceil(markerVisibleWidth / markerStep) + 2;
-  const markerFirstX = Math.floor((bounds.minX - roadPadding) / markerStep) * markerStep;
+  const markerFirstX = Math.floor((bounds.left - roadPadding) / markerStep) * markerStep;
   const laneMarkers = Array.from({ length: markerCount }, (_, index) => {
     const startX = markerFirstX + index * markerStep;
     return {

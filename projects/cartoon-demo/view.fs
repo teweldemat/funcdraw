@@ -1,3 +1,3 @@
 {
-  return { minX: -12, minY: -8, maxX: 12, maxY: 8 };
+  return { left: -12, bottom: -8, right: 12, top: 8 };
 }

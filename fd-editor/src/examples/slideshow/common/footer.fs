@@ -3,13 +3,13 @@
   accent: accentParam ?? '#38bdf8';
 
   viewBounds: context.viewBounds ?? {
-    minX: -60;
-    maxX: 60;
-    minY: -35;
-    maxY: 35;
+    left: -60;
+    right: 60;
+    bottom: -35;
+    top: 35;
   };
-  cardOrigin: context.cardOrigin ?? [viewBounds.minX + 6, viewBounds.minY + 6];
-  cardWidth: context.cardWidth ?? (viewBounds.maxX - viewBounds.minX - 12);
+  cardOrigin: context.cardOrigin ?? [viewBounds.left + 6, viewBounds.bottom + 6];
+  cardWidth: context.cardWidth ?? (viewBounds.right - viewBounds.left - 12);
   progressRatio: context.progressRatio ?? 0;
   slideNumber: context.slideNumber ?? 1;
   slideCount: context.slideCount ?? 1;

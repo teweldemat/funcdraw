@@ -1,0 +1,16 @@
+{
+  "name": "@sample/fd-diagram-player",
+  "version": "0.1.0",
+  "description": "FuncDraw player demo showcasing diagram boxes and connectors",
+  "private": true,
+  "scripts": {
+    "play": "fd-play --root ."
+  },
+  "dependencies": {
+    "@funcdraw/cat-cartoon": "file:../../packages/cartoon",
+    "@funcdraw/diagram": "file:../../packages/diagram"
+  },
+  "devDependencies": {
+    "@funcdraw/fd-play": "file:../../packages/fd-play"
+  }
+}

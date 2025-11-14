@@ -1,0 +1,14 @@
+{
+  "name": "@sample/fd-diagram-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FuncDraw CLI demo for diagramming an EV charging scene",
+  "scripts": {
+    "render:raw": "npx fd-cli --root . --expression main --format raw",
+    "render:svg": "npx fd-cli --root . --expression main --format svg --out ./fd-diagram.svg"
+  },
+  "dependencies": {
+    "@funcdraw/diagram": "file:../../packages/diagram",
+    "@funcdraw/fd-cli": "file:../../fd-cli"
+  }
+}

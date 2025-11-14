@@ -1,0 +1,13 @@
+{
+  "title": "FuncDraw Diagram Library",
+  "description": "Basic diagram box primitive for technical diagrams.",
+  "catalog": [
+    {
+      "id": "box",
+      "name": "Labeled Box",
+      "catalogExpression": "import(\"@funcdraw/diagram\").box([0, 0], [10, 6], { label: 'Node', cornerRadius: 1.2 }).graphics",
+      "descriptionHtml": "<p>Rounded rectangle with configurable size, radius, fill, stroke, and label styling.</p>"
+    }
+  ],
+  "persistState": false
+}

@@ -79,6 +79,30 @@ function safeGetExpression(resolver, path) {
   }
 }
 
+function previewValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value.length > 80 ? `${value.slice(0, 77)}…` : value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return `[array length=${value.length}]`;
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    return `{object keys=${keys.slice(0, 5).join(',')}${keys.length > 5 ? ',…' : ''}}`;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '[unserializable value]';
+  }
+}
+
 const MAX_CONTEXT_WIDTH = 96;
 
 function buildLineIndex(source) {
@@ -1420,6 +1444,12 @@ class FuncDrawEvaluationManager {
     const trimmed = source.trim();
     const language = expressionNode.language || DEFAULT_LANGUAGE;
     let evaluation;
+    console.log('[FuncDraw] evaluateNode:start', {
+      path: expressionNode.path,
+      language,
+      hasSource: Boolean(trimmed.length),
+      sourcePreview: trimmed.slice(0, 80)
+    });
     if (!trimmed) {
       this.javascriptValues.delete(key);
       evaluation = { value: null, typed: typedNull(), error: null, errorDetails: null };
@@ -1456,6 +1486,14 @@ class FuncDrawEvaluationManager {
             errorDetails: null
           };
         }
+        console.log('[FuncDraw] evaluateNode:success', {
+          path: expressionNode.path,
+          language,
+          hasError: false,
+          resultType: typeof evaluation.value,
+          typedKind: typed?.type,
+          plainPreview: previewValue(evaluation.value)
+        });
       } catch (err) {
         this.javascriptValues.delete(key);
         const message = err instanceof Error ? err.message : String(err);
@@ -1474,6 +1512,12 @@ class FuncDrawEvaluationManager {
           error: message,
           errorDetails
         };
+        console.error('[FuncDraw] evaluateNode:error', {
+          path: expressionNode.path,
+          language,
+          message,
+          errorDetails
+        });
       }
     }
     this.evaluating.delete(key);
@@ -1482,14 +1526,23 @@ class FuncDrawEvaluationManager {
   }
 
   evaluatePath(path) {
+    console.log('[FuncDraw] evaluatePath:request', { path });
     const expression = this.graph.getExpressionNodeByPath(path);
     if (!expression) {
+      console.warn('[FuncDraw] evaluatePath:missing-expression', { path });
       return null;
     }
     const provider = expression.parentKey
       ? this.getFolderProvider(expression.parentKey)
       : this.getEnvironmentProvider();
-    return this.evaluateNode(expression, provider);
+    const result = this.evaluateNode(expression, provider);
+    console.log('[FuncDraw] evaluatePath:response', {
+      path,
+      hasResult: Boolean(result),
+      hasError: Boolean(result?.error),
+      typedKind: result?.typed?.type
+    });
+    return result;
   }
 
   listExpressions() {

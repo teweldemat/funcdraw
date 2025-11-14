@@ -78,6 +78,7 @@ export class FuncdrawPlayer {
     const { evaluateExpression } = FuncDraw.evaluate(this.resolver, this.time, { baseProvider: provider });
 
     const evaluatePath = (path: string[]) => {
+      console.log('[FuncdrawPlayer] evaluatePath:start', { path });
       const result = evaluateExpression(path);
       if (!result) {
         throw new Error(`Expression ${path.join('/')} does not exist in the loaded model.`);
@@ -85,17 +86,35 @@ export class FuncdrawPlayer {
       if (result.error) {
         throw new Error(`Failed to evaluate ${path.join('/')}: ${result.error}`);
       }
-      return result.value ?? toPlainValue(result.typed);
+      const resolved = result.value ?? toPlainValue(result.typed);
+      console.log('[FuncdrawPlayer] evaluatePath:result', {
+        path,
+        typeofValue: typeof resolved,
+        constructorName: resolved?.constructor?.name,
+        hasTyped: Boolean(result.typed),
+        hasValue: 'value' in result && result.value !== undefined
+      });
+      return resolved;
     };
 
     const viewValue = evaluatePath(this.viewPath);
+    console.log('[FuncdrawPlayer] interpretView:start', { viewPath: this.viewPath });
     const viewInfo = interpretView(viewValue);
+    console.log('[FuncdrawPlayer] interpretView:result', {
+      warning: viewInfo.warning,
+      hasExtent: Boolean(viewInfo.extent)
+    });
     if (!viewInfo.extent) {
       throw new Error(viewInfo.warning ?? 'View expression is invalid.');
     }
 
     const graphicsValue = evaluatePath(this.mainPath);
+    console.log('[FuncdrawPlayer] interpretGraphics:start', { mainPath: this.mainPath });
     const { layers, warnings: graphicsWarnings } = interpretGraphics(graphicsValue);
+    console.log('[FuncdrawPlayer] interpretGraphics:result', {
+      layerCount: layers?.length ?? 0,
+      warnings: graphicsWarnings
+    });
     if (!layers) {
       throw new Error('Graphics expression did not return a valid primitive collection.');
     }

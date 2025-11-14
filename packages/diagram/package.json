@@ -1,0 +1,6 @@
+{
+  "name": "@funcdraw/diagram",
+  "version": "0.1.0",
+  "description": "Reusable FuncDraw modules for diagramming primitives like boxes and connectors.",
+  "license": "MIT"
+}

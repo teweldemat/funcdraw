@@ -1,4 +1,5 @@
 import { FuncDraw } from '@funcdraw/core';
+import { Engine, SimpleKeyValueCollection, type TypedValue } from '@tewelde/funcscript';
 import { MemoryExpressionResolver } from './resolver.js';
 import type { ExpressionEntry } from './types.js';
 import {
@@ -134,7 +135,34 @@ export class ModuleRegistry {
       this.resolveModule(specifier, this.mergeContext(basePath, context), moduleName)
     );
     const handle = FuncDraw.evaluate(resolver, undefined, { baseProvider: provider });
-    const typedRoot = handle.getFolderValue([]);
+    const createCollection = (segments: string[]): SimpleKeyValueCollection => {
+      const items = resolver.listItems(segments);
+      const entries: Array<readonly [string, TypedValue]> = [];
+      items.forEach((item) => {
+        const itemPath = [...segments, item.name];
+        if (item.kind === 'folder') {
+          const typedFolder = handle.getFolderValue(itemPath);
+          entries.push([item.name, Engine.ensureTyped(typedFolder)]);
+          return;
+        }
+        if (item.kind === 'expression') {
+          const evaluation = handle.evaluateExpression(itemPath);
+          if (!evaluation) {
+            return;
+          }
+          if (evaluation.error) {
+            throw new Error(
+              `Failed to evaluate module "${moduleName}" expression ${itemPath.join('/')}: ${evaluation.error}`
+            );
+          }
+          const typed = evaluation.typed ?? Engine.ensureTyped(evaluation.value ?? null);
+          entries.push([item.name, Engine.ensureTyped(typed)]);
+        }
+      });
+      return new SimpleKeyValueCollection(null, entries);
+    };
+    const collection = createCollection([]);
+    const typedRoot = Engine.ensureTyped(collection);
     return {
       [FUNC_DRAW_MODULE_SENTINEL]: true,
       getTypedValue() {

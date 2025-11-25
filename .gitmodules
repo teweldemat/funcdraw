@@ -1,0 +1,3 @@
+[submodule "funcscript"]
+	path = funcscript
+	url = git@github.com:teweldemat/funcscript.git

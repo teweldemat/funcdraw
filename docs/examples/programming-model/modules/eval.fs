@@ -1,5 +1,0 @@
-{
-  eval {
-    palette: palette;
-  };
-}

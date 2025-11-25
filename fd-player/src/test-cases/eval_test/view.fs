@@ -1,1 +1,0 @@
-{ minX:-10, minY:-10, maxX:10, maxY:10 }

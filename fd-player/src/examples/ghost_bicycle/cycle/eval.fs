@@ -1,5 +1,0 @@
-{
-  eval {
-    pedal: pedal;
-  };
-}

@@ -1,0 +1,200 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const picocolors = require('picocolors');
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+const { createExpression: createFuncDrawExpression } = require('@funcdraw/core');
+const { loadUserConfig } = require('./config');
+const { startServer } = require('./server');
+
+async function startPlayer(cwd, argvInput) {
+  const argv = yargs(hideBin(argvInput || process.argv))
+    .option('port', {
+      alias: 'p',
+      type: 'number',
+      describe: 'Preferred port for the preview server'
+    })
+    .option('host', {
+      type: 'string',
+      describe: 'Host interface',
+      default: '127.0.0.1'
+    })
+    .option('open', {
+      type: 'boolean',
+      describe: 'Open the default browser automatically',
+      default: true
+    })
+    .option('debug', {
+      type: 'boolean',
+      describe: 'Print evaluated scene payload (including warnings) to the console',
+      default: false
+    })
+    .option('dump', {
+      type: 'boolean',
+      describe: 'Evaluate once, dump the scene payload to the console, and exit (no server)',
+      default: false
+    })
+    .help()
+    .alias('help', 'h')
+    .parseSync();
+
+  const debugEnabled = Boolean(argv.debug || argv.dump);
+  let config = await loadUserConfig(cwd);
+  if (config.configPath) {
+    console.log(
+      picocolors.gray('Using config'),
+      picocolors.white(path.relative(cwd, config.configPath))
+    );
+  } else if (config.sourceDescription) {
+    console.log(picocolors.gray('Using'), picocolors.white(config.sourceDescription));
+  } else {
+    console.log(picocolors.gray('Using inline sample expression (art/ directory not found)'));
+  }
+
+  let currentExpression = buildExpression(config);
+  const evaluateScene = async ({ includeSvg, requestId } = {}) => {
+    const outputs = includeSvg ? ['raw', 'svg'] : ['raw'];
+    const evalId = requestId || `eval-${Date.now().toString(36)}`;
+    const outputLabel = outputs.join(', ');
+    const start = Date.now();
+    console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel})`));
+    try {
+      const result = await currentExpression.evaluate({ output: outputs });
+      if (!includeSvg) {
+        delete result.svg;
+      }
+      const warningsCount = Array.isArray(result.warnings) ? result.warnings.length : 0;
+      const viewText = Array.isArray(result.view) ? result.view.join('×') : 'unknown';
+      console.log(
+        picocolors.gray(
+          `[funcdraw-play] [${evalId}] Evaluation finished in ${Date.now() - start}ms (view: ${viewText}, warnings: ${warningsCount})`
+        )
+      );
+      if (debugEnabled) {
+        console.log(picocolors.yellow(`[funcdraw-play] [${evalId}] Scene payload:`));
+        console.dir(result, { depth: null, colors: true });
+      }
+      return result;
+    } catch (error) {
+      console.error(picocolors.red(`[funcdraw-play] [${evalId}] Evaluation failed:`), error);
+      throw error;
+    }
+  };
+
+  if (argv.dump) {
+    console.log(picocolors.cyan('FuncDraw Play dump mode'));
+    try {
+      await evaluateScene({ includeSvg: true, requestId: 'dump-mode' });
+      console.log(picocolors.green('Scene evaluation completed (dump mode).'));
+      return;
+    } catch (error) {
+      console.error(picocolors.red('Dump evaluation failed:'), error.message || error);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  const server = await startServer({
+    evaluateScene,
+    host: argv.host,
+    port: argv.port,
+    openBrowser: argv.open
+  });
+
+  const reloadConfig = async () => {
+    try {
+      const updated = await loadUserConfig(cwd);
+      config = updated;
+      currentExpression = buildExpression(config);
+      console.log(picocolors.green('FuncDraw scene reloaded'));
+      const nextWatchPaths = Array.isArray(config.watchPaths) ? config.watchPaths : [];
+      if (!pathsEqual(nextWatchPaths, watchedPaths)) {
+        closeWatcher();
+        watchedPaths = nextWatchPaths;
+        closeWatcher = watchPaths(watchedPaths, reloadConfig);
+      }
+      server.broadcastReload();
+    } catch (error) {
+      console.error(picocolors.red('Failed to reload scene:'), error.message);
+    }
+  };
+
+  let watchedPaths = Array.isArray(config.watchPaths) ? config.watchPaths : [];
+  let closeWatcher = watchPaths(watchedPaths, reloadConfig);
+
+  const shutdown = () => {
+    closeWatcher();
+    server.close();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+function buildExpression(config) {
+  return createFuncDrawExpression(config.resolver, config.options);
+}
+
+function watchPaths(paths, onChange) {
+  if (!paths || paths.length === 0) {
+    console.log(picocolors.gray('[funcdraw-play] No paths to watch for changes'));
+    return () => {};
+  }
+  const watchers = [];
+  for (const target of paths) {
+    if (!target) {
+      continue;
+    }
+    try {
+      const stat = fs.existsSync(target) ? fs.statSync(target) : null;
+      const options =
+        stat && stat.isDirectory() && (process.platform === 'darwin' || process.platform === 'win32')
+          ? { recursive: true }
+          : undefined;
+      console.log(picocolors.gray(`[funcdraw-play] Watching for changes: ${target}`));
+      let timer = null;
+      const watcher = fs.watch(target, options, () => {
+        console.log(picocolors.gray(`[funcdraw-play] Change detected under: ${target}`));
+        clearTimeout(timer);
+        timer = setTimeout(onChange, 150);
+      });
+      watchers.push(() => {
+        clearTimeout(timer);
+        watcher.close();
+      });
+    } catch (error) {
+      console.warn('[funcdraw-play] Unable to watch', target, error.message);
+    }
+  }
+  return () => {
+    for (const close of watchers) {
+      close();
+    }
+  };
+}
+
+function pathsEqual(a, b) {
+  const normalize = (arr) =>
+    (arr || [])
+      .filter(Boolean)
+      .map((p) => path.resolve(p))
+      .sort();
+  const first = normalize(a);
+  const second = normalize(b);
+  if (first.length !== second.length) {
+    return false;
+  }
+  for (let i = 0; i < first.length; i += 1) {
+    if (first[i] !== second[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+module.exports = {
+  startPlayer
+};

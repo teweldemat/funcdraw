@@ -100,10 +100,12 @@ function normalizeNode(node, warnings) {
   const lowerType = typeName.toLowerCase();
 
   if (isBuiltIn(lowerType)) {
-    return {
+    const normalized = {
       ...node,
       type: lowerType
     };
+    applyPrimitiveDefaults(normalized, lowerType);
+    return normalized;
   }
 
   if (node.graphics) {
@@ -127,3 +129,12 @@ function normalizeNode(node, warnings) {
 module.exports = {
   interpretGraphics
 };
+
+const DEFAULT_STROKE = '#38bdf8';
+const STROKED_TYPES = new Set(['line', 'rect', 'rectangle', 'circle', 'ellipse', 'polygon', 'polyline', 'path']);
+
+function applyPrimitiveDefaults(node, type) {
+  if (STROKED_TYPES.has(type) && !node.stroke) {
+    node.stroke = DEFAULT_STROKE;
+  }
+}

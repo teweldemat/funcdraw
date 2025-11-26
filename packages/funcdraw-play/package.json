@@ -1,0 +1,38 @@
+{
+  "name": "@funcdraw/play",
+  "version": "0.1.0",
+  "description": "Local FuncDraw preview server with canvas renderer and stats toolbar",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "bin": {
+    "funcdraw-play": "bin/funcdraw-play.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/funcdraw-play.js",
+    "test": "node --test --test-name-pattern=\"^$\""
+  },
+  "keywords": [
+    "funcdraw",
+    "cli",
+    "canvas",
+    "preview"
+  ],
+  "author": "Tewelde Ma. Tegegne <teweldemat@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@funcdraw/core": "file:../funcdraw-core",
+    "express": "^4.19.2",
+    "get-port": "^7.0.0",
+    "open": "^10.1.0",
+    "picocolors": "^1.0.0",
+    "yargs": "^17.7.2"
+  }
+}

@@ -94,3 +94,22 @@ test('text primitive renders glyph path in svg', () => {
 
   expectSingleGlyph(result.svg);
 });
+
+test('line defaults stroke color when omitted', () => {
+  const resolver = createResolver(`
+  {
+    graphics:[
+      {
+        type:"line";
+        from:[0,0];
+        to:[5,5];
+      }
+    ];
+  }
+  `);
+  const expression = createExpression(resolver);
+  const result = expression.evaluate({ output: ['raw', 'svg'] });
+  const line = result.raw.graphics[0];
+  assert.equal(line.stroke, '#38bdf8');
+  assert.match(result.svg, /stroke="#38bdf8"/);
+});

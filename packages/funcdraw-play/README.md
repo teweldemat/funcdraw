@@ -18,7 +18,7 @@ Add a script to your project:
 }
 ```
 
-Place your FuncScript models inside an `art/` directory. Each `.fs` file is treated as a FuncScript expression, and each `.js` file may export a string or `{ expression, language }`. Nested folders become nested keys in the resolver. For example:
+Place your FuncScript models inside an `art/` directory. Each `.fs` file is treated as a FuncScript expression and each `.js` file is treated as a JavaScript snippet. You don't need to wrap the snippet in `module.exports`—just write the code that should run and return the value for that package. Nested folders become nested keys in the resolver. For example:
 
 ```
 art/
@@ -28,7 +28,7 @@ art/
     label.js
 ```
 
-Run `npm run play` (or `pnpm play`, etc.) to open a browser window that renders your graphics. Edit files in the `art/` folder and the preview will automatically reload the canvas whenever the file changes.
+Run `npm run play` (or `pnpm play`, etc.) to open a browser window that renders your graphics. Edit files in the `art/` folder and the preview will automatically reload the canvas whenever the file changes. `.fs` files are evaluated as FuncScript, while `.js` files are automatically wrapped as ```javascript fenced blocks before evaluation.
 
 ## Scene resolution
 
@@ -47,3 +47,7 @@ Use `funcdraw-play --help` to see the full list. Defaults listen on `127.0.0.1:5
 Use `--debug` when you want the server to print evaluated scene payloads (including warnings) directly to the terminal for troubleshooting.
 
 Use `--dump` to skip server/browse launching altogether, evaluate the configured scene once (with SVG output), print the payload to the console, and exit. This is handy for CI pipelines or quick inspection without spinning up the preview UI.
+
+## Time value hook & animation
+
+FuncDraw Play automatically injects a `t` value hook into every scene. If your FuncScript references `t`, the browser HUD exposes play/pause and reset controls that stream incremental `t` values back to the server so your model can animate over time. When the scene never touches `t`, the UI hides the controls and FuncDraw evaluates your expression once, just like before.

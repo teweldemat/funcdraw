@@ -21,7 +21,7 @@ async function startServer({ evaluateScene, host = '127.0.0.1', port, openBrowse
       )
     );
     try {
-      const scene = await evaluateScene({ includeSvg, requestId });
+      const scene = await evaluateScene({ includeSvg, requestId, query: req.query });
       console.log(picocolors.gray(`[funcdraw-play] [${requestId}] Responding with scene payload`));
       res.json(scene);
     } catch (error) {

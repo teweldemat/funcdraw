@@ -1,0 +1,12 @@
+{
+  "name": "funcdraw-star-showcase-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FuncDraw example rendered entirely from JavaScript expressions.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

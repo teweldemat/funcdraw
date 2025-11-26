@@ -113,3 +113,53 @@ test('line defaults stroke color when omitted', () => {
   assert.equal(line.stroke, '#38bdf8');
   assert.match(result.svg, /stroke="#38bdf8"/);
 });
+
+test('value hooks inject dynamic values into the scene', () => {
+  const resolver = createResolver(`
+  {
+    view:[10,10];
+    graphics:[
+      {
+        type:"text";
+        text:t;
+        position:[0,0];
+      }
+    ];
+  }
+  `);
+
+  let currentValue = 0;
+  const expression = createExpression(resolver);
+  const result = expression.evaluate({
+    output: ['raw'],
+    valueHooks: {
+      t: () => {
+        currentValue += 0.5;
+        return currentValue;
+      }
+    }
+  });
+
+  assert.equal(result.raw.graphics[0].text, 0.5);
+  assert.deepStrictEqual(result.valueHooks, {
+    t: { used: true }
+  });
+});
+
+test('unused value hooks are reported as unused', () => {
+  const resolver = createResolver(`
+  {
+    view:[5,5];
+    graphics:[{ type:"line"; from:[0,0]; to:[1,1]; }];
+  }
+  `);
+  const expression = createExpression(resolver);
+  const result = expression.evaluate({
+    valueHooks: {
+      t: () => 42
+    }
+  });
+  assert.deepStrictEqual(result.valueHooks, {
+    t: { used: false }
+  });
+});

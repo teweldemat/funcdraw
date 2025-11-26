@@ -54,14 +54,38 @@ async function startPlayer(cwd, argvInput) {
   }
 
   let currentExpression = buildExpression(config);
-  const evaluateScene = async ({ includeSvg, requestId } = {}) => {
+  const timelineState = {
+    value: 0
+  };
+  const setTimelineValue = (input) => {
+    if (input === undefined || input === null) {
+      return;
+    }
+    const parsed = parseFloatValue(input);
+    if (parsed !== null) {
+      timelineState.value = parsed;
+    }
+  };
+  const resetTimeline = () => {
+    timelineState.value = 0;
+  };
+
+  const evaluateScene = async ({ includeSvg, requestId, query } = {}) => {
+    if (query && Object.prototype.hasOwnProperty.call(query, 'time')) {
+      setTimelineValue(query.time);
+    }
     const outputs = includeSvg ? ['raw', 'svg'] : ['raw'];
     const evalId = requestId || `eval-${Date.now().toString(36)}`;
     const outputLabel = outputs.join(', ');
     const start = Date.now();
     console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel})`));
     try {
-      const result = await currentExpression.evaluate({ output: outputs });
+      const result = await currentExpression.evaluate({
+        output: outputs,
+        valueHooks: {
+          t: () => timelineState.value
+        }
+      });
       if (!includeSvg) {
         delete result.svg;
       }
@@ -76,6 +100,7 @@ async function startPlayer(cwd, argvInput) {
         console.log(picocolors.yellow(`[funcdraw-play] [${evalId}] Scene payload:`));
         console.dir(result, { depth: null, colors: true });
       }
+      result.timeline = { t: timelineState.value };
       return result;
     } catch (error) {
       console.error(picocolors.red(`[funcdraw-play] [${evalId}] Evaluation failed:`), error);
@@ -108,6 +133,7 @@ async function startPlayer(cwd, argvInput) {
       const updated = await loadUserConfig(cwd);
       config = updated;
       currentExpression = buildExpression(config);
+      resetTimeline();
       console.log(picocolors.green('FuncDraw scene reloaded'));
       const nextWatchPaths = Array.isArray(config.watchPaths) ? config.watchPaths : [];
       if (!pathsEqual(nextWatchPaths, watchedPaths)) {
@@ -136,6 +162,17 @@ async function startPlayer(cwd, argvInput) {
 
 function buildExpression(config) {
   return createFuncDrawExpression(config.resolver, config.options);
+}
+
+function parseFloatValue(value) {
+  if (Array.isArray(value)) {
+    return parseFloatValue(value[value.length - 1]);
+  }
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
 }
 
 function watchPaths(paths, onChange) {

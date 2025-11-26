@@ -54,6 +54,19 @@ function createHtmlTemplate() {
     #fd-toolbar button:hover {
       filter: brightness(1.1);
     }
+    #fd-time-controls {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #fd-time-controls.active {
+      display: flex;
+    }
+    #fd-time-label {
+      font-variant-numeric: tabular-nums;
+      color: #94a3b8;
+      font-weight: 500;
+    }
     #fd-warning {
       color: #fbbf24;
     }
@@ -79,6 +92,11 @@ function createHtmlTemplate() {
     <div id="fd-toolbar">
       <span id="fd-stats">loading…</span>
       <span id="fd-warning"></span>
+      <div id="fd-time-controls">
+        <button id="fd-play-toggle">Play</button>
+        <button id="fd-reset-timeline">Reset</button>
+        <span id="fd-time-label">t=0.00s</span>
+      </div>
       <button id="fd-refresh">Refresh</button>
     </div>
   </header>
@@ -92,6 +110,19 @@ function createHtmlTemplate() {
     const stats = document.getElementById('fd-stats');
     const warningsEl = document.getElementById('fd-warning');
     const refreshButton = document.getElementById('fd-refresh');
+    const animationControls = {
+      container: document.getElementById('fd-time-controls'),
+      toggle: document.getElementById('fd-play-toggle'),
+      reset: document.getElementById('fd-reset-timeline'),
+      label: document.getElementById('fd-time-label')
+    };
+    const animationState = {
+      enabled: false,
+      playing: false,
+      time: 0,
+      raf: null,
+      lastTick: null
+    };
     const headerEl = document.getElementById('fd-header');
     const logPrefix = '[FuncDraw]';
     const logDebug = (...args) => console.debug(logPrefix, ...args);
@@ -103,8 +134,25 @@ function createHtmlTemplate() {
 
     logInfo('Booting FuncDraw Play browser client');
 
-    async function loadScene(reason = 'manual') {
-      const requestUrl = API + '?t=' + Date.now();
+    async function loadScene(reason = 'manual', loadOptions = {}) {
+      const params = new URLSearchParams();
+      let hasCustomTimeParam = false;
+      if (loadOptions.params && typeof loadOptions.params === 'object') {
+        for (const [key, rawValue] of Object.entries(loadOptions.params)) {
+          if (rawValue === undefined || rawValue === null) {
+            continue;
+          }
+          params.append(key, String(rawValue));
+          if (key === 'time') {
+            hasCustomTimeParam = true;
+          }
+        }
+      }
+      if (!hasCustomTimeParam && animationState.enabled) {
+        params.set('time', formatTimeParam(animationState.time));
+      }
+      params.set('_ts', Date.now().toString());
+      const requestUrl = API + '?' + params.toString();
       logInfo('Requesting scene', { reason, requestUrl });
       try {
         const response = await fetch(requestUrl);
@@ -122,10 +170,13 @@ function createHtmlTemplate() {
           console.log(payload.svg);
           console.groupEnd();
         }
+        return payload;
       } catch (error) {
         logError('Scene load failed', error);
         stats.textContent = error.message;
         warningsEl.textContent = 'Load error';
+        stopAnimation();
+        return null;
       }
     }
 
@@ -133,6 +184,7 @@ function createHtmlTemplate() {
       if (!scene) {
         return;
       }
+      syncAnimationFromPayload(scene);
       logDebug('Rendering scene', {
         view: scene.view,
         warnings: Array.isArray(scene.warnings) ? scene.warnings.length : 0,
@@ -476,9 +528,29 @@ function createHtmlTemplate() {
       }
     });
 
+    animationControls.toggle.addEventListener('click', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      if (animationState.playing) {
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
+    });
+
+    animationControls.reset.addEventListener('click', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      stopAnimation({ preserveTime: false });
+      loadScene('timeline-reset', { params: { time: formatTimeParam(animationState.time) } });
+    });
+
     const events = new EventSource('/__funcdraw/events');
     events.addEventListener('reload', () => {
       logInfo('Reload event received from server');
+      stopAnimation();
       loadScene('server-reload');
     });
     events.addEventListener('open', () => {
@@ -495,6 +567,103 @@ function createHtmlTemplate() {
         renderScene(latestScene);
       }
     });
+
+    function syncAnimationFromPayload(scene) {
+      const hooks = (scene && scene.valueHooks) || {};
+      const timeHook = hooks.t;
+      const usesTime = Boolean(timeHook && timeHook.used);
+      if (!usesTime) {
+        if (animationState.enabled) {
+          stopAnimation({ preserveTime: false });
+          animationState.enabled = false;
+          animationControls.container.classList.remove('active');
+          updateAnimationUi();
+        }
+        return;
+      }
+      animationState.enabled = true;
+      animationControls.container.classList.add('active');
+      if (scene.timeline && typeof scene.timeline.t === 'number' && Number.isFinite(scene.timeline.t)) {
+        animationState.time = Number(scene.timeline.t);
+      }
+      updateAnimationUi();
+    }
+
+    function startAnimation() {
+      if (!animationState.enabled || animationState.playing) {
+        return;
+      }
+      animationState.playing = true;
+      animationState.lastTick = null;
+      animationState.raf = requestAnimationFrame(animationFrame);
+      updateAnimationUi();
+    }
+
+    function stopAnimation(options = {}) {
+      const preserveTime =
+        options && Object.prototype.hasOwnProperty.call(options, 'preserveTime')
+          ? Boolean(options.preserveTime)
+          : true;
+      if (animationState.raf !== null) {
+        cancelAnimationFrame(animationState.raf);
+        animationState.raf = null;
+      }
+      animationState.playing = false;
+      animationState.lastTick = null;
+      if (!preserveTime) {
+        animationState.time = 0;
+      }
+      updateAnimationUi();
+    }
+
+    async function animationFrame(timestamp) {
+      if (!animationState.playing) {
+        animationState.raf = null;
+        return;
+      }
+      if (animationState.lastTick === null) {
+        animationState.lastTick = timestamp;
+      }
+      const delta = Math.max(0, timestamp - animationState.lastTick);
+      animationState.lastTick = timestamp;
+      animationState.time += delta / 1000;
+      updateAnimationUi();
+      await loadScene('animation', {
+        params: { time: formatTimeParam(animationState.time) }
+      });
+      if (animationState.playing) {
+        animationState.raf = requestAnimationFrame(animationFrame);
+      } else {
+        animationState.raf = null;
+      }
+    }
+
+    function updateAnimationUi() {
+      if (!animationState.enabled) {
+        animationControls.container.classList.remove('active');
+        return;
+      }
+      animationControls.container.classList.add('active');
+      animationControls.toggle.textContent = animationState.playing ? 'Pause' : 'Play';
+      animationControls.reset.disabled = animationState.time === 0 && !animationState.playing;
+      animationControls.label.textContent = 't=' + formatTimeDisplay(animationState.time);
+    }
+
+    function formatTimeParam(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return '0';
+      }
+      return num.toFixed(4);
+    }
+
+    function formatTimeDisplay(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return '0.00s';
+      }
+      return num.toFixed(2) + 's';
+    }
 
     loadScene('initial');
   </script>

@@ -34,14 +34,10 @@ function createArtResolver(rootDir, artFolderName = 'art') {
         return null;
       }
       if (file.ext === '.fs') {
-        const text = fs.readFileSync(file.fullPath, 'utf8');
-        return {
-          expression: text,
-          language: 'funcscript'
-        };
+        return loadTextExpression(file.fullPath, 'funcscript');
       }
       if (file.ext === '.js') {
-        return loadJsExpression(file.fullPath);
+        return loadTextExpression(file.fullPath, 'javascript');
       }
       return null;
     },
@@ -127,45 +123,12 @@ function createScopedResolver(baseResolver, prefixSegments) {
   };
 }
 
-function loadJsExpression(filePath) {
-  delete require.cache[filePath];
-  let mod = require(filePath);
-  if (mod && typeof mod === 'object' && 'default' in mod) {
-    mod = mod.default;
-  }
-  if (typeof mod === 'function') {
-    mod = mod();
-  }
-  if (typeof mod === 'string') {
-    return {
-      expression: mod,
-      language: 'funcscript'
-    };
-  }
-  if (mod && typeof mod === 'object') {
-    if (typeof mod.expression === 'string') {
-      return {
-        expression: mod.expression,
-        language: mod.language || 'funcscript'
-      };
-    }
-    if (typeof mod.getExpression === 'function') {
-      const result = mod.getExpression();
-      if (typeof result === 'string') {
-        return {
-          expression: result,
-          language: 'funcscript'
-        };
-      }
-      if (result && typeof result === 'object' && typeof result.expression === 'string') {
-        return {
-          expression: result.expression,
-          language: result.language || 'funcscript'
-        };
-      }
-    }
-  }
-  throw new Error(`Unsupported export in ${filePath}`);
+function loadTextExpression(filePath, language) {
+  const text = fs.readFileSync(filePath, 'utf8');
+  return {
+    expression: text,
+    language
+  };
 }
 
 module.exports = {

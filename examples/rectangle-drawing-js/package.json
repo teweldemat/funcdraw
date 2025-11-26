@@ -1,0 +1,12 @@
+{
+  "name": "funcdraw-rectangle-example-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example FuncDraw project rendered from a JavaScript expression via @funcdraw/play.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

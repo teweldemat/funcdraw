@@ -1,0 +1,12 @@
+{
+  "name": "funcdraw-stick-man-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shows how to build a stick figure scene entirely in JavaScript using reusable limb helpers.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

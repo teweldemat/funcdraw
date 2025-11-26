@@ -86,22 +86,51 @@ function safeListChildren(resolver, segments) {
 }
 
 function createEntryResolver(baseResolver, entrySegments) {
+  const normalizedEntry = Array.isArray(entrySegments)
+    ? entrySegments
+        .map((segment) => (typeof segment === 'string' ? segment.trim() : segment))
+        .filter((segment) => typeof segment === 'string' && segment.length > 0)
+    : [];
+  if (normalizedEntry.length === 0) {
+    return baseResolver;
+  }
+
+  const entryAlias = 'eval';
+  const entryAliasLower = entryAlias.toLowerCase();
+  const entryImportKey = normalizedEntry.join('/');
+
+  const isAliasPath = (segments) =>
+    Array.isArray(segments) &&
+    segments.length === 1 &&
+    typeof segments[0] === 'string' &&
+    segments[0].toLowerCase() === entryAliasLower;
+
   return {
     listChildren(pathSegments = []) {
       if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
+        const baseChildren = safeListChildren(baseResolver, []);
+        const names = new Set(baseChildren);
+        names.add(entryAlias);
+        return Array.from(names);
+      }
+      if (isAliasPath(pathSegments)) {
         return [];
       }
-      return baseResolver.listChildren(pathSegments);
+      const children = baseResolver.listChildren(pathSegments);
+      return Array.isArray(children) ? children : [];
     },
     getExpression(pathSegments = []) {
       if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
-        return baseResolver.getExpression(entrySegments);
+        return null;
+      }
+      if (isAliasPath(pathSegments)) {
+        return baseResolver.getExpression(normalizedEntry);
       }
       return baseResolver.getExpression(pathSegments);
     },
     import(name) {
       if (name == null || (typeof name === 'string' && name.trim() === '')) {
-        return baseResolver.import(entrySegments);
+        return baseResolver.import(entryImportKey);
       }
       return baseResolver.import(name);
     }

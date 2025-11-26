@@ -123,6 +123,9 @@ function createHtmlTemplate() {
       raf: null,
       lastTick: null
     };
+    const canvasHookState = {
+      active: false
+    };
     const headerEl = document.getElementById('fd-header');
     const logPrefix = '[FuncDraw]';
     const logDebug = (...args) => console.debug(logPrefix, ...args);
@@ -151,6 +154,7 @@ function createHtmlTemplate() {
       if (!hasCustomTimeParam && animationState.enabled) {
         params.set('time', formatTimeParam(animationState.time));
       }
+      addCanvasSizeParams(params);
       params.set('_ts', Date.now().toString());
       const requestUrl = API + '?' + params.toString();
       logInfo('Requesting scene', { reason, requestUrl });
@@ -184,14 +188,14 @@ function createHtmlTemplate() {
       if (!scene) {
         return;
       }
-      syncAnimationFromPayload(scene);
+      syncValueHooksFromPayload(scene);
       logDebug('Rendering scene', {
         view: scene.view,
         warnings: Array.isArray(scene.warnings) ? scene.warnings.length : 0,
         hasRaw: Boolean(scene.raw)
       });
       const viewBox = resolveViewBox(scene);
-      resizeCanvasForView(viewBox);
+      resizeCanvasForView();
       projector = createProjector(viewBox);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const raw = scene.raw || {};
@@ -278,22 +282,17 @@ function createHtmlTemplate() {
       };
     }
 
-    function resizeCanvasForView(viewBox) {
+    function resizeCanvasForView() {
       const available = computeAvailableViewport();
-      const width = Math.max(viewBox.width, 1);
-      const height = Math.max(viewBox.height, 1);
-      const scale = Math.min(available.width / width, available.height / height) || 1;
-      const pixelWidth = Math.max(1, Math.round(width * scale));
-      const pixelHeight = Math.max(1, Math.round(height * scale));
+      const pixelWidth = Math.max(1, Math.round(available.width));
+      const pixelHeight = Math.max(1, Math.round(available.height));
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
       canvas.style.width = pixelWidth + 'px';
       canvas.style.height = pixelHeight + 'px';
-      logDebug('Resized canvas', {
+      logDebug('Resized canvas to available viewport', {
         pixelWidth,
-        pixelHeight,
-        viewWidth: width,
-        viewHeight: height
+        pixelHeight
       });
     }
 
@@ -309,29 +308,33 @@ function createHtmlTemplate() {
     function createProjector(viewBox) {
       const width = Math.max(viewBox.width, 1);
       const height = Math.max(viewBox.height, 1);
-      const scaleX = canvas.width / width;
-      const scaleY = canvas.height / height;
+      const scale = Math.min(canvas.width / width, canvas.height / height) || 1;
+      const drawnWidth = width * scale;
+      const drawnHeight = height * scale;
+      const offsetX = (canvas.width - drawnWidth) / 2;
+      const offsetY = (canvas.height - drawnHeight) / 2;
       return {
-        scaleX,
-        scaleY,
+        scale,
+        offsetX,
+        offsetY,
         projectPoint(point) {
           const [mx, my] = toPoint(point);
-          const x = (mx - viewBox.left) * scaleX;
-          const y = (viewBox.top - my) * scaleY;
+          const x = offsetX + (mx - viewBox.left) * scale;
+          const y = offsetY + (viewBox.top - my) * scale;
           return [x, y];
         },
         projectSize(size) {
           const [sx, sy] = toPoint(size);
-          return [sx * scaleX, sy * scaleY];
+          return [sx * scale, sy * scale];
         },
         projectScalarX(value) {
-          return value * scaleX;
+          return value * scale;
         },
         projectScalarY(value) {
-          return value * scaleY;
+          return value * scale;
         },
         projectScalar(value) {
-          return value * ((scaleX + scaleY) / 2);
+          return value * scale;
         }
       };
     }
@@ -513,8 +516,21 @@ function createHtmlTemplate() {
 
     function projectStrokeWidth(value) {
       const base = Math.abs(Number(value)) || 0.25;
-      const scale = projector ? (projector.scaleX + projector.scaleY) / 2 : 1;
+      const scale = projector ? projector.scale : 1;
       return Math.max(base * scale, 0.5);
+    }
+
+    function addCanvasSizeParams(params) {
+      const size = getCanvasSize();
+      params.set('canvasWidth', String(size.width));
+      params.set('canvasHeight', String(size.height));
+    }
+
+    function getCanvasSize() {
+      return {
+        width: canvas.width || 0,
+        height: canvas.height || 0
+      };
     }
 
     refreshButton.addEventListener('click', () => {
@@ -562,14 +578,26 @@ function createHtmlTemplate() {
     });
 
     window.addEventListener('resize', () => {
-      if (latestScene) {
+      resizeCanvasForView();
+      if (!latestScene) {
+        return;
+      }
+      if (canvasHookState.active) {
+        logInfo('Canvas resized, reloading scene for canvas hook');
+        loadScene('canvas-resize');
+      } else {
         logDebug('Window resized, re-rendering scene');
         renderScene(latestScene);
       }
     });
 
-    function syncAnimationFromPayload(scene) {
+    function syncValueHooksFromPayload(scene) {
       const hooks = (scene && scene.valueHooks) || {};
+      syncAnimationFromHooks(hooks, scene);
+      syncCanvasHookState(hooks);
+    }
+
+    function syncAnimationFromHooks(hooks, scene) {
       const timeHook = hooks.t;
       const usesTime = Boolean(timeHook && timeHook.used);
       if (!usesTime) {
@@ -587,6 +615,11 @@ function createHtmlTemplate() {
         animationState.time = Number(scene.timeline.t);
       }
       updateAnimationUi();
+    }
+
+    function syncCanvasHookState(hooks) {
+      const canvasHook = hooks.canvas;
+      canvasHookState.active = Boolean(canvasHook && canvasHook.used);
     }
 
     function startAnimation() {
@@ -665,6 +698,7 @@ function createHtmlTemplate() {
       return num.toFixed(2) + 's';
     }
 
+    resizeCanvasForView();
     loadScene('initial');
   </script>
 </body>

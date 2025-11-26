@@ -82,9 +82,6 @@ function createProviderFactory(engine, typedFd, valueHooks) {
   if (!valueHooks) {
     return () => new engine.DefaultFsDataProvider({ fd: typedFd });
   }
-  const normalizeValue =
-    typeof engine.normalize === 'function' ? engine.normalize.bind(engine) : (value) => value;
-
   class ValueHookProvider extends engine.DefaultFsDataProvider {
     constructor(initialValues) {
       super(initialValues);
@@ -95,7 +92,7 @@ function createProviderFactory(engine, typedFd, valueHooks) {
       if (entry) {
         entry.used = true;
         if (!entry.hasValue) {
-          entry.value = normalizeValue(entry.hook());
+          entry.value = normalizeHookValue(engine, entry.hook());
           entry.hasValue = true;
         }
         return entry.value;
@@ -185,6 +182,37 @@ function summarizeValueHookUsage(valueHooks) {
     };
   }
   return summary;
+}
+
+function normalizeHookValue(engine, value) {
+  const assertTyped = engine.assertTyped || funcscript.assertTyped;
+  try {
+    return assertTyped(value);
+  } catch {
+    // fall through to normalize the plain structure
+  }
+  if (Array.isArray(value)) {
+    const typedItems = value.map((item) => normalizeHookValue(engine, item));
+    const listClass = engine.ArrayFsList || funcscript.ArrayFsList;
+    if (typeof listClass === 'function') {
+      const listInstance = new listClass(typedItems);
+      return engine.normalize(listInstance);
+    }
+    throw new Error('Array value hooks require ArrayFsList support');
+  }
+  if (value && typeof value === 'object') {
+    const simpleKvcClass = engine.SimpleKeyValueCollection || funcscript.SimpleKeyValueCollection;
+    if (value instanceof simpleKvcClass) {
+      return engine.normalize(value);
+    }
+    const collectionEntries = Object.entries(value).map(([key, inner]) => [
+      key,
+      normalizeHookValue(engine, inner)
+    ]);
+    const collection = new simpleKvcClass(collectionEntries);
+    return engine.normalize(collection);
+  }
+  return engine.normalize(value);
 }
 
 module.exports = {

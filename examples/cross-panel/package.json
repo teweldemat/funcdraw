@@ -1,0 +1,12 @@
+{
+  "name": "funcdraw-cross-panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FuncDraw example that draws a rectangle with diagonal lines spanning the full view.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

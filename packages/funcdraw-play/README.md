@@ -51,3 +51,9 @@ Use `--dump` to skip server/browse launching altogether, evaluate the configured
 ## Time value hook & animation
 
 FuncDraw Play automatically injects a `t` value hook into every scene. If your FuncScript references `t`, the browser HUD exposes play/pause and reset controls that stream incremental `t` values back to the server so your model can animate over time. When the scene never touches `t`, the UI hides the controls and FuncDraw evaluates your expression once, just like before.
+
+When running in `--dump` mode you can seed the hooks manually: pass `--t 2.5` to set the initial time and `--canvas 800 600` to mimic a particular viewport. Add `--svg` if you still want SVG output in the dump payload.
+
+## Canvas size hook
+
+In addition to `t`, FuncDraw Play injects a `canvas` value hook. The hook exposes the actual pixel dimensions of the preview canvas: `canvas.size.width` and `canvas.size.height`. When your model reads `canvas`, the client automatically re-evaluates the scene whenever the browser window resizes so your geometry can react to the available space.

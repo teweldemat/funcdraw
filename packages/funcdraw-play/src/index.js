@@ -36,6 +36,19 @@ async function startPlayer(cwd, argvInput) {
       describe: 'Evaluate once, dump the scene payload to the console, and exit (no server)',
       default: false
     })
+    .option('svg', {
+      type: 'boolean',
+      describe: 'Include SVG output when running in dump mode',
+      default: false
+    })
+    .option('t', {
+      type: 'number',
+      describe: 'Initial time hook value (seconds)'
+    })
+    .option('canvas', {
+      type: 'array',
+      describe: 'Initial canvas size in pixels (width height)'
+    })
     .help()
     .alias('help', 'h')
     .parseSync();
@@ -57,7 +70,18 @@ async function startPlayer(cwd, argvInput) {
   const timelineState = {
     value: 0
   };
-  const setTimelineValue = (input) => {
+  const canvasState = {
+    width: 40,
+    height: 30
+  };
+  setTimelineValue(argv.t);
+  if (Array.isArray(argv.canvas) && argv.canvas.length > 0) {
+    setCanvasSize({
+      width: argv.canvas[0],
+      height: argv.canvas.length > 1 ? argv.canvas[1] : undefined
+    });
+  }
+  function setTimelineValue(input) {
     if (input === undefined || input === null) {
       return;
     }
@@ -65,14 +89,31 @@ async function startPlayer(cwd, argvInput) {
     if (parsed !== null) {
       timelineState.value = parsed;
     }
-  };
-  const resetTimeline = () => {
+  }
+  function resetTimeline() {
     timelineState.value = 0;
-  };
+  }
+
+  function setCanvasSize({ width, height }) {
+    const parsedWidth = parseFloatValue(width);
+    const parsedHeight = parseFloatValue(height);
+    if (parsedWidth !== null) {
+      canvasState.width = parsedWidth;
+    }
+    if (parsedHeight !== null) {
+      canvasState.height = parsedHeight;
+    }
+  }
 
   const evaluateScene = async ({ includeSvg, requestId, query } = {}) => {
     if (query && Object.prototype.hasOwnProperty.call(query, 'time')) {
       setTimelineValue(query.time);
+    }
+    if (query && (Object.prototype.hasOwnProperty.call(query, 'canvasWidth') || Object.prototype.hasOwnProperty.call(query, 'canvasHeight'))) {
+      setCanvasSize({
+        width: query.canvasWidth,
+        height: query.canvasHeight
+      });
     }
     const outputs = includeSvg ? ['raw', 'svg'] : ['raw'];
     const evalId = requestId || `eval-${Date.now().toString(36)}`;
@@ -83,7 +124,13 @@ async function startPlayer(cwd, argvInput) {
       const result = await currentExpression.evaluate({
         output: outputs,
         valueHooks: {
-          t: () => timelineState.value
+          t: () => timelineState.value,
+          canvas: () => ({
+            size: {
+              width: canvasState.width,
+              height: canvasState.height
+            }
+          })
         }
       });
       if (!includeSvg) {
@@ -101,6 +148,7 @@ async function startPlayer(cwd, argvInput) {
         console.dir(result, { depth: null, colors: true });
       }
       result.timeline = { t: timelineState.value };
+      result.canvas = { ...canvasState };
       return result;
     } catch (error) {
       console.error(picocolors.red(`[funcdraw-play] [${evalId}] Evaluation failed:`), error);
@@ -111,7 +159,7 @@ async function startPlayer(cwd, argvInput) {
   if (argv.dump) {
     console.log(picocolors.cyan('FuncDraw Play dump mode'));
     try {
-      await evaluateScene({ includeSvg: true, requestId: 'dump-mode' });
+      await evaluateScene({ includeSvg: Boolean(argv.svg), requestId: 'dump-mode' });
       console.log(picocolors.green('Scene evaluation completed (dump mode).'));
       return;
     } catch (error) {

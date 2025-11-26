@@ -1,0 +1,30 @@
+{
+  "name": "@funcdraw/core",
+  "version": "0.1.0",
+  "description": "Stateless graphics interpreter for FuncScript-based FuncDraw packages",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "files": [
+    "src",
+    "assets/fonts/Inter-Regular.ttf",
+    "assets/fonts/LICENSE.txt"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "funcdraw",
+    "graphics",
+    "funscript",
+    "canvas"
+  ],
+  "author": "Tewelde Ma. Tegegne <teweldemat@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@tewelde/funcscript": "file:../../funcscript/js-port/funcscript-js",
+    "opentype.js": "^1.3.4"
+  }
+}

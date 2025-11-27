@@ -1,0 +1,14 @@
+{
+  "name": "@funcdraw/testlib",
+  "version": "0.1.0",
+  "description": "Experimental FuncDraw library with reusable primitives.",
+  "files": [
+    "art"
+  ],
+  "keywords": [
+    "funcdraw",
+    "library"
+  ],
+  "author": "Tewelde Ma. Tegegne <teweldemat@gmail.com>",
+  "license": "MIT"
+}

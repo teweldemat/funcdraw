@@ -2,11 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
-function createArtResolver(rootDir, artFolderName = 'art') {
+
+function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
   const artRoot = path.resolve(rootDir, artFolderName);
   if (!fs.existsSync(artRoot) || !fs.statSync(artRoot).isDirectory()) {
     return null;
   }
+
+  const moduleSearchPaths = buildModuleSearchPaths(rootDir, options.modulePaths);
+  const moduleCache = new Map();
 
   const resolver = {
     listChildren(pathSegments = []) {
@@ -41,18 +45,12 @@ function createArtResolver(rootDir, artFolderName = 'art') {
       }
       return null;
     },
-    import(name) {
-      if (name == null) {
-        return null;
-      }
-      const segments = String(name)
-        .split(/[\\/]+/)
-        .map((segment) => segment.trim())
-        .filter(Boolean);
-      if (segments.length === 0) {
-        return null;
-      }
-      return createScopedResolver(resolver, segments);
+    package(name) {
+      return importNodeModule({
+        name,
+        cache: moduleCache,
+        modulePaths: moduleSearchPaths
+      });
     }
   };
 
@@ -96,33 +94,6 @@ function stripExtension(name) {
   return name.replace(/\.[^.]+$/, '');
 }
 
-function createScopedResolver(baseResolver, prefixSegments) {
-  const basePath = Array.isArray(prefixSegments) ? prefixSegments : [];
-  return {
-    listChildren(pathSegments = []) {
-      const segments = basePath.concat(Array.isArray(pathSegments) ? pathSegments : []);
-      return baseResolver.listChildren(segments);
-    },
-    getExpression(pathSegments = []) {
-      const segments = basePath.concat(Array.isArray(pathSegments) ? pathSegments : []);
-      return baseResolver.getExpression(segments);
-    },
-    import(name) {
-      if (name == null) {
-        return null;
-      }
-      const extra = String(name)
-        .split(/[\\/]+/)
-        .map((segment) => segment.trim())
-        .filter(Boolean);
-      if (extra.length === 0) {
-        return null;
-      }
-      return createScopedResolver(baseResolver, basePath.concat(extra));
-    }
-  };
-}
-
 function loadTextExpression(filePath, language) {
   const text = fs.readFileSync(filePath, 'utf8');
   return {
@@ -134,3 +105,101 @@ function loadTextExpression(filePath, language) {
 module.exports = {
   createArtResolver
 };
+
+function buildModuleSearchPaths(rootDir, extraPaths) {
+  const paths = [];
+  if (typeof rootDir === 'string' && rootDir.length > 0) {
+    paths.push(rootDir);
+  }
+  if (Array.isArray(extraPaths)) {
+    for (const entry of extraPaths) {
+      if (typeof entry === 'string' && entry.trim().length > 0) {
+        paths.push(entry);
+      }
+    }
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const target of paths) {
+    const normalized = path.resolve(target);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
+}
+
+function importNodeModule({ name, cache, modulePaths }) {
+  if (name == null) {
+    return null;
+  }
+  const packageName = parsePackageName(name);
+  if (!packageName) {
+    return null;
+  }
+  let moduleResolver = cache.get(packageName);
+  if (!moduleResolver) {
+    moduleResolver = loadModuleResolver(packageName, modulePaths);
+    if (!moduleResolver) {
+      return null;
+    }
+    cache.set(packageName, moduleResolver);
+  }
+  return moduleResolver;
+}
+
+function loadModuleResolver(packageName, modulePaths) {
+  const resolvedRoot = resolvePackageRoot(packageName, modulePaths);
+  if (!resolvedRoot) {
+    return null;
+  }
+  const moduleResolver = createArtResolver(resolvedRoot, 'art', {
+    modulePaths
+  });
+  if (!moduleResolver) {
+    throw new Error(`Package '${packageName}' does not expose an art/ directory for FuncDraw`);
+  }
+  return moduleResolver.resolver;
+}
+
+function resolvePackageRoot(packageName, modulePaths) {
+  const searchPaths = Array.isArray(modulePaths) && modulePaths.length > 0 ? modulePaths : undefined;
+  try {
+    const manifestPath = require.resolve(path.join(packageName, 'package.json'), {
+      paths: searchPaths
+    });
+    return path.dirname(manifestPath);
+  } catch {
+    return null;
+  }
+}
+
+function parsePackageName(input) {
+  if (input == null) {
+    return null;
+  }
+  const trimmed = String(input).trim();
+  if (!trimmed || trimmed.startsWith('.') || trimmed.startsWith('/')) {
+    return null;
+  }
+  const normalized = trimmed.replace(/\\/g, '/');
+  const segments = normalized
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
+  if (segments.length === 0) {
+    return null;
+  }
+  if (normalized.startsWith('@')) {
+    if (segments.length !== 2) {
+      throw new Error(`Package name '${normalized}' must refer to a single package (nested paths are not supported).`);
+    }
+    return `${segments[0]}/${segments[1]}`;
+  }
+  if (segments.length !== 1) {
+    throw new Error(`Package name '${normalized}' must refer to a single package (nested paths are not supported).`);
+  }
+  return segments[0];
+}

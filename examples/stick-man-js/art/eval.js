@@ -3,7 +3,7 @@ const stickManBuilder = stickman;
 
 const groundY = 0;
 const hipHeight = 10.5;
-const time = getTimeHook();
+const time = t;
 const { left: leftHandTarget, right: rightHandTarget } = createHandSwingTargets(time);
 
 const figure = stickManBuilder({
@@ -160,19 +160,7 @@ function easeInCubic(t) {
   return t * t * t;
 }
 
-function getTimeHook() {
-  if (!provider || typeof provider.get !== "function") {
-    return 0;
-  }
-  try {
-    if (typeof provider.isDefined === "function" && !provider.isDefined("t")) {
-      return 0;
-    }
-    return ensureNumber(provider.get("t"));
-  } catch {
-    return 0;
-  }
-}
+
 
 function ensureNumber(value) {
   if (typeof value === "number" && Number.isFinite(value)) {

@@ -27,7 +27,7 @@ function createResolverFromExpression(expression) {
       }
       return null;
     },
-    import() {
+    package() {
       return null;
     }
   };

@@ -1,0 +1,12 @@
+{
+  "name": "funcdraw-totorial",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone tutorial scene matching docs instructions.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

@@ -15,7 +15,7 @@ function createResolver(expression) {
       }
       return null;
     },
-    import() {
+    package() {
       return null;
     }
   };

@@ -27,9 +27,6 @@
     color:"#94a3b8";
   };
 
-
-  createStar:import("createStar");
-
   starField:starSeeds map (seed) =>
     createStar(
       randomFloat(seed,6,54),

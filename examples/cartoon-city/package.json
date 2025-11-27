@@ -1,0 +1,15 @@
+{
+  "name": "funcdraw-cartoon-city",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scene that imports the cartoon stickman helper from @funcdraw/testlib.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "dependencies": {
+    "@funcdraw/testlib": "file:../testlib"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

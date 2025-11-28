@@ -1,0 +1,15 @@
+{
+  "name": "funcdraw-walker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal FuncDraw scene that renders a single walker for debugging limb targets.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "dependencies": {
+    "@funcdraw/testlib": "file:../testlib"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

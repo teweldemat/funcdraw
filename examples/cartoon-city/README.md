@@ -1,6 +1,6 @@
 # Cartoon City Example
 
-Imports the cartoon stickman, house, and tree helpers from `@funcdraw/testlib` and places three characters, three houses, and a trio of trees along a shared ground line.
+Imports the cartoon stickman, house, and tree helpers from `@funcdraw/testlib`, then layers them over the local `sky` model that paints a blue gradient background, sun, and a scattering of clouds.
 
 ## Setup
 
@@ -13,4 +13,12 @@ npm install
 
 ```bash
 npm run play
+```
+
+## Test
+
+```bash
+node --test art/sky/eval.test.js
+node --test art/ground/eval.test.js
+node --test art/skyline/eval.test.js
 ```

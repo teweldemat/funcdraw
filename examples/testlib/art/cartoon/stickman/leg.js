@@ -9,6 +9,18 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeVector(vector, fallback = [0, -1]) {
+  if (Array.isArray(vector) && vector.length >= 2) {
+    const x = typeof vector[0] === "number" ? vector[0] : Number(vector[0]);
+    const y = typeof vector[1] === "number" ? vector[1] : Number(vector[1]);
+    const magnitude = Math.sqrt(x * x + y * y);
+    if (Number.isFinite(magnitude) && magnitude > 1e-6) {
+      return [x / magnitude, y / magnitude];
+    }
+  }
+  return fallback.slice();
+}
+
 function createSegmentedLimb(attachmentPoint, endPoint, upperLength, lowerLength, style, bendDirection) {
   const epsilon = 1e-6;
   const safeUpper = Math.max(upperLength, epsilon);
@@ -89,11 +101,24 @@ function createLeg(options) {
     style,
     bendDirection
   );
+  const lastSegment = segments.length > 0 ? segments[segments.length - 1] : null;
+  const resolvedTargetPoint =
+    lastSegment && Array.isArray(lastSegment.to)
+      ? lastSegment.to.slice()
+      : Array.isArray(targetPoint)
+        ? targetPoint.slice()
+        : targetPoint;
+  const resolvedDirection =
+    lastSegment && Array.isArray(lastSegment.to) && Array.isArray(lastSegment.from)
+      ? normalizeVector([lastSegment.to[0] - lastSegment.from[0], lastSegment.to[1] - lastSegment.from[1]])
+      : normalizeVector();
 
   return {
     graphics: segments,
     attachmentPoint,
-    targetPoint
+    targetPoint,
+    resolvedTargetPoint,
+    resolvedDirection
   };
 }
 

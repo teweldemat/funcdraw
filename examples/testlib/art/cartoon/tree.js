@@ -108,7 +108,7 @@ function createColumnCanopy(center, width, height, color, outline) {
 function tree(rawOptions = {}) {
   const options = ensureObject(rawOptions, {});
   const position = normalizePoint(options.position, [0, 0]);
-  const height = clampNumber(options.height, 6, 40, 14);
+  const height = clampNumber(options.height, 6, 500, 14);
   const type = String(options.type ?? "round").toLowerCase();
   const palette = selectTreePalette(type);
   const trunkHeight = height * 0.35;
@@ -127,7 +127,7 @@ function tree(rawOptions = {}) {
   const canopyCenter = [position[0], position[1] + trunkHeight + canopyHeight * 0.5];
   let canopy = null;
   if (type === "pine") {
-    canopy = createPineCanopy([position[0], position[1] + trunkHeight + canopyHeight], height * 0.9, canopyHeight, palette.canopy, palette.accent);
+    canopy = createPineCanopy([position[0], position[1] + trunkHeight], height * 0.9, canopyHeight, palette.canopy, palette.accent);
   } else if (type === "column") {
     canopy = createColumnCanopy(canopyCenter, height * 0.5, canopyHeight, palette.canopy, palette.accent);
   } else {

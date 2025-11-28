@@ -1,14 +1,13 @@
 {
   view:{
-    left:0;
-    bottom:0;
-    right:40;
+    left:-50;
+    bottom:-10;
+    right:50;
     top:40;
   };
 
   squareLib:package("@funcdraw/testlib");
   squareFn:squareLib.square;
-
   background:{
     type:"rect";
     position:[0,0];
@@ -43,7 +42,7 @@
   };
 
   graphics:[
-    background,
+    background+man.graphics,
     squareLib.square([10,30], 8, aquaStyle),
     squareLib.square([30,30], 8, magentaStyle),
     squareFn([10,10], 12, goldStyle),

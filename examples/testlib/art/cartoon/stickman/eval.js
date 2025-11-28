@@ -6,13 +6,28 @@ const defaultPalette = {
   headStroke: "#fdba74",
   headStrokeWidth: 0.4,
   headGazeColor: "#ea580c",
-  handStroke: "#f97316",
+  skinStroke: "#f97316",
   handWidth: 0.8,
-  legStroke: "#0ea5e9",
   legWidth: 1.1,
+  footStroke: "#f97316",
+  footStrokeWidth: 0.5,
   overlayHand: "#fb7185",
   overlayLeg: "#38bdf8"
 };
+
+function resolveSideOrder(direction = "front") {
+  const normalized = typeof direction === "string" ? direction.toLowerCase() : "front";
+  if (normalized === "left") {
+    return ["right", "torso", "left"];
+  }
+  if (normalized === "right") {
+    return ["left", "torso", "right"];
+  }
+  if (normalized === "back") {
+    return ["right", "torso", "left"];
+  }
+  return ["left", "torso", "right"];
+}
 
 function stickMan(optionsInput = {}) {
   const skeletonContext = skeleton.build(optionsInput);
@@ -24,13 +39,25 @@ function stickMan(optionsInput = {}) {
   const palette = skeleton.mergeDeep
     ? skeleton.mergeDeep(defaultPalette, paletteOverrides)
     : { ...defaultPalette, ...paletteOverrides };
-  const handStroke = normalizedOptions.palette?.handStroke ?? palette.handStroke;
-  const legStroke = normalizedOptions.palette?.legStroke ?? palette.legStroke;
+  const skinStroke =
+    normalizedOptions.palette?.skinStroke ??
+    palette.skinStroke ??
+    palette.handStroke ??
+    palette.legStroke ??
+    defaultPalette.skinStroke;
+  const handStroke = normalizedOptions.palette?.handStroke ?? skinStroke;
+  const legStroke = normalizedOptions.palette?.legStroke ?? skinStroke;
+  const footStyle = {
+    stroke: palette.footStroke,
+    width: palette.footStrokeWidth
+  };
 
   const torsoResult = torso({
     centerBottomPoint: skeletonPose.torso.centerBottomPoint,
     width: skeletonPose.torso.width,
     height: skeletonPose.torso.height,
+    shoulderExtension: skeletonPose.torso.shoulderExtension,
+    direction: skeletonPose.torso.direction,
     fill: palette.torsoFill,
     stroke: palette.torsoStroke,
     strokeWidth: palette.torsoStrokeWidth
@@ -39,6 +66,7 @@ function stickMan(optionsInput = {}) {
   const headResult = head(skeletonPose.head.attachmentPoint, {
     verticalExtent: skeletonPose.head.verticalExtent,
     angle: skeletonPose.head.angle,
+    direction: skeletonPose.head.direction,
     fill: palette.headFill,
     stroke: palette.headStroke,
     strokeWidth: palette.headStrokeWidth,
@@ -77,6 +105,25 @@ function stickMan(optionsInput = {}) {
     style: { stroke: legStroke, width: palette.legWidth }
   });
 
+  const leftFootConfig = skeletonPose.legs.left.foot || {};
+  const rightFootConfig = skeletonPose.legs.right.foot || {};
+
+  const leftFoot = feet({
+    anklePoint: leftLeg.resolvedTargetPoint ?? skeletonPose.legs.left.targetPoint,
+    side: "left",
+    length: leftFootConfig.length,
+    directionHint: leftFootConfig.direction,
+    style: footStyle
+  });
+
+  const rightFoot = feet({
+    anklePoint: rightLeg.resolvedTargetPoint ?? skeletonPose.legs.right.targetPoint,
+    side: "right",
+    length: rightFootConfig.length,
+    directionHint: rightFootConfig.direction,
+    style: footStyle
+  });
+
   const overlays = [
     { point: skeletonPose.hands.left.attachmentPoint, color: palette.overlayHand },
     { point: skeletonPose.hands.left.targetPoint, color: palette.overlayHand },
@@ -88,15 +135,25 @@ function stickMan(optionsInput = {}) {
     { point: skeletonPose.legs.right.targetPoint, color: palette.overlayLeg }
   ];
 
+  const leftSideGraphics = [...leftHand.graphics, ...leftLeg.graphics, ...leftFoot.graphics];
+  const rightSideGraphics = [...rightHand.graphics, ...rightLeg.graphics, ...rightFoot.graphics];
+  const centerTorsoGraphics = [...torsoResult.graphics];
+  const headGraphics = [...headResult.graphics];
+  const sideOrder = resolveSideOrder(skeletonPose.torso.direction);
+  const graphics = [];
+  for (const token of sideOrder) {
+    if (token === "left") {
+      graphics.push(...leftSideGraphics);
+    } else if (token === "right") {
+      graphics.push(...rightSideGraphics);
+    } else if (token === "torso") {
+      graphics.push(...centerTorsoGraphics);
+    }
+  }
+  graphics.push(...headGraphics);
+
   return {
-    graphics: [
-      ...torsoResult.graphics,
-      ...headResult.graphics,
-      ...leftHand.graphics,
-      ...rightHand.graphics,
-      ...leftLeg.graphics,
-      ...rightLeg.graphics
-    ],
+    graphics,
     overlays,
     skeleton: skeletonPose
   };

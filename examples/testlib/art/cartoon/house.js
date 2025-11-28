@@ -81,15 +81,46 @@ function createWindow(position, size) {
   };
 }
 
-function createDoor(position, width, height, color, outline) {
-  return {
+function createDoor(position, width, height, color, outline, openLevel, interiorColor) {
+  const clampedLevel = Math.max(0, Math.min(1, openLevel || 0));
+  const base = {
     type: "rect",
     position: [position[0] - width / 2, position[1]],
     size: [width, height],
-    fill: color,
+    fill: clampedLevel > 0 ? interiorColor : color,
     stroke: outline,
     width: Math.max(width * 0.08, 0.25)
   };
+
+  if (clampedLevel <= 0) {
+    return [base];
+  }
+
+  const hingeX = position[0] - width / 2;
+  const bottomY = position[1];
+  const topY = position[1] + height;
+  const angle = clampedLevel * Math.PI * 0.5;
+  const swingOut = Math.sin(angle);
+  const swingForward = Math.cos(angle);
+  const outwardOffsetX = width * 0.6 * swingOut;
+  const outwardOffsetY = width * 0.2 * swingOut;
+  const farX = hingeX + width * swingForward + outwardOffsetX;
+  const strokeWidth = Math.max(width * 0.05, 0.35);
+
+  const panel = {
+    type: "polygon",
+    points: [
+      [hingeX, bottomY],
+      [hingeX, topY],
+      [farX, topY + outwardOffsetY],
+      [farX, bottomY + outwardOffsetY]
+    ],
+    fill: color,
+    stroke: outline,
+    width: strokeWidth
+  };
+
+  return [base, panel];
 }
 
 function createClassicRoof(center, width, roofHeight, color, outline) {
@@ -148,9 +179,10 @@ function createCottageRoof(center, width, roofHeight, color, outline) {
 function house(rawOptions = {}) {
   const options = ensureObject(rawOptions, {});
   const position = normalizePoint(options.position, [0, 0]);
-  const width = clampNumber(options.width, 8, 60, 16);
+  const width = clampNumber(options.width, 8, 400, 16);
   const type = String(options.type ?? "classic").toLowerCase();
   const palette = selectPalette(type);
+  const doorOpenLevel = clampNumber(options.doorOpenLevel, 0, 1, 0);
   const baseHeight = width * 0.65;
   const roofHeight = width * (type === "modern" ? 0.08 : type === "cottage" ? 0.3 : 0.4);
   const baseLeft = position[0] - width / 2;
@@ -174,7 +206,17 @@ function house(rawOptions = {}) {
     createWindow([position[0] + width * 0.25, windowY], windowSize)
   );
 
-  graphics.push(createDoor([position[0], position[1]], doorWidth, doorHeight, palette.accent, palette.outline));
+  graphics.push(
+    ...createDoor(
+      [position[0], position[1]],
+      doorWidth,
+      doorHeight,
+      palette.accent,
+      palette.outline,
+      doorOpenLevel,
+      palette.outline
+    )
+  );
 
   if (type === "modern") {
     graphics.push(...createModernRoof([position[0], position[1] + baseHeight], width, roofHeight, palette.roof, palette.accent));

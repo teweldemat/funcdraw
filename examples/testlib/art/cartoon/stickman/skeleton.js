@@ -1,41 +1,55 @@
 const DEFAULT_TORSO_WIDTH = 6;
 const DEFAULT_TORSO_HEIGHT = 11;
+const DEFAULT_ARM_UPPER_LENGTH = 4;
+const DEFAULT_ARM_LOWER_LENGTH = 3;
+const DEFAULT_LEG_UPPER_LENGTH = 5.2;
+const DEFAULT_LEG_LOWER_LENGTH = 4.8;
+const DEFAULT_SHOULDER_EXTENSION = DEFAULT_TORSO_WIDTH * 0.15;
+const DEFAULT_HAND_OFFSET = DEFAULT_TORSO_WIDTH / 2 + DEFAULT_SHOULDER_EXTENSION;
+const DEFAULT_HAND_DROP = DEFAULT_TORSO_HEIGHT * 0.85 - (DEFAULT_ARM_UPPER_LENGTH + DEFAULT_ARM_LOWER_LENGTH);
+const DEFAULT_LEG_OFFSET = DEFAULT_TORSO_WIDTH * 0.25;
+const DEFAULT_LEG_TOTAL = DEFAULT_LEG_UPPER_LENGTH + DEFAULT_LEG_LOWER_LENGTH;
+const DEFAULT_FOOT_THICKNESS = 0.5;
+const DEFAULT_POSITION_Y = DEFAULT_LEG_TOTAL + DEFAULT_FOOT_THICKNESS;
 
 const defaultMeasurements = {
   torso: {
     width: DEFAULT_TORSO_WIDTH,
-    height: DEFAULT_TORSO_HEIGHT
+    height: DEFAULT_TORSO_HEIGHT,
+    shoulderExtension: DEFAULT_SHOULDER_EXTENSION,
+    direction: "front"
   },
   head: {
     verticalExtent: 4.5,
-    angle: 90
+    angle: 90,
+    direction: "front"
   },
   hands: {
     left: {
-      upperLength: 4,
-      lowerLength: 3,
-      effectorCoordinate: [-11, 11],
-      positiveBend: true
+      upperLength: DEFAULT_ARM_UPPER_LENGTH,
+      lowerLength: DEFAULT_ARM_LOWER_LENGTH,
+      effectorCoordinate: [-DEFAULT_HAND_OFFSET, DEFAULT_HAND_DROP],
+      positiveBend: false
     },
     right: {
-      upperLength: 4,
-      lowerLength: 3,
-      effectorCoordinate: [11, 11],
+      upperLength: DEFAULT_ARM_UPPER_LENGTH,
+      lowerLength: DEFAULT_ARM_LOWER_LENGTH,
+      effectorCoordinate: [DEFAULT_HAND_OFFSET, DEFAULT_HAND_DROP],
       positiveBend: true
     }
   },
   legs: {
     left: {
-      upperLength: 4.5,
-      lowerLength: 4,
-      effectorCoordinate: [-4, -4.5],
+      upperLength: DEFAULT_LEG_UPPER_LENGTH,
+      lowerLength: DEFAULT_LEG_LOWER_LENGTH,
+      effectorCoordinate: [-DEFAULT_LEG_OFFSET, -DEFAULT_LEG_TOTAL],
       positiveBend: false
     },
     right: {
-      upperLength: 4.5,
-      lowerLength: 4,
-      effectorCoordinate: [4, -4.5],
-      positiveBend: false
+      upperLength: DEFAULT_LEG_UPPER_LENGTH,
+      lowerLength: DEFAULT_LEG_LOWER_LENGTH,
+      effectorCoordinate: [DEFAULT_LEG_OFFSET, -DEFAULT_LEG_TOTAL],
+      positiveBend: true
     }
   }
 };
@@ -77,6 +91,14 @@ function normalizePoint(value, fallback) {
   return fallback.slice();
 }
 
+function normalizeDirection(value, fallback = "front") {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (text === "left" || text === "right" || text === "back" || text === "front") {
+    return text;
+  }
+  return fallback;
+}
+
 function mergeDeep(target, source) {
   if (!source || typeof source !== "object") {
     return target;
@@ -103,20 +125,39 @@ function resolveNumber(value, fallback) {
   return typeof value === "number" ? value : fallback;
 }
 
+function resolveOptionalNumber(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function resolveBoolean(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function normalizeFootDirection(value, fallback = "left") {
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "left" || lowered === "right") {
+      return lowered;
+    }
+  }
+  return fallback;
+}
+
 function buildStickManSkeleton(optionsInput = {}) {
   const normalizedOptions = normalizeInput(optionsInput, {});
-  const position = normalizePoint(normalizedOptions.position, [20, 6]);
   const measurementOverrides = normalizeInput(normalizedOptions.measurements, {});
   const measurements = mergeDeep(defaultMeasurements, measurementOverrides);
+  const positionFallback = [0, DEFAULT_POSITION_Y];
+  const position = normalizePoint(normalizedOptions.position, positionFallback);
 
   const torso = computeTorsoFrame(position, measurements.torso);
   const head = buildHeadSkeleton(torso, measurements.head);
-  const hands = buildHandSkeleton(position, torso.handAttachmentPoints, measurements.hands);
-  const legs = buildLegSkeleton(position, torso.legAttachmentPoints, measurements.legs);
+  const hands = buildHandSkeleton(position, torso.handAttachmentPoints, measurements.hands, torso.direction);
+  const legs = buildLegSkeleton(position, torso.legAttachmentPoints, measurements.legs, torso.direction);
 
   return {
     skeleton: {
@@ -135,23 +176,46 @@ function buildStickManSkeleton(optionsInput = {}) {
 function computeTorsoFrame(position, torsoMeasurements = {}) {
   const width = resolveNumber(torsoMeasurements.width, defaultMeasurements.torso.width);
   const height = resolveNumber(torsoMeasurements.height, defaultMeasurements.torso.height);
+  const rawShoulderExtension = resolveNumber(torsoMeasurements.shoulderExtension, null);
+  const direction = normalizeDirection(torsoMeasurements.direction, defaultMeasurements.torso.direction);
   const [centerX, bottomY] = position;
   const halfWidth = width / 2;
   const topY = bottomY + height;
   const handsY = topY - height * 0.15;
+  const shoulderExtension = Math.max(rawShoulderExtension != null ? rawShoulderExtension : width * 0.15, 0);
+  const handOffset = halfWidth + shoulderExtension;
   const legOffset = width * 0.25;
+  let leftHandPoint = [centerX - handOffset, handsY];
+  let rightHandPoint = [centerX + handOffset, handsY];
+  let leftLegPoint = [centerX - legOffset, bottomY];
+  let rightLegPoint = [centerX + legOffset, bottomY];
+
+  if (direction === "back") {
+    [leftHandPoint, rightHandPoint] = [rightHandPoint, leftHandPoint];
+    [leftLegPoint, rightLegPoint] = [rightLegPoint, leftLegPoint];
+  } else if (direction === "left" || direction === "right") {
+    const centerHandPoint = [centerX, handsY];
+    const centerLegPoint = [centerX, bottomY];
+    leftHandPoint = centerHandPoint;
+    rightHandPoint = centerHandPoint;
+    leftLegPoint = centerLegPoint;
+    rightLegPoint = centerLegPoint;
+  }
+
   return {
     centerBottomPoint: position,
     width,
     height,
+    shoulderExtension,
+    direction,
     headAttachmentPoint: [centerX, topY],
     handAttachmentPoints: {
-      left: [centerX - halfWidth, handsY],
-      right: [centerX + halfWidth, handsY]
+      left: leftHandPoint,
+      right: rightHandPoint
     },
     legAttachmentPoints: {
-      left: [centerX - legOffset, bottomY],
-      right: [centerX + legOffset, bottomY]
+      left: leftLegPoint,
+      right: rightLegPoint
     }
   };
 }
@@ -160,11 +224,19 @@ function buildHeadSkeleton(torso, headMeasurements = {}) {
   return {
     attachmentPoint: torso.headAttachmentPoint,
     verticalExtent: resolveNumber(headMeasurements.verticalExtent, defaultMeasurements.head.verticalExtent),
-    angle: resolveNumber(headMeasurements.angle, defaultMeasurements.head.angle)
+    angle: resolveNumber(headMeasurements.angle, defaultMeasurements.head.angle),
+    direction: normalizeDirection(headMeasurements.direction, torso.direction || defaultMeasurements.head.direction)
   };
 }
 
-function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
+function orientEffectorForDirection(effector, direction) {
+  if (direction === "back") {
+    return [-effector[0], effector[1]];
+  }
+  return effector;
+}
+
+function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}, torsoDirection = "front") {
   const defaults = defaultMeasurements.hands;
   return {
     left: buildHandSide("left"),
@@ -174,19 +246,31 @@ function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
   function buildHandSide(side) {
     const measurement = handMeasurements[side] || {};
     const sideDefaults = defaults[side];
+    const upper = resolveNumber(measurement.upperLength, sideDefaults.upperLength);
+    const lower = resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
+    const attachmentOffset = [
+      attachmentPoints[side][0] - position[0],
+      attachmentPoints[side][1] - position[1] - (upper + lower)
+    ];
+    const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
+    const directionalDefaultEffector = orientEffectorForDirection(baseDefaultEffector, torsoDirection);
+    const effector =
+      measurement.effectorCoordinate != null
+        ? normalizePoint(measurement.effectorCoordinate, directionalDefaultEffector)
+        : directionalDefaultEffector;
     return {
       attachmentPoint: attachmentPoints[side],
-      targetPoint: addOffset(position, normalizePoint(measurement.effectorCoordinate, sideDefaults.effectorCoordinate)),
+      targetPoint: addOffset(position, effector),
       lengths: {
-        upper: resolveNumber(measurement.upperLength, sideDefaults.upperLength),
-        lower: resolveNumber(measurement.lowerLength, sideDefaults.lowerLength)
+        upper,
+        lower
       },
       positiveBend: resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend)
     };
   }
 }
 
-function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
+function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}, torsoDirection = "front") {
   const defaults = defaultMeasurements.legs;
   return {
     left: buildLegSide("left"),
@@ -196,16 +280,48 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
   function buildLegSide(side) {
     const measurement = legMeasurements[side] || {};
     const sideDefaults = defaults[side];
+    const upperLength = resolveNumber(measurement.upperLength, sideDefaults.upperLength);
+    const lowerLength = resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
+    const attachmentOffset = [
+      attachmentPoints[side][0] - position[0],
+      -(upperLength + lowerLength)
+    ];
+    const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
+    const directionalDefaultEffector = orientEffectorForDirection(baseDefaultEffector, torsoDirection);
+    const effector =
+      measurement.effectorCoordinate != null
+        ? normalizePoint(measurement.effectorCoordinate, directionalDefaultEffector)
+        : directionalDefaultEffector;
+
+    const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
+    const foot = resolveFootMeasurement(measurement, positiveBend);
+
     return {
       attachmentPoint: attachmentPoints[side],
-      targetPoint: addOffset(position, normalizePoint(measurement.effectorCoordinate, sideDefaults.effectorCoordinate)),
+      targetPoint: addOffset(position, effector),
       lengths: {
-        upper: resolveNumber(measurement.upperLength, sideDefaults.upperLength),
-        lower: resolveNumber(measurement.lowerLength, sideDefaults.lowerLength)
+        upper: upperLength,
+        lower: lowerLength
       },
-      positiveBend: resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend)
+      positiveBend,
+      foot
     };
   }
+}
+
+function resolveFootMeasurement(measurement, positiveBend) {
+  const defaultDirection = positiveBend ? "right" : "left";
+  const normalizedFoot = normalizeInput(measurement.foot, null);
+  if (normalizedFoot) {
+    return {
+      length: resolveOptionalNumber(normalizedFoot.length),
+      direction: normalizeFootDirection(normalizedFoot.direction, defaultDirection)
+    };
+  }
+  return {
+    length: resolveOptionalNumber(measurement.feetLength),
+    direction: normalizeFootDirection(measurement.feetDirection, defaultDirection)
+  };
 }
 
 return {

@@ -23,6 +23,8 @@ const { step, view, warnings, raw, svg } = expression.evaluate({
 
 FuncDraw injects an `fd` variable into every evaluation scope. Additional helpers will be added over time, but the core helper today is `fd.measureText` which mirrors the function documented below. You can provide your own `measureText` implementation (or extend the `fd` object) when calling `loadGraphics`.
 
+> The primitives described below collectively form the `DrawableShape` alias referenced throughout the examples and helper docs.
+
 ## Fonts & glyphs
 
 `loadGraphics` inspects glyph data from the font you pass via the `font` option. If you omit the option FuncDraw automatically loads the bundled [Inter](https://rsms.me/inter/) Regular cut, so text metrics remain deterministic across machines:

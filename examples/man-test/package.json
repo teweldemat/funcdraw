@@ -1,0 +1,15 @@
+{
+  "name": "funcdraw-man-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal FuncDraw example that renders the default cartoon stickman from @funcdraw/testlib.",
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "dependencies": {
+    "@funcdraw/testlib": "file:../testlib"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}

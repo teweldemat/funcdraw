@@ -1,5 +1,11 @@
 const cartoonLib = package('@funcdraw/testlib')?.cartoon ?? {};
-const createStickman = typeof cartoonLib.stickman === 'function' ? cartoonLib.stickman : () => ({ graphics: [] });
+const stickmanModule = cartoonLib?.stickman;
+const createStickman =
+  typeof stickmanModule?.static === 'function'
+    ? stickmanModule.static
+    : typeof stickmanModule === 'function'
+      ? stickmanModule
+      : () => ({ graphics: [] });
 
 const defaultPose = typeof createStickman.skeleton === 'function' ? createStickman.skeleton() : null;
 const defaultY = Array.isArray(defaultPose?.position) ? defaultPose.position[1] : 10.5;

@@ -45,7 +45,7 @@ const defaultMeasurements = {
       upperLength: DEFAULT_LEG_UPPER_LENGTH,
       lowerLength: DEFAULT_LEG_LOWER_LENGTH,
       effectorCoordinate: [-DEFAULT_LEG_OFFSET, -DEFAULT_LEG_TOTAL],
-      positiveBend: false
+      positiveBend: true
     },
     right: {
       upperLength: DEFAULT_LEG_UPPER_LENGTH,

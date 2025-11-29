@@ -19,8 +19,13 @@ const BASE_HERO = {
 function buildScene() {
   const view = { left: 0, bottom: 0, right: BASE_VIEW.width, top: BASE_VIEW.height };
   const cartoon = package('@funcdraw/testlib').cartoon;
+  const stickmanModule = cartoon?.stickman;
   const stickBuilder =
-    typeof cartoon?.stickman === 'function' ? cartoon.stickman : () => ({ graphics: [] });
+    typeof stickmanModule?.static === 'function'
+      ? stickmanModule.static
+      : typeof stickmanModule === 'function'
+        ? stickmanModule
+        : () => ({ graphics: [] });
 
   const heroX = view.right / 2;
   const heroBaseY = view.top / 2;

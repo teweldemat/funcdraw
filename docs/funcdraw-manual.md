@@ -7,7 +7,7 @@
 **package** is a collection of expressions, modules and collections that reside in 'art' folder. Packages can be designed with the purpose of providing re-usable components in other packages in which case we refer to them library packages. Packages are structured as node packages hence will require package.json at the root folder. To call a library package from expressions you call the `package` function with the package name only, then navigate its collections via `.`.  
 Example:
 ```funcscript
-man:package("@funcdraw/testlib").cartoon.stickman;
+man:package("@funcdraw/testlib").cartoon.stickman.static;
 ```
 **model** is a loose term that is used to describe an expression or a module that is meant to model a graphical object. An expression, a module or a package can be models. When a file outputs tangible graphics (for example `examples/testlib/art/cartoon/stickman/head.js` or `hand.js`) refer to it as a model so readers understand it paints something concrete.
 **component** is a term that is used to describe an expression or module that is meant to be used as component of larger models
@@ -32,7 +32,7 @@ FuncDraw is tightly integrated to FuncScript runtime but allows expression to be
 JavaScript expressions live inside the `art/` tree just like FuncScript files. They are evaluated by the FuncScript runtime, so treat them as pure functions. Expressions that render actual geometry are called **models**, while utility functions that feed those models stay **helpers**:
 
 - **Stateless execution** – a JS file can be re-evaluated at any time, often multiple times per render. Do not mutate module-level variables or cache mutable objects between runs. Prefer local variables or recreate values on demand so repeated evaluations yield identical results for the same inputs.
-- **Referencing siblings and packages** – every expression/module in scope is exposed as a property when your JavaScript runs. Call other models or helpers directly (`return star(row, col)`), or reach into folders using dot notation when the folder is a collection (no `eval.js`) (`scene.background()`). If a folder defines `eval.js`, it exports only that module, so nested helpers or models such as `cartoon.stickman.head` are not surfaced unless you re-export them yourself. To reference another npm FuncDraw package, use the regular FuncScript helper: `const tree = package("@funcdraw/testlib").cartoon.tree;`.
+- **Referencing siblings and packages** – every expression/module in scope is exposed as a property when your JavaScript runs. Call other models or helpers directly (`return star(row, col)`), or reach into folders using dot notation when the folder is a collection (no `eval.js`) (`scene.background()`). If a folder defines `eval.js`, it exports only that module, so nested helpers or models such as `cartoon.stickman.static.head` are not surfaced unless you re-export them yourself. To reference another npm FuncDraw package, use the regular FuncScript helper: `const tree = package("@funcdraw/testlib").cartoon.tree;`.
 - **Returning results** – finish the file with a `return` statement. For primitives, return the object or array representing the graphics payload. For reusable helpers, return a function or collection. 
 - **No CommonJS boilerplate** – `require`, `module.exports`, and `export`/`import` are unnecessary because FuncDraw injects the available bindings through the provider scope. Simply reference functions by name and `return` the final value.
 

@@ -1,1 +1,1 @@
-return legExercise;
+return steperManTester;

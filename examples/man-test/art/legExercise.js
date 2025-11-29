@@ -1,5 +1,11 @@
 const cartoonLib = package('@funcdraw/testlib')?.cartoon ?? {};
-const createStickman = typeof cartoonLib.stickman === 'function' ? cartoonLib.stickman : () => ({ graphics: [] });
+const stickmanModule = cartoonLib?.stickman;
+const createStickman =
+  typeof stickmanModule?.static === 'function'
+    ? stickmanModule.static
+    : typeof stickmanModule === 'function'
+      ? stickmanModule
+      : () => ({ graphics: [] });
 
 const time = typeof t === 'number' ? t : 0;
 const phase = time * 3;

@@ -111,10 +111,13 @@ function buildScene() {
   const groundY = 80 * scaleY;
 
   const cartoon = resolveCartoonLib();
+  const stickmanModule = cartoon?.stickman;
   const stickBuilder =
-    typeof cartoon.stickman === 'function'
-      ? cartoon.stickman
-      : () => ({ graphics: [], overlays: [], skeleton: null });
+    typeof stickmanModule?.static === 'function'
+      ? stickmanModule.static
+      : typeof stickmanModule === 'function'
+        ? stickmanModule
+        : () => ({ graphics: [], overlays: [], skeleton: null });
   const hWalkerHelper = typeof cartoon.hWalker === 'function' ? cartoon.hWalker : null;
   const treeBuilder =
     typeof cartoon.tree === 'function'

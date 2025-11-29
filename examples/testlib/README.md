@@ -3,7 +3,7 @@
 A minimal FuncDraw library that exposes reusable FuncScript helpers:
 
 - `art/square.fs` – square primitive factory for simple geometry demos.
-- `art/cartoon/stickman/` – the stick man model from the JavaScript example, now consumable via FuncScript (`package("@funcdraw/testlib").cartoon.stickman`).
+- `art/cartoon/stickman/` – the stick man model from the JavaScript example. Call `package("@funcdraw/testlib").cartoon.stickman.static` for the classic pose or `package("@funcdraw/testlib").cartoon.stickman.steperMan` to drive walk cycles with explicit foot targets.
 - `art/cartoon/hWalker.js` – horizontal walker helper that slides a stickman configuration between two X coordinates (`package("@funcdraw/testlib").cartoon.hWalker`).
 - `art/cartoon/house.js` – configurable house builder that accepts `{ type, position, width, doorOpenLevel }` (`package("@funcdraw/testlib").cartoon.house`).
 - `art/cartoon/tree.js` – tree helper with multiple canopy styles and `{ type, position, height }` options (`package("@funcdraw/testlib").cartoon.tree`).

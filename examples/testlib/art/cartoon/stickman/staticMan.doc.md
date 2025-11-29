@@ -1,6 +1,6 @@
 # Stickman Model
 ## Overview
-`stickman/eval.js` returns the full cartoon character used throughout the examples. Call `stickman(options?)` with the torso center-bottom point—this anchor floats above the ground plane so the legs (and feet) can extend downward. Every limb target uses that same reference, so supplying a higher or lower `position` shifts the entire rig while keeping the ankles below the anchor. The model drops a rounded-rectangle torso at the anchor, attaches the `head` model, and draws limb segments (two-segment polylines) that reach toward their configured targets. Slim toe lines hint at feet, and optional overlay dots expose attachment/target points for debugging.
+`stickman/staticMan.js` builds the full cartoon character used throughout the examples, and `stickman/eval.js` exposes it under `package("@funcdraw/testlib").cartoon.stickman.static(options?)`. Call it with the torso center-bottom point—this anchor floats above the ground plane so the legs (and feet) can extend downward. Every limb target uses that same reference, so supplying a higher or lower `position` shifts the entire rig while keeping the ankles below the anchor. The model drops a rounded-rectangle torso at the anchor, attaches the `head` model, and draws limb segments (two-segment polylines) that reach toward their configured targets. Slim toe lines hint at feet, and optional overlay dots expose attachment/target points for debugging.
 
 ## Construction Overview
 

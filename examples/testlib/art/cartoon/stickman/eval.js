@@ -150,6 +150,7 @@ function stickMan(optionsInput = {}) {
   const centerTorsoGraphics = [...torsoResult.graphics];
   const headGraphics = [...headResult.graphics];
   const layerPlan = resolveLayerPlan(skeletonPose.torso.direction);
+  let headInserted = false;
   const graphics = [];
   for (const token of layerPlan) {
     if (token === "leftArm") {
@@ -162,9 +163,17 @@ function stickMan(optionsInput = {}) {
       graphics.push(...rightLegGraphics);
     } else if (token === "torso") {
       graphics.push(...centerTorsoGraphics);
+      graphics.push(...headGraphics);
+      headInserted = true;
+    } else if (token === "head") {
+      graphics.push(...headGraphics);
+      headInserted = true;
     }
   }
-  graphics.push(...headGraphics);
+
+  if (!headInserted) {
+    graphics.push(...headGraphics);
+  }
 
   return {
     graphics,

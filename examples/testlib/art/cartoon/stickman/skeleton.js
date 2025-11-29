@@ -11,6 +11,7 @@ const DEFAULT_LEG_OFFSET = DEFAULT_TORSO_WIDTH * 0.25;
 const DEFAULT_LEG_TOTAL = DEFAULT_LEG_UPPER_LENGTH + DEFAULT_LEG_LOWER_LENGTH;
 const DEFAULT_FOOT_THICKNESS = 0.5;
 const DEFAULT_POSITION_Y = DEFAULT_LEG_TOTAL + DEFAULT_FOOT_THICKNESS;
+const PROFILE_FOOT_LINE_LENGTH = DEFAULT_TORSO_WIDTH * 0.12;
 const IK_EPSILON = 1e-6;
 
 const defaultMeasurements = {
@@ -104,11 +105,25 @@ function buildStickManSkeleton(optionsInput = {}) {
   const measurements = mergeDeep(defaultMeasurements, measurementOverrides);
   const positionFallback = [0, DEFAULT_POSITION_Y];
   const position = normalizePoint(normalizedOptions.position, positionFallback);
+  const handOverrideInputs = normalizeInput(measurementOverrides.hands, null);
+  const legOverrideInputs = normalizeInput(measurementOverrides.legs, null);
 
   const torso = computeTorsoFrame(position, measurements.torso);
   const head = buildHeadSkeleton(torso, measurements.head);
-  const hands = buildHandSkeleton(position, torso.handAttachmentPoints, measurements.hands);
-  const legs = buildLegSkeleton(position, torso.legAttachmentPoints, measurements.legs);
+  const hands = buildHandSkeleton(
+    position,
+    torso.handAttachmentPoints,
+    measurements.hands,
+    torso.direction,
+    handOverrideInputs
+  );
+  const legs = buildLegSkeleton(
+    position,
+    torso.legAttachmentPoints,
+    measurements.legs,
+    torso.direction,
+    legOverrideInputs
+  );
 
   return {
     skeleton: {
@@ -175,8 +190,22 @@ function buildHeadSkeleton(torso, headMeasurements = {}) {
   };
 }
 
-function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
+function adjustEffectorForProfile(effector, torsoDirection) {
+  if (torsoDirection === "left" || torsoDirection === "right") {
+    return [0, effector[1]];
+  }
+  return effector;
+}
+
+function buildHandSkeleton(
+  position,
+  attachmentPoints,
+  handMeasurements = {},
+  torsoDirection = "front",
+  handOverrideInputs = null
+) {
   const defaults = defaultMeasurements.hands;
+  const handOverrides = normalizeInput(handOverrideInputs, null);
   return {
     left: buildHandSide("left"),
     right: buildHandSide("right")
@@ -185,6 +214,8 @@ function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
   function buildHandSide(side) {
     const measurement = handMeasurements[side] || {};
     const sideDefaults = defaults[side];
+    const overrideInput = handOverrides ? normalizeInput(handOverrides[side], null) : null;
+    const hasCustomEffector = overrideInput && overrideInput.effectorCoordinate != null;
     const upper = resolveNumber(measurement.upperLength, sideDefaults.upperLength);
     const lower = resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
     const attachmentOffset = [
@@ -192,10 +223,10 @@ function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
       attachmentPoints[side][1] - position[1] - (upper + lower)
     ];
     const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
-    const effector =
-      measurement.effectorCoordinate != null
-        ? normalizePoint(measurement.effectorCoordinate, baseDefaultEffector)
-        : baseDefaultEffector;
+    const fallbackEffector = adjustEffectorForProfile(baseDefaultEffector, torsoDirection);
+    const effector = hasCustomEffector
+      ? normalizePoint(measurement.effectorCoordinate, fallbackEffector)
+      : fallbackEffector;
     const targetPoint = addOffset(position, effector);
     const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
     const ik = solveLimbPose(attachmentPoints[side], targetPoint, upper, lower, positiveBend);
@@ -220,8 +251,15 @@ function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
   }
 }
 
-function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
+function buildLegSkeleton(
+  position,
+  attachmentPoints,
+  legMeasurements = {},
+  torsoDirection = "front",
+  legOverrideInputs = null
+) {
   const defaults = defaultMeasurements.legs;
+  const legOverrides = normalizeInput(legOverrideInputs, null);
   return {
     left: buildLegSide("left"),
     right: buildLegSide("right")
@@ -230,6 +268,8 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
   function buildLegSide(side) {
     const measurement = legMeasurements[side] || {};
     const sideDefaults = defaults[side];
+    const overrideInput = legOverrides ? normalizeInput(legOverrides[side], null) : null;
+    const hasCustomEffector = overrideInput && overrideInput.effectorCoordinate != null;
     const upperLength = resolveNumber(measurement.upperLength, sideDefaults.upperLength);
     const lowerLength = resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
     const attachmentOffset = [
@@ -237,13 +277,15 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
       -(upperLength + lowerLength)
     ];
     const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
-    const effector =
-      measurement.effectorCoordinate != null
-        ? normalizePoint(measurement.effectorCoordinate, baseDefaultEffector)
-        : baseDefaultEffector;
+    const fallbackEffector = adjustEffectorForProfile(baseDefaultEffector, torsoDirection);
+    const effector = hasCustomEffector
+      ? normalizePoint(measurement.effectorCoordinate, fallbackEffector)
+      : fallbackEffector;
 
     const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
-    const foot = resolveFootMeasurement(measurement, positiveBend);
+    const profileFootLength =
+      torsoDirection === "left" || torsoDirection === "right" ? PROFILE_FOOT_LINE_LENGTH : null;
+    const foot = resolveFootMeasurement(measurement, positiveBend, profileFootLength);
     const targetPoint = addOffset(position, effector);
     const ik = solveLimbPose(attachmentPoints[side], targetPoint, upperLength, lowerLength, positiveBend);
 
@@ -269,12 +311,18 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
   }
 }
 
-function resolveFootMeasurement(measurement, positiveBend) {
+function resolveFootMeasurement(measurement, positiveBend, defaultLengthOverride = null) {
   const defaultDirection = positiveBend ? "right" : "left";
   const normalizedFoot = normalizeInput(measurement.foot, null);
+  if (normalizedFoot) {
+    return {
+      length: resolveOptionalNumber(normalizedFoot.length),
+      direction: normalizeFootDirection(normalizedFoot.direction, defaultDirection)
+    };
+  }
   return {
-    length: normalizedFoot ? resolveOptionalNumber(normalizedFoot.length) : null,
-    direction: normalizedFoot ? normalizeFootDirection(normalizedFoot.direction, defaultDirection) : defaultDirection
+    length: defaultLengthOverride != null ? defaultLengthOverride : null,
+    direction: defaultDirection
   };
 }
 

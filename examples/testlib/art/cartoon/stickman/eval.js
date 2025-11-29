@@ -15,18 +15,18 @@ const defaultPalette = {
   overlayLeg: "#38bdf8"
 };
 
-function resolveSideOrder(direction = "front") {
+function resolveLayerPlan(direction = "front") {
   const normalized = typeof direction === "string" ? direction.toLowerCase() : "front";
   if (normalized === "left") {
-    return ["right", "torso", "left"];
+    return ["rightLeg", "rightArm", "torso", "leftLeg", "leftArm"];
   }
   if (normalized === "right") {
-    return ["left", "torso", "right"];
+    return ["leftLeg", "leftArm", "torso", "rightLeg", "rightArm"];
   }
   if (normalized === "back") {
-    return ["right", "torso", "left"];
+    return ["leftArm", "rightArm", "leftLeg", "rightLeg", "torso"];
   }
-  return ["left", "torso", "right"];
+  return ["leftLeg", "rightLeg", "torso", "leftArm", "rightArm"];
 }
 
 function stickMan(optionsInput = {}) {
@@ -143,17 +143,23 @@ function stickMan(optionsInput = {}) {
     { point: skeletonPose.legs.right.targetPoint, color: palette.overlayLeg }
   ];
 
-  const leftSideGraphics = [...leftHand.graphics, ...leftLeg.graphics, ...leftFoot.graphics];
-  const rightSideGraphics = [...rightHand.graphics, ...rightLeg.graphics, ...rightFoot.graphics];
+  const leftArmGraphics = [...leftHand.graphics];
+  const rightArmGraphics = [...rightHand.graphics];
+  const leftLegGraphics = [...leftLeg.graphics, ...leftFoot.graphics];
+  const rightLegGraphics = [...rightLeg.graphics, ...rightFoot.graphics];
   const centerTorsoGraphics = [...torsoResult.graphics];
   const headGraphics = [...headResult.graphics];
-  const sideOrder = resolveSideOrder(skeletonPose.torso.direction);
+  const layerPlan = resolveLayerPlan(skeletonPose.torso.direction);
   const graphics = [];
-  for (const token of sideOrder) {
-    if (token === "left") {
-      graphics.push(...leftSideGraphics);
-    } else if (token === "right") {
-      graphics.push(...rightSideGraphics);
+  for (const token of layerPlan) {
+    if (token === "leftArm") {
+      graphics.push(...leftArmGraphics);
+    } else if (token === "rightArm") {
+      graphics.push(...rightArmGraphics);
+    } else if (token === "leftLeg") {
+      graphics.push(...leftLegGraphics);
+    } else if (token === "rightLeg") {
+      graphics.push(...rightLegGraphics);
     } else if (token === "torso") {
       graphics.push(...centerTorsoGraphics);
     }

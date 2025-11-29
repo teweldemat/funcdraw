@@ -6,7 +6,6 @@ A minimal FuncDraw library that exposes reusable FuncScript helpers:
 - `art/cartoon/stickman/` – the stick man model from the JavaScript example, now consumable via FuncScript (`package("@funcdraw/testlib").cartoon.stickman`).
 - `art/cartoon/hWalker.js` – horizontal walker helper that slides a stickman configuration between two X coordinates (`package("@funcdraw/testlib").cartoon.hWalker`).
 - `art/cartoon/house.js` – configurable house builder that accepts `{ type, position, width, doorOpenLevel }` (`package("@funcdraw/testlib").cartoon.house`).
-- `art/cartoon/feet.js` – lightweight foot/Toe-line helper for grounding characters (`package("@funcdraw/testlib").cartoon.feet`).
 - `art/cartoon/tree.js` – tree helper with multiple canopy styles and `{ type, position, height }` options (`package("@funcdraw/testlib").cartoon.tree`).
 - `art/cartoon/cloud.js` – fluffy cloud made of overlapping circles with `{ position, width, lobes }` controls (`package("@funcdraw/testlib").cartoon.cloud`).
 - `art/cartoon/sun.js` – radiant sun with customizable radius, ray count, and palette (`package("@funcdraw/testlib").cartoon.sun`).

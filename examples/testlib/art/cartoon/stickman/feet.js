@@ -1,7 +1,5 @@
 const defaultFeet = {
-  radius: 1.4,
-  horizontalScale: 2.45,
-  forwardLength: 0.8,
+  length: 2.2,
   stroke: "#f97316",
   strokeWidth: 0.5
 };
@@ -36,18 +34,12 @@ function normalizeSide(value, fallback = "left") {
   return fallback;
 }
 
-function Feet(rawOptions = {}) {
+function createFeet(rawOptions = {}) {
   const options = normalizeInput(rawOptions, {});
   const anklePoint = normalizePoint(options.anklePoint ?? options.anchor ?? options.position, [0, 0]);
   const side = normalizeSide(options.side);
-  const baseRadius = clampPositive(options.radius, defaultFeet.radius, 0.05);
-  const horizontalScale = clampPositive(options.horizontalScale, defaultFeet.horizontalScale, 0.2);
-  const radiusX = baseRadius * horizontalScale;
-  const forwardLength = clampPositive(options.forwardLength, defaultFeet.forwardLength, 0);
-  const defaultLineLength = baseRadius + forwardLength;
-  const lineLength = clampPositive(options.length, defaultLineLength, 0.1);
   const directionHint = normalizeSide(options.directionHint, side);
-  const sign = directionHint === "right" ? 1 : -1;
+  const lineLength = clampPositive(options.length, defaultFeet.length, 0.05);
   const style = normalizeInput(options.style, {});
   const stroke =
     typeof options.stroke === "string"
@@ -56,6 +48,7 @@ function Feet(rawOptions = {}) {
         ? style.stroke
         : defaultFeet.stroke;
   const strokeWidth = clampPositive(style.width ?? options.strokeWidth, defaultFeet.strokeWidth, 0.01);
+  const sign = directionHint === "right" ? 1 : -1;
   const toePoint = [anklePoint[0] + sign * lineLength, anklePoint[1]];
 
   return {
@@ -77,4 +70,4 @@ function Feet(rawOptions = {}) {
   };
 }
 
-return Feet;
+return createFeet;

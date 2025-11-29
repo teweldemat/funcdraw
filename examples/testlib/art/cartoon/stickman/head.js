@@ -27,39 +27,22 @@ const TAU = PI * 2;
 const MIN_VERTICAL_EXTENT = 1;
 const MIN_SEGMENTS = 6;
 
-function toNumber(value, fallback) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+const helperCollection = typeof helpers === "object" ? helpers : null;
+const normalizePoint = helperCollection?.normalizePoint;
+const normalizeInput = helperCollection?.normalizeInput;
+const clamp = helperCollection?.clamp;
+const resolveNumber = helperCollection?.resolveNumber;
+
+function requireHelper(fn, name) {
+  if (typeof fn !== "function") {
+    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
   }
-  if (value == null) {
-    return fallback;
-  }
-  const coerced = Number(value);
-  return Number.isFinite(coerced) ? coerced : fallback;
 }
 
-function normalizePoint(value, fallback) {
-  const base = Array.isArray(fallback) ? fallback : [0, 0];
-
-  if (Array.isArray(value) && value.length >= 2) {
-    return [toNumber(value[0], base[0]), toNumber(value[1], base[1])];
-  }
-
-  if (value && typeof value === "object") {
-    if ("x" in value && "y" in value) {
-      return [toNumber(value.x, base[0]), toNumber(value.y, base[1])];
-    }
-    if ("left" in value && "top" in value) {
-      return [toNumber(value.left, base[0]), toNumber(value.top, base[1])];
-    }
-  }
-
-  return base.slice();
-}
-
-function normalizeConfig(config) {
-  return config && typeof config === "object" ? config : {};
-}
+requireHelper(normalizePoint, "normalizePoint");
+requireHelper(normalizeInput, "normalizeInput");
+requireHelper(clamp, "clamp");
+requireHelper(resolveNumber, "resolveNumber");
 
 function normalizeDirection(value) {
   if (typeof value !== "string") {
@@ -77,19 +60,6 @@ function normalizeDirection(value) {
   return null;
 }
 
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-
 function degToRad(degrees) {
   return (degrees * PI) / 180;
 }
@@ -99,26 +69,26 @@ function ensureFiniteNumber(value, fallback) {
 }
 
 function mixEyesConfig(rawConfig, base) {
-  const config = normalizeConfig(rawConfig);
+  const config = normalizeInput(rawConfig, {});
   const merged = { ...base, ...config };
 
   const separationRatio = clamp(
-    toNumber(merged.separationRatio, base.separationRatio ?? 0.38),
+    resolveNumber(merged.separationRatio, base.separationRatio ?? 0.38),
     0.1,
     0.8
   );
   const offsetRatio = clamp(
-    toNumber(merged.offsetRatio, base.offsetRatio ?? 0.2),
+    resolveNumber(merged.offsetRatio, base.offsetRatio ?? 0.2),
     -0.2,
     0.6
   );
   const radiusRatio = clamp(
-    toNumber(merged.radiusRatio, base.radiusRatio ?? 0.14),
+    resolveNumber(merged.radiusRatio, base.radiusRatio ?? 0.14),
     0.05,
     0.35
   );
   const highlightRatio = clamp(
-    toNumber(merged.highlightRatio, base.highlightRatio ?? 0.4),
+    resolveNumber(merged.highlightRatio, base.highlightRatio ?? 0.4),
     0,
     1
   );
@@ -140,27 +110,27 @@ function mixEyesConfig(rawConfig, base) {
 
 function createHead(attachmentPointInput, configInput) {
   const attachmentPoint = normalizePoint(attachmentPointInput, [20, 17]);
-  const rawConfig = normalizeConfig(configInput);
+  const rawConfig = normalizeInput(configInput, {});
 
   const verticalExtent = Math.max(
-    toNumber(rawConfig.verticalExtent, defaultHeadConfig.verticalExtent),
+    resolveNumber(rawConfig.verticalExtent, defaultHeadConfig.verticalExtent),
     MIN_VERTICAL_EXTENT
   );
   const radius = verticalExtent / 2;
 
-  const angleDeg = toNumber(rawConfig.angle, defaultHeadConfig.angle);
+  const angleDeg = resolveNumber(rawConfig.angle, defaultHeadConfig.angle);
   const angleRad = ensureFiniteNumber(degToRad(angleDeg), HALF_PI);
 
   const fill = rawConfig.fill ?? defaultHeadConfig.fill;
   const stroke = rawConfig.stroke ?? defaultHeadConfig.stroke;
   const strokeWidth = Math.max(
     0,
-    toNumber(rawConfig.strokeWidth, defaultHeadConfig.strokeWidth)
+    resolveNumber(rawConfig.strokeWidth, defaultHeadConfig.strokeWidth)
   );
   const gazeColor = rawConfig.gazeColor ?? defaultHeadConfig.gazeColor;
 
   const segmentsRaw = Math.floor(
-    toNumber(rawConfig.segments, defaultHeadConfig.segments)
+    resolveNumber(rawConfig.segments, defaultHeadConfig.segments)
   );
   const segments = Math.max(MIN_SEGMENTS, segmentsRaw || MIN_SEGMENTS);
 
@@ -381,8 +351,7 @@ function createHead(attachmentPointInput, configInput) {
   const graphics = [outline, ...eyes, ...facialDetails];
 
   return {
-    graphics,
-    center
+    graphics
   };
 }
 

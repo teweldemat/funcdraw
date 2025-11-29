@@ -4,9 +4,20 @@ const defaultStyle = {
   strokeWidth: 0.6
 };
 
-function normalizeConfig(config) {
-  return config && typeof config === "object" ? config : {};
+const helperCollection = typeof helpers === "object" ? helpers : null;
+const normalizeInput = helperCollection?.normalizeInput;
+const resolveNumber = helperCollection?.resolveNumber;
+const normalizePoint = helperCollection?.normalizePoint;
+
+function requireHelper(fn, name) {
+  if (typeof fn !== "function") {
+    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
+  }
 }
+
+requireHelper(normalizeInput, "normalizeInput");
+requireHelper(resolveNumber, "resolveNumber");
+requireHelper(normalizePoint, "normalizePoint");
 
 function normalizeDirection(value, fallback = "front") {
   if (typeof value !== "string") {
@@ -19,44 +30,16 @@ function normalizeDirection(value, fallback = "front") {
   return fallback;
 }
 
-function toNumber(value, fallback) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (value == null) {
-    return fallback;
-  }
-  const coerced = Number(value);
-  return Number.isFinite(coerced) ? coerced : fallback;
-}
-
-function normalizePoint(value, fallback) {
-  if (Array.isArray(value) && value.length >= 2) {
-    const x = toNumber(value[0], fallback[0]);
-    const y = toNumber(value[1], fallback[1]);
-    return [x, y];
-  }
-  if (value && typeof value === "object") {
-    if ("x" in value && "y" in value) {
-      return [toNumber(value.x, fallback[0]), toNumber(value.y, fallback[1])];
-    }
-    if ("left" in value && "bottom" in value) {
-      return [toNumber(value.left, fallback[0]), toNumber(value.bottom, fallback[1])];
-    }
-  }
-  return fallback.slice();
-}
-
 function createTorso(configInput = {}) {
-  const config = normalizeConfig(configInput);
+  const config = normalizeInput(configInput, {});
   const centerBottomPoint = normalizePoint(config.centerBottomPoint, [20, 6]);
-  const width = typeof config.width === "number" ? config.width : 6;
-  const height = typeof config.height === "number" ? config.height : 11;
-  const neckHeight = Math.max(toNumber(config.neckHeight, height * 0.14), 0);
-  const neckWidthRatio = Math.min(Math.max(toNumber(config.neckWidthRatio, 0.35), 0.1), 1);
-  const shoulderExtension = Math.max(toNumber(config.shoulderExtension, width * 0.1), 0);
-  const waistRatio = Math.min(Math.max(toNumber(config.waistRatio, 0.65), 0.2), 1);
-  const waistWidth = typeof config.waistWidth === "number" ? config.waistWidth : width * waistRatio;
+  const width = resolveNumber(config.width, 6);
+  const height = resolveNumber(config.height, 11);
+  const neckHeight = Math.max(resolveNumber(config.neckHeight, height * 0.14), 0);
+  const neckWidthRatio = Math.min(Math.max(resolveNumber(config.neckWidthRatio, 0.35), 0.1), 1);
+  const shoulderExtension = Math.max(resolveNumber(config.shoulderExtension, width * 0.1), 0);
+  const waistRatio = Math.min(Math.max(resolveNumber(config.waistRatio, 0.65), 0.2), 1);
+  const waistWidth = resolveNumber(config.waistWidth, width * waistRatio);
   const fill = config.fill ?? defaultStyle.fill;
   const stroke = config.stroke ?? defaultStyle.stroke;
   const strokeWidth = config.strokeWidth ?? defaultStyle.strokeWidth;
@@ -75,9 +58,6 @@ function createTorso(configInput = {}) {
   const shoulderUpperY = topY - shoulderLift * 0.3;
   const shoulderPlateauHalf = Math.max(halfWidth * 0.18, shoulderExtension * 0.35);
 
-  const handsY = topY - height * 0.15;
-  const legOffset = width * 0.25;
-  const handHorizontalOffset = halfWidth + shoulderExtension;
   const profileWidth = isProfile ? Math.max(width * 0.32, waistHalfWidth * 0.45) : 0;
 
   let neckHalfWidth = Math.max((shoulderPlateauHalf + waistHalfWidth) * 0.35, (width * neckWidthRatio) / 2);
@@ -101,9 +81,6 @@ function createTorso(configInput = {}) {
     : [];
 
   let bodyPoints;
-  let handAttachmentPoints;
-  let legAttachmentPoints;
-
   if (isProfile) {
     const profileHalf = profileWidth / 2;
     const backEdgeX = centerX - facingSign * profileHalf;
@@ -116,14 +93,6 @@ function createTorso(configInput = {}) {
       [frontEdgeX, bottomY]
     ];
 
-    handAttachmentPoints = {
-      left: [centerX, handsY],
-      right: [centerX, handsY]
-    };
-    legAttachmentPoints = {
-      left: [centerX, bottomY],
-      right: [centerX, bottomY]
-    };
   } else {
     bodyPoints = [
       [centerX - waistHalfWidth, bottomY],
@@ -140,14 +109,6 @@ function createTorso(configInput = {}) {
       [centerX + waistHalfWidth, bottomY]
     ];
 
-    handAttachmentPoints = {
-      left: [centerX - handHorizontalOffset, handsY],
-      right: [centerX + handHorizontalOffset, handsY]
-    };
-    legAttachmentPoints = {
-      left: [centerX - legOffset, bottomY],
-      right: [centerX + legOffset, bottomY]
-    };
   }
 
   const body = {
@@ -159,10 +120,7 @@ function createTorso(configInput = {}) {
   };
 
   return {
-    graphics: [...neck, body],
-    handAttachmentPoints,
-    legAttachmentPoints,
-    headAttachmentPoint: [centerX, topY]
+    graphics: [...neck, body]
   };
 }
 

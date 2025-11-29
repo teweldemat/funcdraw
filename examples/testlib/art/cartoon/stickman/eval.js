@@ -74,34 +74,42 @@ function stickMan(optionsInput = {}) {
   });
 
   const leftHand = hand({
-    attachmentPoint: skeletonPose.hands.left.attachmentPoint,
+    joints: skeletonPose.hands.left.joints,
     targetPoint: skeletonPose.hands.left.targetPoint,
     lengths: skeletonPose.hands.left.lengths,
     positiveBend: skeletonPose.hands.left.positiveBend,
+    bendDirection: skeletonPose.hands.left.bendDirection,
     style: { stroke: handStroke, width: palette.handWidth }
   });
 
   const rightHand = hand({
-    attachmentPoint: skeletonPose.hands.right.attachmentPoint,
+    joints: skeletonPose.hands.right.joints,
     targetPoint: skeletonPose.hands.right.targetPoint,
     lengths: skeletonPose.hands.right.lengths,
     positiveBend: skeletonPose.hands.right.positiveBend,
+    bendDirection: skeletonPose.hands.right.bendDirection,
     style: { stroke: handStroke, width: palette.handWidth }
   });
 
+  if (typeof leg !== "function") {
+    throw "leg export type: " + typeof leg;
+  }
+
   const leftLeg = leg({
-    attachmentPoint: skeletonPose.legs.left.attachmentPoint,
+    joints: skeletonPose.legs.left.joints,
     targetPoint: skeletonPose.legs.left.targetPoint,
     lengths: skeletonPose.legs.left.lengths,
     positiveBend: skeletonPose.legs.left.positiveBend,
+    bendDirection: skeletonPose.legs.left.bendDirection,
     style: { stroke: legStroke, width: palette.legWidth }
   });
 
   const rightLeg = leg({
-    attachmentPoint: skeletonPose.legs.right.attachmentPoint,
+    joints: skeletonPose.legs.right.joints,
     targetPoint: skeletonPose.legs.right.targetPoint,
     lengths: skeletonPose.legs.right.lengths,
     positiveBend: skeletonPose.legs.right.positiveBend,
+    bendDirection: skeletonPose.legs.right.bendDirection,
     style: { stroke: legStroke, width: palette.legWidth }
   });
 
@@ -109,7 +117,7 @@ function stickMan(optionsInput = {}) {
   const rightFootConfig = skeletonPose.legs.right.foot || {};
 
   const leftFoot = feet({
-    anklePoint: leftLeg.resolvedTargetPoint ?? skeletonPose.legs.left.targetPoint,
+    anklePoint: skeletonPose.legs.left.reachTarget,
     side: "left",
     length: leftFootConfig.length,
     directionHint: leftFootConfig.direction,
@@ -117,7 +125,7 @@ function stickMan(optionsInput = {}) {
   });
 
   const rightFoot = feet({
-    anklePoint: rightLeg.resolvedTargetPoint ?? skeletonPose.legs.right.targetPoint,
+    anklePoint: skeletonPose.legs.right.reachTarget,
     side: "right",
     length: rightFootConfig.length,
     directionHint: rightFootConfig.direction,

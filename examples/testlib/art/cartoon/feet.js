@@ -6,40 +6,23 @@ const defaultFeet = {
   strokeWidth: 0.5
 };
 
-function normalizeOptions(value) {
-  return value != null && typeof value === "object" ? value : {};
+const helperCollection = typeof helpers === "object" ? helpers : null;
+const normalizeInput = helperCollection?.normalizeInput;
+const normalizePoint = helperCollection?.normalizePoint;
+const resolveNumber = helperCollection?.resolveNumber;
+
+function requireHelper(fn, name) {
+  if (typeof fn !== "function") {
+    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
+  }
 }
 
-function toNumber(value, fallback) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (value == null) {
-    return fallback;
-  }
-  const coerced = Number(value);
-  return Number.isFinite(coerced) ? coerced : fallback;
-}
-
-function normalizePoint(value, fallback) {
-  if (Array.isArray(value) && value.length >= 2) {
-    const x = toNumber(value[0], fallback[0]);
-    const y = toNumber(value[1], fallback[1]);
-    return [x, y];
-  }
-  if (value && typeof value === "object") {
-    if ("x" in value && "y" in value) {
-      return [toNumber(value.x, fallback[0]), toNumber(value.y, fallback[1])];
-    }
-    if ("left" in value && "top" in value) {
-      return [toNumber(value.left, fallback[0]), toNumber(value.top, fallback[1])];
-    }
-  }
-  return fallback.slice();
-}
+requireHelper(normalizeInput, "normalizeInput");
+requireHelper(normalizePoint, "normalizePoint");
+requireHelper(resolveNumber, "resolveNumber");
 
 function clampPositive(value, fallback, min = 0.01) {
-  const result = toNumber(value, fallback);
+  const result = resolveNumber(value, fallback);
   return result >= min ? result : fallback;
 }
 
@@ -54,7 +37,7 @@ function normalizeSide(value, fallback = "left") {
 }
 
 function Feet(rawOptions = {}) {
-  const options = normalizeOptions(rawOptions);
+  const options = normalizeInput(rawOptions, {});
   const anklePoint = normalizePoint(options.anklePoint ?? options.anchor ?? options.position, [0, 0]);
   const side = normalizeSide(options.side);
   const baseRadius = clampPositive(options.radius, defaultFeet.radius, 0.05);
@@ -65,7 +48,7 @@ function Feet(rawOptions = {}) {
   const lineLength = clampPositive(options.length, defaultLineLength, 0.1);
   const directionHint = normalizeSide(options.directionHint, side);
   const sign = directionHint === "right" ? 1 : -1;
-  const style = normalizeOptions(options.style);
+  const style = normalizeInput(options.style, {});
   const stroke =
     typeof options.stroke === "string"
       ? options.stroke

@@ -3,7 +3,7 @@ const createStickman = typeof cartoonLib.stickman === 'function' ? cartoonLib.st
 
 const defaultPose = typeof createStickman.skeleton === 'function' ? createStickman.skeleton() : null;
 const defaultY = Array.isArray(defaultPose?.position) ? defaultPose.position[1] : 10.5;
-
+const groundY=0;
 const lineup = [
   { x: -24, direction: 'left' },
   { x: -8, direction: 'front' },
@@ -13,7 +13,7 @@ const lineup = [
 
 const heroes = lineup.map(({ x, direction }) =>
   createStickman({
-    position: [x, defaultY],
+    position: [x, groundY+10],
     measurements: {
       torso: { direction },
       head: { direction }
@@ -32,8 +32,8 @@ const labels = lineup.map(({ x, direction }) => ({
 
 const baseline = {
   type: 'line',
-  from: [-28, 0],
-  to: [28, 0],
+  from: [-28, groundY],
+  to: [28, groundY],
   stroke: '#94a3b8',
   width: 0.5
 };

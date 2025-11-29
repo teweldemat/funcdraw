@@ -1,6 +1,6 @@
 # Stick Man (JavaScript) Example
 
-This example composes a simple stick figure out of reusable JavaScript helpers. The torso helper returns attachment points for limbs and a head, while the `hand`, `leg`, and `head` helpers draw articulated segments that plug into those locations. A top-level `stickman` helper (see `art/stickman.js`) can position an entire character with a single call:
+This example composes a simple stick figure out of reusable JavaScript helpers and models. The torso helper returns attachment points for limbs and a head, while the `hand`, `leg`, and `head` models draw articulated segments that plug into those locations. A top-level `stickman` model (see `art/stickman.js`) can position an entire character with a single call:
 
 ```js
 const stickManBuilder = stickman;

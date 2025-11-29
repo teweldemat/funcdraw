@@ -1,140 +1,118 @@
-# Stickman Skeleton Builder
+# Stickman Skeleton Model
 
-`art/cartoon/stickman/skeleton.js` generates the neutral pose used by the cartoon stickman. The rest of the renderer (torso, head, limbs) consumes its output to know where limbs anchor, how long each segment is, and which direction the character faces. You can call it directly from FuncScript/JavaScript to drive your own renders or manipulate the IK targets before passing them back into the stock parts.
+## Overview
 
----
+`stickman/skeleton.js` performs the pose math for the cartoon character. Call `skeleton.build(options?)` with high-level measurements and target points to receive a normalized skeleton describing where the torso sits, how the head is attached, and how each limb bends to reach its effector. Rendering modules (`eval.js`, `hand.js`, `leg.js`, `head.js`) consume this data in `stickman/eval.js` to draw the final graphics.
 
-## Usage
+## Construction Overview
 
-```fs
-skeleton:create(package("@funcdraw/testlib").cartoon.stickman.skeleton);
+1. **Normalize inputs** – Sanitize `position` and `measurements`, merging overrides with `defaultMeasurements`.
+2. **Derive torso frame** – Compute torso width/height/shoulder extension and place head/limb attachment points relative to the torso center-bottom anchor.
+3. **Solve head pose** – Carry the requested tilt/direction into the head frame so downstream renderers can orient the skull correctly.
+4. **Solve limb IK** – For each arm and leg, clamp lengths, project the effector coordinates relative to the anchor, and determine elbow/knee bend (based on `positiveBend`). Store attachment points, target points, and foot metadata.
+5. **Emit skeleton** – Bundle the resolved pose along with the merged measurements and normalized options.
 
-stance:skeleton.build({
-  position:[5, 10.5];
-  measurements:{
-    torso:{ direction:"left"; height:12.5; };
-    hands:{
-      left:{ effectorCoordinate:[-6, 4]; positiveBend:true; };
-      right:{ effectorCoordinate:[6, 4]; positiveBend:false; };
-    };
-    legs:{
-      left:{ effectorCoordinate:[-2, -11]; };
-      right:{ effectorCoordinate:[2, -11]; foot:{ length:2.6; direction:"right"; }; };
-    };
-  };
-});
-
-stance.skeleton.head.direction;
-```
-
-`build` accepts an options object, merges it with the defaults, and returns both the normalized configuration and the computed joint positions so downstream modules can render graphics without repeating IK math.
-
----
-
-## Pseudo Schema
+## Inputs
 
 ```ts
 type Direction = "front" | "back" | "left" | "right";
 type FootDirection = "left" | "right";
-type PointInput =
-  | [number, number]
-  | { x: number; y: number }
-  | { left: number; top: number }; // handy for FuncScript maps
+type PointInput = [number, number] | { x: number; y: number } | { left: number; top: number };
+
+type StickmanOptions = {
+  position?: PointInput; // torso center-bottom anchor; defaults to [0, legLengthSum + footThickness] so toes sit on y = 0
+  measurements?: {
+    torso?: {
+      width?: number;             // torso width (default 6)
+      height?: number;            // torso height (default 11)
+      shoulderExtension?: number; // distance between torso edge and shoulder joint (default width * 0.15)
+      direction?: Direction;      // facing for torso/head defaults (default "front")
+    };
+    head?: {
+      verticalExtent?: number;    // head height (default 4.5)
+      angle?: number;             // head tilt in degrees (default 90 upright)
+      direction?: Direction;      // head facing (defaults to torso direction)
+    };
+    hands?: {
+      left?: HandSideConfig;
+      right?: HandSideConfig;
+    };
+    legs?: {
+      left?: LegSideConfig;
+      right?: LegSideConfig;
+    };
+  };
+};
+
+// All "left"/"right" measurements refer to screen-left or screen-right limbs.
+// Even when torso.direction = "back" the left entry still controls the screen-left arm/leg.
 
 type HandSideConfig = {
-  upperLength?: number; // default 4
-  lowerLength?: number; // default 3
-  effectorCoordinate?: PointInput; // target relative to stickman.position; defaults to ±(torsoWidth/2 + shoulderExtension), drop ≈ 2.35
-  positiveBend?: boolean; // left defaults false, right defaults true so elbows face outward
+  upperLength?: number;           // shoulder→elbow length (default 4)
+  lowerLength?: number;           // elbow→hand length (default 3)
+  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults to ±(torsoWidth/2 + shoulderExtension), drop ≈ 2.35)
+  positiveBend?: boolean;         // elbow rotation relative to the shoulder→effector vector (screen-left false, screen-right true)
 };
 
 type LegSideConfig = {
-  upperLength?: number; // default 5.2
-  lowerLength?: number; // default 4.8
-  effectorCoordinate?: PointInput; // reach relative to stickman.position; defaults keep feet under the torso
-  positiveBend?: boolean; // left false, right true; swap to mirror a pose
+  upperLength?: number;           // hip→knee length (default 5.2)
+  lowerLength?: number;           // knee→ankle length (default 4.8)
+  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults keep toes under the torso, e.g. [±1.5, -10])
+  positiveBend?: boolean;         // knee rotation relative to the hip→effector vector (left false, right true)
   foot?: {
-    length?: number | null; // overrides toe line length; null keeps default
-    direction?: FootDirection; // defaults to bend direction (positive -> "right")
-  };
-  feetLength?: number | null; // legacy alias when `foot` is omitted
-  feetDirection?: FootDirection;
-};
-
-type StickmanMeasurements = {
-  torso?: {
-    width?: number; // default 6
-    height?: number; // default 11
-    shoulderExtension?: number; // default width * 0.15; how far arms sit from torso edge
-    direction?: Direction; // "front" by default
-  };
-  head?: {
-    verticalExtent?: number; // default 4.5
-    angle?: number; // default 90 degrees (upright)
-    direction?: Direction; // inherits torso direction when omitted
-  };
-  hands?: {
-    left?: HandSideConfig;
-    right?: HandSideConfig;
-  };
-  legs?: {
-    left?: LegSideConfig;
-    right?: LegSideConfig;
+    length?: number | null;       // toe-line length (default defers to feet.js base when null)
+    direction?: FootDirection;    // toe direction (screen referential; defaults to bend direction: positive => "right")
   };
 };
+```
 
-type StickmanOptions = {
-  position?: PointInput; // default [0, legLengthSum + footThickness] so toes rest on y = 0
-  measurements?: StickmanMeasurements; // partial overrides merged with defaults
+Supply only the branches that need customization; all other values inherit from `defaultMeasurements`.
+
+## Output
+
+```ts
+type SkeletonTorso = {
+  centerBottomPoint: [number, number];
+  width: number;
+  height: number;
+  shoulderExtension: number;
+  direction: Direction;
+  headAttachmentPoint: [number, number];
+  handAttachmentPoints: { left: [number, number]; right: [number, number] };
+  legAttachmentPoints: { left: [number, number]; right: [number, number] };
 };
 
-function build(options?: StickmanOptions): {
+type SkeletonHand = {
+  attachmentPoint: [number, number];
+  targetPoint: [number, number];   // requested wrist effector
+  reachTarget: [number, number];   // clamped wrist after IK
+  bendPoint: [number, number];     // elbow
+  reachDirection: [number, number];
+  bendDirection: 1 | -1;
+  lengths: { upper: number; lower: number };
+  positiveBend: boolean;
+  joints: { attachment: [number, number]; hinge: [number, number]; effector: [number, number] };
+};
+
+type SkeletonLeg = SkeletonHand & {
+  foot: { length: number | null; direction: FootDirection };
+};
+
+type SkeletonBuildResult = {
   skeleton: {
-    position: [number, number]; // normalized anchor
-    torso: {
-      centerBottomPoint: [number, number];
-      width: number;
-      height: number;
-      shoulderExtension: number;
-      direction: Direction;
-      headAttachmentPoint: [number, number];
-      handAttachmentPoints: { left: [number, number]; right: [number, number]; };
-      legAttachmentPoints: { left: [number, number]; right: [number, number]; };
-    };
+    position: [number, number];
+    torso: SkeletonTorso;
     head: {
       attachmentPoint: [number, number];
       verticalExtent: number;
       angle: number;
       direction: Direction;
     };
-    hands: Record<"left" | "right", {
-      attachmentPoint: [number, number];
-      targetPoint: [number, number]; // effector in world space
-      lengths: { upper: number; lower: number };
-      positiveBend: boolean;
-    }>;
-    legs: Record<"left" | "right", {
-      attachmentPoint: [number, number];
-      targetPoint: [number, number];
-      lengths: { upper: number; lower: number };
-      positiveBend: boolean;
-      foot: { length: number | null; direction: FootDirection };
-    }>;
+    hands: Record<"left" | "right", SkeletonHand>;
+    legs: Record<"left" | "right", SkeletonLeg>;
   };
-  position: [number, number]; // mirrors skeleton.position
-  measurements: StickmanMeasurements; // merged defaults + overrides
-  normalizedOptions: StickmanOptions; // sanitized user input
+  normalizedOptions: StickmanOptions;           // sanitized caller input (palette, etc.)
 };
 ```
 
----
-
-## Helpers
-
-The module also exposes a few utilities:
-
-- `defaultMeasurements` – Deep object describing the pristine pose. Handy for cloning into custom rigs.
-- `normalizeInput(value, fallback)` – Ensures any `null`/primitive input becomes `{}` (or a fallback), protecting callers from malformed FuncScript structures.
-- `mergeDeep(target, source)` – Recursive merge used to overlay measurement overrides without losing nested objects. Exported so hosts can reuse the same merging behavior when composing presets.
-
-All helpers are pure and side-effect free, making the module safe to reuse across scenes or animation frames.
+`skeleton.build(options?)` returns `SkeletonBuildResult`; `stickman/eval.js` forwards its `options` there and hands the data to the head/torso/hand/leg models while also reusing `normalizedOptions.palette` for colors. The module also re-exports `defaultMeasurements`, `normalizeInput`, and `mergeDeep` for callers that want to inspect the presets or run their own override logic. Downstream models primarily read `skeleton.torso`, `skeleton.head`, `skeleton.hands`, and `skeleton.legs` to drive their geometry.

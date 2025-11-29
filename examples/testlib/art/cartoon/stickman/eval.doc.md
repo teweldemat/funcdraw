@@ -1,206 +1,107 @@
-# Stickman Model Reference
+# Stickman Model
+## Overview
+`stickman/eval.js` returns the full cartoon character used throughout the examples. Call `stickman(options?)` with the torso center-bottom point—this anchor floats above the ground plane so the legs (and feet) can extend downward. Every limb target uses that same reference, so supplying a higher or lower `position` shifts the entire rig while keeping the ankles below the anchor. The model drops a rounded-rectangle torso at the anchor, attaches the `head` model, and draws limb segments (two-segment polylines) that reach toward their configured targets. Slim toe lines hint at feet, and optional overlay dots expose attachment/target points for debugging.
 
-The `art/cartoon/stickman/eval.js` module exports a factory function that builds a fully posed stick figure. Import it from FuncScript with `package("@funcdraw/testlib").cartoon.stickman` (or require it directly from JavaScript). The function accepts a single _options_ argument and returns a structured object describing the rendered result.
+## Construction Overview
 
----
+1. **Delegate to skeleton** – `eval.js` passes the caller’s `position`/`measurements` into `skeleton.js`, which performs the IK math and returns normalized attachment points, limb lengths, bend directions, and effectors.
+2. **Draw torso** – Using the skeleton’s torso frame, render the rounded rectangle and keep the attachment coordinates for downstream models.
+3. **Render head** – Call `head.js` with the skeleton’s head attachment and merge its graphics.
+4. **Render arms/legs** – Feed the skeleton’s hand/leg entries into `hand.js`/`leg.js` so they draw the two-segment limbs and toe lines toward each effector.
+5. **Optional overlays** – Convert skeleton attachment/target points into small markers if you need IK debugging aids.
 
-## Usage
+## Inputs
 
-```fs
-stickman:package("@funcdraw/testlib").cartoon.stickman;
+Pass a single `options` object (or omit it) when calling `stickman`. Values may be JavaScript objects or FuncScript key/value collections.
 
-hero:stickman({
-  position:[20, 9];
-  palette:{ torsoFill:"#0f172a"; headFill:"#fde68a"; };
-  measurements:{
-    legs:{
-      left:{ positiveBend:true; effectorCoordinate:[-4,-4.5]; };
-      right:{ positiveBend:false; effectorCoordinate:[4,-4.5]; };
-    };
-  };
-});
-
-graphics:hero.graphics;
-```
-
----
-
-## Options
-
-All fields are optional—missing values fall back to the defaults baked into the model. Values may be plain JavaScript numbers/objects or FuncScript key-value collections/lists; the helpers normalize both forms automatically.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `position` | `[x, y]` | Center-bottom anchor of the torso. Defaults to `[0, 10.5]` (leg length + foot thickness) so the feet rest with their bottom edge on `y = 0`. |
-| `palette` | object | Overrides any of the colors/widths below. |
-| `measurements` | object | Nested structure that tweaks body dimensions & limb targets. |
-
-### Pseudo schema
+### Option schema
 
 ```ts
-type Color = string; // Any CSS-compatible color string
+type Color = string; // CSS-compatible color
 type Direction = "front" | "back" | "left" | "right";
-type PointInput = [x: number, y: number] | { x: number; y: number } | { left: number; top: number }; // coordinates relative to StickmanOptions.position
-
 type FootDirection = "left" | "right";
-type Feet = {
-  length?: number; // overrides the default toe-line length (≈ 2.2 units)
-  direction?: FootDirection; // default mirrors positiveBend (true => "right", false => "left")
-};
+type PointInput = [number, number] | { x: number; y: number } | { left: number; top: number };
 
 type StickmanOptions = {
-  position?: [x: number, y: number]; // default [0, legLengthSum] (≈ [0, 10]) so the feet sit at y = 0
+  position?: PointInput; // torso center-bottom anchor; defaults to [0, 10.5] so toes land at y=0
   palette?: {
-    torsoFill?: Color; // default "#1f2937"
-    torsoStroke?: Color; // default "#cbd5f5"
-    torsoStrokeWidth?: number; // default 0.6
-    headFill?: Color; // default "#fff7ed"
-    headStroke?: Color; // default "#fdba74"
-    headStrokeWidth?: number; // default 0.4
-    headGazeColor?: Color; // default "#ea580c"
-    skinStroke?: Color; // default "#f97316" (base stroke for limbs)
-    handStroke?: Color; // defaults to skinStroke when omitted
-    legStroke?: Color; // defaults to skinStroke when omitted
-    handWidth?: number; // default 0.8
-    legWidth?: number; // default 1.1
-    footStroke?: Color; // default "#f97316" (foot line color)
-    footStrokeWidth?: number; // default 0.5
-    overlayHand?: Color; // default "#fb7185"
-    overlayLeg?: Color; // default "#38bdf8"
+    torsoFill?: Color;        // torso rectangle interior color (default "#1f2937")
+    torsoStroke?: Color;      // torso outline color (default "#cbd5f5")
+    torsoStrokeWidth?: number;// torso outline width (default 0.6)
+    headFill?: Color;         // head skull fill (default "#fff7ed")
+    headStroke?: Color;       // head outline color (default "#fdba74")
+    headStrokeWidth?: number; // head outline width (default 0.4)
+    headGazeColor?: Color;    // nose accent color (default "#ea580c")
+    skinStroke?: Color;       // base limb stroke color (default "#f97316")
+    handStroke?: Color;       // overrides arm stroke color (defaults to skinStroke)
+    handWidth?: number;       // arm stroke width (default 0.8)
+    legStroke?: Color;        // overrides leg stroke color (defaults to skinStroke)
+    legWidth?: number;        // leg stroke width (default 1.1)
+    footStroke?: Color;       // toe-line stroke color (default "#f97316")
+    footStrokeWidth?: number; // toe-line stroke width (default 0.5)
+    overlayHand?: Color;      // debug marker color for hand targets (default "#fb7185")
+    overlayLeg?: Color;       // debug marker color for leg targets (default "#38bdf8")
   };
-  measurements?: Measurements; // defaults rest the pose with limbs straight down, facing front
-};
-
-type Measurements = {
-  torso?: {
-    width?: number; // default 6
-    height?: number; // default 11
-    shoulderExtension?: number; // default width * 0.15 (≈ 0.9) to space out the arms
-    direction?: Direction; // default "front"
-  };
-  head?: {
-    verticalExtent?: number; // default 4.5
-    angle?: number; // default 90 degrees
-    direction?: Direction; // defaults to the torso direction
-  };
-  hands?: {
-    left?: HandSide;
-    right?: HandSide;
-  };
-  legs?: {
-    left?: LegSide;
-    right?: LegSide;
+  measurements?: {
+    torso?: {
+      width?: number;              // torso width in units (default 6)
+      height?: number;             // torso height (default 11)
+      shoulderExtension?: number;  // distance arms sit away from torso (default width * 0.15)
+      direction?: Direction;       // facing for torso/head default (default "front")
+    };
+    head?: {
+      verticalExtent?: number;     // head height (default 4.5)
+      angle?: number;              // head tilt in degrees (default 90 upright)
+      direction?: Direction;       // head facing (defaults to torso direction)
+    };
+    hands?: {
+      left?: HandSideOptions;
+      right?: HandSideOptions;
+    };
+    legs?: {
+      left?: LegSideOptions;
+      right?: LegSideOptions;
+    };
   };
 };
 
-type HandSide = {
-  upperLength?: number; // default 4 (shoulder -> elbow)
-  lowerLength?: number; // default 3 (elbow -> hand)
-  effectorCoordinate?: PointInput; // default aligns straight under the shoulder (≈ [-3.9, 2.35] for left / [3.9, 2.35] for right)
-  positiveBend?: boolean; // true = counter-clockwise bend around the limb direction; defaults keep the left elbow outward (false) and the right elbow outward (true, because CCW is +X for that side)
+// "left" and "right" always refer to screen-left/screen-right limbs regardless of torso.direction.
+
+type HandSideOptions = {
+  upperLength?: number;          // shoulder→elbow length (default 4)
+  lowerLength?: number;          // elbow→hand length (default 3)
+  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (default straight below shoulder)
+  positiveBend?: boolean;        // shoulder->elbow vector rotation sign relative to the shoulder→effector vector (left false, right true by default)
 };
 
-type LegSide = {
-  upperLength?: number; // default 5.2 (hip -> knee)
-  lowerLength?: number; // default 4.8 (knee -> ankle)
-  effectorCoordinate?: PointInput; // default [±1.5, -10] so both legs drop straight down and feet reach y = 0
-  positiveBend?: boolean; // true = counter-clockwise bend; defaults keep the left knee outward (false) and the right knee outward (true)
-  foot?: Feet; // tweak the toe-line target (length + facing direction)
+type LegSideOptions = {
+  upperLength?: number;          // hip→knee length (default 5.2)
+  lowerLength?: number;          // knee→ankle length (default 4.8)
+  effectorCoordinate?: PointInput;// IK foot target relative to StickmanOptions.position (default [±1.5, -10])
+  positiveBend?: boolean;        // hip->knee rotation sign relative to the hip→effector vector (left false, right true)
+  foot?: {
+    length?: number | null;      // toe-line length (default ≈ 2.2, null keeps base)
+    direction?: FootDirection;   // toe direction (defaults to bend direction; positive => "right")
+  };
 };
 ```
 
----
+All fields are optional. Omitted palette colors fall back to the defaults inside `defaultPalette`. Missing measurement branches inherit the base pose documented in `skeleton.doc.md`.
 
-## Return Value
+## Output
 
-The function returns a plain object:
-
-```ts
-{
-  graphics: DrawableShape[],
-  overlays: { point:[x,y], color:string }[],
-  skeleton: {
-    position:[x,y],
-    torso:{ centerBottomPoint, width, height, headAttachmentPoint, handAttachmentPoints, legAttachmentPoints },
-    head:{ attachmentPoint, verticalExtent, angle },
-    hands:{
-      left/right:{ attachmentPoint, targetPoint, lengths:{ upper, lower }, positiveBend }
-    },
-    legs:{
-      left/right:{ attachmentPoint, targetPoint, lengths:{ upper, lower }, positiveBend }
-    }
-  }
-}
-```
-
-- `graphics` is the list you typically pass to FuncDraw for rendering (torso rectangle, head, limbs).
-- `overlays` contains helper dots useful for debugging IK targets (they render only if you draw them yourself).
-- `skeleton` exposes the resolved pose so you can inspect attachment points or reuse them in other expressions.
-
-Use whichever parts your scene needs—many examples only consume `graphics`, while tooling/debuggers might also show `overlays` or read from `skeleton`.
-
-### Return pseudo schema
+The factory returns a plain object:
 
 ```ts
-type Color = string;
-type Point = [x: number, y: number];
-type DrawableShape = PrimitiveShape; // See docs/primitives-reference.md for built-in primitive fields
-
 type StickmanResult = {
-  graphics: DrawableShape[]; // draw these shapes in order
-  overlays: OverlayPoint[]; // helper dots for debugging IK targets
-  skeleton: SkeletonPose; // resolved pose data
+  graphics: DrawableShape[]; // torso rectangle, head graphics, limb lines, feet
+  overlays: OverlayPoint[];  // helper dots; render manually when debugging IK
+  skeleton: SkeletonPose;    // resolved attachment points/targets for downstream use
 };
-
-type OverlayPoint = { point: Point; color: Color };
-
-type SkeletonPose = {
-  position: Point; // same anchor passed in options (resolved defaults applied)
-  torso: TorsoFrame;
-  head: HeadFrame;
-  hands: HandSet;
-  legs: LegSet;
-};
-
-type TorsoFrame = {
-  centerBottomPoint: Point;
-  width: number;
-  height: number;
-  shoulderExtension: number;
-  direction: Direction;
-  headAttachmentPoint: Point;
-  handAttachmentPoints: { left: Point; right: Point };
-  legAttachmentPoints: { left: Point; right: Point };
-};
-
-type HeadFrame = {
-  attachmentPoint: Point;
-  verticalExtent: number;
-  angle: number;
-  direction: Direction;
-};
-
-type LimbLengths = { upper: number; lower: number };
-
-type HandSidePose = {
-  attachmentPoint: Point;
-  targetPoint: Point;
-  lengths: LimbLengths;
-  positiveBend: boolean;
-};
-
-type ResolvedFeet = { length: number | null; direction: FootDirection };
-
-type LegSidePose = {
-  attachmentPoint: Point;
-  targetPoint: Point;
-  lengths: LimbLengths;
-  positiveBend: boolean;
-  foot: ResolvedFeet;
-};
-
-type HandSet = { left: HandSidePose; right: HandSidePose };
-type LegSet = { left: LegSidePose; right: LegSidePose };
 ```
 
-Refer to `docs/primitives-reference.md` for full details on the primitive fields (`rect`, `line`, `polygon`, etc.) that make up each `DrawableShape`.
+- `graphics` is the list you typically hand to FuncDraw renderers or merge into larger scenes.
+- `overlays` holds small circle markers describing limb targets and hips; consume them only when you need guides.
+- `skeleton` exposes the computed pose (with precomputed limb joints under `skeleton.hands/legs`) so other expressions can align props, constraints, or effects without rerunning inverse-kinematics math.
+
+See the sibling docs (`head.doc.md`, `skeleton.doc.md`, `hand.js`, `leg.js`) for deeper geometry details reused by this model.

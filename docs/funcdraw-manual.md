@@ -9,17 +9,30 @@ Example:
 ```funcscript
 man:package("@funcdraw/testlib").cartoon.stickman;
 ```
-**model** is a loose term that is used to describe an expression or a module that is meant to model a graphical object. An expression, a module or a package can be models. 
+**model** is a loose term that is used to describe an expression or a module that is meant to model a graphical object. An expression, a module or a package can be models. When a file outputs tangible graphics (for example `examples/testlib/art/cartoon/stickman/head.js` or `hand.js`) refer to it as a model so readers understand it paints something concrete.
 **component** is a term that is used to describe an expression or module that is meant to be used as component of larger models
+
+## Documentation guidelines
+
+Every model/component that gets its own `.doc.md` file should follow a predictable structure so readers immediately know what to expect:
+
+- **File name** – mirror the expression path, e.g. `art/cartoon/stickman/head.doc.md` documents `head.js`.
+- **Overview** – first section that states what the model renders in plain graphical terms (shapes, palette roles, facings) and why/where it is used.
+- **Construction Overview** – short, ordered list describing the major building steps (e.g. calls `skeleton.js`, draws torso, invokes limb helpers). Mention any delegated helpers here.
+- **Inputs** – use pseudo schema to describe every argument (no ad-hoc prose). Include units, coordinate frames, defaults, and what visual outcome each field controls.
+- **Outputs** – explain the returned structure (graphics arrays, overlay helpers, metadata) so consumers know which pieces to render or inspect.
+
+Keep these sections concise and focused on the model’s behaviour; avoid repeating general FuncDraw rules in every document.
+Always title them exactly as `## Overview`, `## Construction Overview`, `## Inputs`, and `## Outputs` so every doc reads the same at a glance.
 
 ## Language
 FuncDraw is tightly integrated to FuncScript runtime but allows expression to be written both in FuncScript and JavaScript. JavaScript code is glued using FuncScript javascript language binding. When writing javascript code make sure that no hidden states are maintained accross repeated evaluation of a scrip as FuncScript runtime can evaluate the script in any order and expect the same output for the same input.
 
 ## JavaScript expressions
-JavaScript expressions live inside the `art/` tree just like FuncScript files. They are evaluated by the FuncScript runtime, so treat them as pure helpers:
+JavaScript expressions live inside the `art/` tree just like FuncScript files. They are evaluated by the FuncScript runtime, so treat them as pure functions. Expressions that render actual geometry are called **models**, while utility functions that feed those models stay **helpers**:
 
 - **Stateless execution** – a JS file can be re-evaluated at any time, often multiple times per render. Do not mutate module-level variables or cache mutable objects between runs. Prefer local variables or recreate values on demand so repeated evaluations yield identical results for the same inputs.
-- **Referencing siblings and packages** – every expression/module in scope is exposed as a property when your JavaScript runs. Call other helpers directly (`return star(row, col)`), or reach into folders using dot notation (`scene.background()` or `cartoon.stickman.head()`). To reference another npm FuncDraw package, use the regular FuncScript helper: `const tree = package("@funcdraw/testlib").cartoon.tree;`.
+- **Referencing siblings and packages** – every expression/module in scope is exposed as a property when your JavaScript runs. Call other models or helpers directly (`return star(row, col)`), or reach into folders using dot notation when the folder is a collection (no `eval.js`) (`scene.background()`). If a folder defines `eval.js`, it exports only that module, so nested helpers or models such as `cartoon.stickman.head` are not surfaced unless you re-export them yourself. To reference another npm FuncDraw package, use the regular FuncScript helper: `const tree = package("@funcdraw/testlib").cartoon.tree;`.
 - **Returning results** – finish the file with a `return` statement. For primitives, return the object or array representing the graphics payload. For reusable helpers, return a function or collection. 
 - **No CommonJS boilerplate** – `require`, `module.exports`, and `export`/`import` are unnecessary because FuncDraw injects the available bindings through the provider scope. Simply reference functions by name and `return` the final value.
 

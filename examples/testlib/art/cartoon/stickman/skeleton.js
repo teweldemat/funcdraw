@@ -11,6 +11,7 @@ const DEFAULT_LEG_OFFSET = DEFAULT_TORSO_WIDTH * 0.25;
 const DEFAULT_LEG_TOTAL = DEFAULT_LEG_UPPER_LENGTH + DEFAULT_LEG_LOWER_LENGTH;
 const DEFAULT_FOOT_THICKNESS = 0.5;
 const DEFAULT_POSITION_Y = DEFAULT_LEG_TOTAL + DEFAULT_FOOT_THICKNESS;
+const IK_EPSILON = 1e-6;
 
 const defaultMeasurements = {
   torso: {
@@ -54,42 +55,30 @@ const defaultMeasurements = {
   }
 };
 
-function normalizeInput(value, fallback) {
-  return value != null && typeof value === "object" ? value : fallback;
+const helperCollection = typeof helpers === "object" ? helpers : null;
+const clamp = helperCollection?.clamp;
+const normalizePoint = helperCollection?.normalizePoint;
+const addOffset = helperCollection?.addOffset;
+const resolveNumber = helperCollection?.resolveNumber;
+const resolveOptionalNumber = helperCollection?.resolveOptionalNumber;
+const resolveBoolean = helperCollection?.resolveBoolean;
+const mergeDeep = helperCollection?.mergeDeep;
+const normalizeInput = helperCollection?.normalizeInput;
+
+function requireHelper(fn, name) {
+  if (typeof fn !== "function") {
+    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
+  }
 }
 
-function normalizePoint(value, fallback) {
-  if (!value) {
-    return fallback;
-  }
-  if (Array.isArray(value) && value.length >= 2) {
-    const x = typeof value[0] === "number" ? value[0] : Number(value[0]);
-    const y = typeof value[1] === "number" ? value[1] : Number(value[1]);
-    return [
-      Number.isFinite(x) ? x : fallback[0],
-      Number.isFinite(y) ? y : fallback[1]
-    ];
-  }
-  if (typeof value === "object") {
-    if ("x" in value && "y" in value) {
-      const x = typeof value.x === "number" ? value.x : Number(value.x);
-      const y = typeof value.y === "number" ? value.y : Number(value.y);
-      return [
-        Number.isFinite(x) ? x : fallback[0],
-        Number.isFinite(y) ? y : fallback[1]
-      ];
-    }
-    if ("left" in value && "top" in value) {
-      const x = typeof value.left === "number" ? value.left : Number(value.left);
-      const y = typeof value.top === "number" ? value.top : Number(value.top);
-      return [
-        Number.isFinite(x) ? x : fallback[0],
-        Number.isFinite(y) ? y : fallback[1]
-      ];
-    }
-  }
-  return fallback.slice();
-}
+requireHelper(clamp, "clamp");
+requireHelper(normalizePoint, "normalizePoint");
+requireHelper(addOffset, "addOffset");
+requireHelper(resolveNumber, "resolveNumber");
+requireHelper(resolveOptionalNumber, "resolveOptionalNumber");
+requireHelper(resolveBoolean, "resolveBoolean");
+requireHelper(mergeDeep, "mergeDeep");
+requireHelper(normalizeInput, "normalizeInput");
 
 function normalizeDirection(value, fallback = "front") {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -97,44 +86,6 @@ function normalizeDirection(value, fallback = "front") {
     return text;
   }
   return fallback;
-}
-
-function mergeDeep(target, source) {
-  if (!source || typeof source !== "object") {
-    return target;
-  }
-  const output = Array.isArray(target) ? target.slice() : { ...target };
-  for (const [key, value] of Object.entries(source)) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      output[key] = mergeDeep(
-        Object.prototype.hasOwnProperty.call(output, key) && typeof output[key] === "object" ? output[key] : {},
-        value
-      );
-    } else {
-      output[key] = value;
-    }
-  }
-  return output;
-}
-
-function addOffset(point, offset) {
-  return [point[0] + offset[0], point[1] + offset[1]];
-}
-
-function resolveNumber(value, fallback) {
-  return typeof value === "number" ? value : fallback;
-}
-
-function resolveOptionalNumber(value) {
-  if (value == null) {
-    return null;
-  }
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function resolveBoolean(value, fallback) {
-  return typeof value === "boolean" ? value : fallback;
 }
 
 function normalizeFootDirection(value, fallback = "left") {
@@ -156,8 +107,8 @@ function buildStickManSkeleton(optionsInput = {}) {
 
   const torso = computeTorsoFrame(position, measurements.torso);
   const head = buildHeadSkeleton(torso, measurements.head);
-  const hands = buildHandSkeleton(position, torso.handAttachmentPoints, measurements.hands, torso.direction);
-  const legs = buildLegSkeleton(position, torso.legAttachmentPoints, measurements.legs, torso.direction);
+  const hands = buildHandSkeleton(position, torso.handAttachmentPoints, measurements.hands);
+  const legs = buildLegSkeleton(position, torso.legAttachmentPoints, measurements.legs);
 
   return {
     skeleton: {
@@ -167,8 +118,6 @@ function buildStickManSkeleton(optionsInput = {}) {
       hands,
       legs
     },
-    position,
-    measurements,
     normalizedOptions
   };
 }
@@ -190,10 +139,7 @@ function computeTorsoFrame(position, torsoMeasurements = {}) {
   let leftLegPoint = [centerX - legOffset, bottomY];
   let rightLegPoint = [centerX + legOffset, bottomY];
 
-  if (direction === "back") {
-    [leftHandPoint, rightHandPoint] = [rightHandPoint, leftHandPoint];
-    [leftLegPoint, rightLegPoint] = [rightLegPoint, leftLegPoint];
-  } else if (direction === "left" || direction === "right") {
+  if (direction === "left" || direction === "right") {
     const centerHandPoint = [centerX, handsY];
     const centerLegPoint = [centerX, bottomY];
     leftHandPoint = centerHandPoint;
@@ -229,14 +175,7 @@ function buildHeadSkeleton(torso, headMeasurements = {}) {
   };
 }
 
-function orientEffectorForDirection(effector, direction) {
-  if (direction === "back") {
-    return [-effector[0], effector[1]];
-  }
-  return effector;
-}
-
-function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}, torsoDirection = "front") {
+function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}) {
   const defaults = defaultMeasurements.hands;
   return {
     left: buildHandSide("left"),
@@ -253,24 +192,35 @@ function buildHandSkeleton(position, attachmentPoints, handMeasurements = {}, to
       attachmentPoints[side][1] - position[1] - (upper + lower)
     ];
     const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
-    const directionalDefaultEffector = orientEffectorForDirection(baseDefaultEffector, torsoDirection);
     const effector =
       measurement.effectorCoordinate != null
-        ? normalizePoint(measurement.effectorCoordinate, directionalDefaultEffector)
-        : directionalDefaultEffector;
+        ? normalizePoint(measurement.effectorCoordinate, baseDefaultEffector)
+        : baseDefaultEffector;
+    const targetPoint = addOffset(position, effector);
+    const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
+    const ik = solveLimbPose(attachmentPoints[side], targetPoint, upper, lower, positiveBend);
     return {
       attachmentPoint: attachmentPoints[side],
-      targetPoint: addOffset(position, effector),
+      targetPoint,
+      reachTarget: ik.reachTarget,
+      bendPoint: ik.hingePoint,
+      reachDirection: ik.reachDirection,
+      bendDirection: ik.bendSign,
       lengths: {
         upper,
         lower
       },
-      positiveBend: resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend)
+      positiveBend,
+      joints: {
+        attachment: attachmentPoints[side],
+        hinge: ik.hingePoint,
+        effector: ik.reachTarget
+      }
     };
   }
 }
 
-function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}, torsoDirection = "front") {
+function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}) {
   const defaults = defaultMeasurements.legs;
   return {
     left: buildLegSide("left"),
@@ -287,24 +237,34 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}, tors
       -(upperLength + lowerLength)
     ];
     const baseDefaultEffector = normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
-    const directionalDefaultEffector = orientEffectorForDirection(baseDefaultEffector, torsoDirection);
     const effector =
       measurement.effectorCoordinate != null
-        ? normalizePoint(measurement.effectorCoordinate, directionalDefaultEffector)
-        : directionalDefaultEffector;
+        ? normalizePoint(measurement.effectorCoordinate, baseDefaultEffector)
+        : baseDefaultEffector;
 
     const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
     const foot = resolveFootMeasurement(measurement, positiveBend);
+    const targetPoint = addOffset(position, effector);
+    const ik = solveLimbPose(attachmentPoints[side], targetPoint, upperLength, lowerLength, positiveBend);
 
     return {
       attachmentPoint: attachmentPoints[side],
-      targetPoint: addOffset(position, effector),
+      targetPoint,
+      reachTarget: ik.reachTarget,
+      bendPoint: ik.hingePoint,
+      reachDirection: ik.reachDirection,
+      bendDirection: ik.bendSign,
       lengths: {
         upper: upperLength,
         lower: lowerLength
       },
       positiveBend,
-      foot
+      foot,
+      joints: {
+        attachment: attachmentPoints[side],
+        hinge: ik.hingePoint,
+        effector: ik.reachTarget
+      }
     };
   }
 }
@@ -312,15 +272,52 @@ function buildLegSkeleton(position, attachmentPoints, legMeasurements = {}, tors
 function resolveFootMeasurement(measurement, positiveBend) {
   const defaultDirection = positiveBend ? "right" : "left";
   const normalizedFoot = normalizeInput(measurement.foot, null);
-  if (normalizedFoot) {
-    return {
-      length: resolveOptionalNumber(normalizedFoot.length),
-      direction: normalizeFootDirection(normalizedFoot.direction, defaultDirection)
-    };
-  }
   return {
-    length: resolveOptionalNumber(measurement.feetLength),
-    direction: normalizeFootDirection(measurement.feetDirection, defaultDirection)
+    length: normalizedFoot ? resolveOptionalNumber(normalizedFoot.length) : null,
+    direction: normalizedFoot ? normalizeFootDirection(normalizedFoot.direction, defaultDirection) : defaultDirection
+  };
+}
+
+function solveLimbPose(attachmentPoint, targetPoint, upperLength, lowerLength, positiveBend) {
+  const safeUpper = Math.max(Math.abs(upperLength), IK_EPSILON);
+  const safeLower = Math.max(Math.abs(lowerLength), IK_EPSILON);
+  const dx = targetPoint[0] - attachmentPoint[0];
+  const dy = targetPoint[1] - attachmentPoint[1];
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const maxReach = safeUpper + safeLower;
+  const minReach = Math.abs(safeUpper - safeLower) + IK_EPSILON;
+  const direction = distance > IK_EPSILON ? [dx / distance, dy / distance] : [0, 1];
+  const reach = clamp(distance, minReach, maxReach);
+  const reachTarget = [
+    attachmentPoint[0] + direction[0] * reach,
+    attachmentPoint[1] + direction[1] * reach
+  ];
+  const cosShoulder = clamp(
+    (safeUpper * safeUpper + reach * reach - safeLower * safeLower) / (2 * safeUpper * reach),
+    -1,
+    1
+  );
+  const sinShoulder = Math.sqrt(Math.max(0, 1 - cosShoulder * cosShoulder));
+  const perp = [-direction[1], direction[0]];
+  const bendSign = positiveBend ? 1 : -1;
+  const hingePoint = [
+    attachmentPoint[0] + direction[0] * (safeUpper * cosShoulder) + perp[0] * (bendSign * safeUpper * sinShoulder),
+    attachmentPoint[1] + direction[1] * (safeUpper * cosShoulder) + perp[1] * (bendSign * safeUpper * sinShoulder)
+  ];
+  const finalVec = [
+    reachTarget[0] - hingePoint[0],
+    reachTarget[1] - hingePoint[1]
+  ];
+  const finalMag = Math.sqrt(finalVec[0] * finalVec[0] + finalVec[1] * finalVec[1]);
+  const reachDirection = finalMag > IK_EPSILON
+    ? [finalVec[0] / finalMag, finalVec[1] / finalMag]
+    : direction.slice();
+
+  return {
+    hingePoint,
+    reachTarget,
+    reachDirection,
+    bendSign
   };
 }
 

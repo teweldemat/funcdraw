@@ -1,36 +1,24 @@
-# Stickman Head Renderer
+# Stickman Head Model
 
-`art/cartoon/stickman/head.js` exposes a helper that paints a simple cartoon head anchored to a torso attachment point. It is consumed by the full stickman renderer but you can also call it directly from FuncScript or JavaScript whenever you need just the head graphics.
+## Overview
 
----
+`head.js` renders the head used by the cartoon stickman. The model receives the neck attachment point plus a configuration object and returns the polygon/circle primitives that depict the skull, eyes, and facial details. Visually, the skull is a softly rounded polygon (many small edges approximating a circle), the eyes are circles layered on top (or an almond made from two overlapping circles for profile views), and the nose is a short line or right-angled pair of lines. The geometry adapts to four canonical facings (`front`, `back`, `left`, `right`):
 
-## Usage
+- **Front** – two highlighted eyes plus a short vertical nose centered between them so it never touches the outline.
+- **Profile (left/right)** – a single almond-shaped eye and a two-segment nose that points away from the face yet stays perpendicular to the skull tilt.
+- **Back** – only the outline renders; the back view intentionally omits facial details.
 
-```fs
-head:create(package("@funcdraw/testlib").cartoon.stickman.head);
+## Construction Overview
 
-portrait:head([12, 18], {
-  verticalExtent:5.2;
-  angle:90; // upright
-  direction:"left";
-  fill:"#fde68a";
-  stroke:"#f97316";
-  eyes:{ separationRatio:0.45; highlight:"#fff"; };
-});
+1. **Skull** – Regular polygon (usually 20 sides) sized by `verticalExtent`. It reads as a circle with a colored fill and stroke.
+2. **Eyes** – Front/back heads get two circular pupils plus a smaller highlight circle. Profile views place two overlapping circles to form an almond-eye silhouette, again with an optional highlight circle. Back heads omit eyes.
+3. **Nose** – Single short line for the front view, two connected lines for profiles (one horizontal, one vertical) to suggest the bridge and tip. Back heads omit the nose.
 
-graphics:portrait.graphics;
-```
+All pieces are simple circles and lines so the model stays stylistically consistent with the rest of the stickman.
 
-The factory accepts two arguments:
+## Inputs
 
-1. **Attachment point** – A `[x, y]` array or `{ x, y }`/`{ left, top }` object describing where the neck meets the torso. Defaults to `[20, 17]` when omitted.
-2. **Config** – Optional object that tweaks the geometry, paint, and faced direction. Missing fields fall back to sane defaults.
-
-The function returns `{ graphics, center }` where `graphics` is an array of FuncDraw primitives (polygon, circles, and lines) and `center` contains the computed head center. Consumers usually spread `graphics` into the rest of the character and reuse `center` to aim hair or accessories.
-
----
-
-## Config Fields
+Most callers pass `skeleton.head.attachmentPoint` along with its measured configuration. The pseudo schema below describes the exact arguments and defaults.
 
 ```ts
 type HeadDirection = "front" | "back" | "left" | "right"; // canonical facings
@@ -61,39 +49,17 @@ type HeadConfig = {
 
 function head(attachmentPoint?: PointInput, config?: HeadConfig): {
   graphics: Graphic[]; // polygon, circles, and lines ready to merge into the scene
-  center: [number, number]; // ellipse center, handy for accessories
 };
 ```
 
-## Direction Rules
-
-The renderer adapts to four canonical directions:
-
-- **Front** – Draws two highlighted eyes plus a short vertical nose centered between them so it never touches the outline.
-- **Profile (left/right)** – Swaps to a single almond-shaped eye and a two-segment nose that points away from the face yet stays perpendicular to the skull tilt.
-- **Back** – Only the outline renders; the back view intentionally omits facial details.
-
----
-
-## Return Value
+## Output
 
 The call returns:
 
 ```ts
 type HeadResult = {
   graphics: Graphic[];
-  center: [number, number];
 };
 ```
 
 - `graphics` – `{ type, ... }` primitives ready to be appended to the rest of the scene.
-- `center` – The computed ellipse center, convenient for drawing hats or aligning the torso-top attachment point.
-
-Use `graphics` as-is or merge it with other character parts:
-
-```js
-const { graphics: headGraphics, center } = head([0, 12], { direction: 'right' });
-const heroGraphics = [...torsoGraphics, ...headGraphics];
-```
-
-Because the renderer never mutates shared state, you can instantiate multiple heads with different configs inside the same scene or animation frame.

@@ -10,9 +10,14 @@ const measureDistance = typeof helperModule?.distance === 'function' ? helperMod
 const view = { left: -36, bottom: -12, right: 36, top: 32 };
 const groundY = 0;
 const testingLegLengths = { upper: 6.2, lower: 5.8 };
-const anchorBaseY = 8;
+const anchorBaseY = 9.3;
 const timeValue = typeof t === 'number' ? t : 0;
 const stepSpeed = 0.35;
+const testerHandSwing = {
+  amplitude: 2.2,
+  lift: 0.55,
+  forwardOffset: 0.2
+};
 
 if (!hasSteperMan) {
   return {
@@ -45,10 +50,12 @@ const leftRig = buildSteperRig({
   movingStartPoint: [-34, groundY],
   movingTargetPoint: [-10, groundY],
   progress: triangleWave(timeValue * stepSpeed),
+  bobPhase: 0,
   palette: {
     overlayLeg: '#2563eb',
     overlayHand: '#7c3aed'
-  }
+  },
+  handSwing: testerHandSwing
 });
 
 const rightRig = buildSteperRig({
@@ -58,10 +65,12 @@ const rightRig = buildSteperRig({
   movingStartPoint: [10, groundY],
   movingTargetPoint: [34, groundY],
   progress: triangleWave(timeValue * stepSpeed + 1),
+  bobPhase: Math.PI,
   palette: {
     overlayLeg: '#f97316',
     overlayHand: '#f472b6'
-  }
+  },
+  handSwing: testerHandSwing
 });
 
 return {
@@ -76,6 +85,9 @@ function buildSteperRig(options) {
   const movingStart = ensurePoint(options.movingStartPoint, [-16, groundY]);
   const movingTarget = ensurePoint(options.movingTargetPoint, [0, groundY]);
   const anchorHintX = averageNumbers([fixedPoint[0], movingStart[0], movingTarget[0]]);
+  const bobPhase = typeof options.bobPhase === 'number' ? options.bobPhase : 0;
+  const anchorBob = Math.sin(timeValue * 1.2 + bobPhase) * 0.45;
+  const targetAnchorY = anchorBaseY + anchorBob;
 
   const hero = steperBuilder({
     fixedFeet: fixedSide,
@@ -83,7 +95,7 @@ function buildSteperRig(options) {
     movingFeetStartPoint: movingStart,
     movingFeetTargetPoint: movingTarget,
     progress,
-    position: [anchorHintX, anchorBaseY],
+    position: [anchorHintX, targetAnchorY],
     measurements: {
       torso: { direction: 'right' },
       head: { direction: 'right' },
@@ -98,13 +110,14 @@ function buildSteperRig(options) {
         }
       }
     },
-    palette: options.palette
+    palette: options.palette,
+    handSwing: options.handSwing
   });
 
   const figureGraphics = Array.isArray(hero.graphics) ? hero.graphics : [];
   const overlayGraphics = renderOverlays(hero.overlays);
   const stepMeta = hero.step ?? {};
-  const anchorPoint = stepMeta.anchorPoint ?? hero.sequenceState?.position ?? [anchorHintX, anchorBaseY];
+  const anchorPoint = stepMeta.anchorPoint ?? hero.sequenceState?.position ?? [anchorHintX, targetAnchorY];
   const movingPoint = stepMeta.movingPoint ?? computeArcPoint(movingStart, movingTarget, progress);
   const stepFixedPoint = stepMeta.fixedPoint ?? fixedPoint;
   const rigBounds = resolveBounds([fixedPoint, movingStart, movingTarget, movingPoint]);

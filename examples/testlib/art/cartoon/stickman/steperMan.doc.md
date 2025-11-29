@@ -28,12 +28,25 @@ type SteperManOptions = {
   movingFeetStartPoint?: PointInput;// World-space point where the moving foot begins (defaults to static pose)
   movingFeetTargetPoint?: PointInput;// World-space destination the moving foot should reach (falls back to start)
   progress?: number;                // Step progress between 0 and 1 (clamped); drives interpolation along the arc
+
+  handSwing?: {                     // Optional arm swing controls
+    enabled?: boolean;              // false disables the automation entirely (default true)
+    amplitude?: number;             // horizontal offset multiplier (default 1.4)
+    lift?: number;                  // vertical swing multiplier (default 0.35)
+    forwardOffset?: number;         // constant horizontal offset applied to both arms (default 0)
+    phase?: number;                 // extra radians used only when mode === "sine" (default 0)
+    mode?: "mirror" | "sine";       // "mirror" copies the opposite leg angles (default), "sine" preserves the legacy wave
+  };
 };
 ```
 
 - All point inputs accept `[x, y]`, `{ x, y }`, or `{ left, top }` just like the static model.
 - If `movingFeetTargetPoint` is omitted the leg stays near `movingFeetStartPoint`, letting you hold the foot in mid-air simply by animating `progress`.
 - Arc height defaults to 25% of the planar distance between the start and target (with a minimum lift of 1.5 units) so short steps still pick up slightly.
+
+### Hand swing controls
+
+When `handSwing.enabled !== false`, `steperMan` offsets the stickman’s arm effectors every frame so they swing opposite the stepping leg (right leg forward pushes the left arm forward, etc.). In the default `mode: "mirror"` the helper inspects both leg offsets, computes how far each ankle leads/lag relative to the torso, and applies a mirrored version of that angle/height to the opposite arm. `amplitude` and `lift` act as multipliers on the mirrored horizontal/vertical deltas, while `forwardOffset` nudges both hands equally. Swap to `mode: "sine"` if you want the legacy cosine/sine sweep that ignores leg placement but still responds to `amplitude`, `lift`, `forwardOffset`, and `phase`.
 
 ## Outputs
 

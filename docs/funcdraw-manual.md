@@ -64,6 +64,7 @@ Run `npm run play -- [options]` from a FuncDraw package to start the preview ser
 - `--open` / `--no-open` toggle automatic browser launch (default: on).
 - `--debug` print every evaluated scene payload to the terminal; helpful when inspecting warnings or raw output.
 - `--dump` evaluate once, print the scene payload, and exit (no UI server).
+- `--exp <expression>` temporarily evaluate a FuncScript snippet with `art` bound to the loaded package (e.g., `art.altScene`), handy for debugging alternates without touching `art/eval.*`.
 - `--svg` (dump mode only) also emit the rendered SVG payload when using `--dump`.
 - `--t <seconds>` seed the timeline hook (`fd.valueHooks.t`) before evaluation.
 - `--canvas <width> [height]` set the initial preview canvas size in pixels; omit height to keep the previous value.

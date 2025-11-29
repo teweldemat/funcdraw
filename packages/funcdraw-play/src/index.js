@@ -49,12 +49,17 @@ async function startPlayer(cwd, argvInput) {
       type: 'array',
       describe: 'Initial canvas size in pixels (width height)'
     })
+    .option('exp', {
+      type: 'string',
+      describe: 'FuncScript expression to evaluate (art refers to the loaded package)'
+    })
     .help()
     .alias('help', 'h')
     .parseSync();
 
   const debugEnabled = Boolean(argv.debug || argv.dump);
-  let config = await loadUserConfig(cwd);
+  const expressionOverride = typeof argv.exp === 'string' ? argv.exp : null;
+  let config = await loadUserConfig(cwd, { expression: expressionOverride });
   if (config.configPath) {
     console.log(
       picocolors.gray('Using config'),
@@ -178,7 +183,7 @@ async function startPlayer(cwd, argvInput) {
 
   const reloadConfig = async () => {
     try {
-      const updated = await loadUserConfig(cwd);
+      const updated = await loadUserConfig(cwd, { expression: expressionOverride });
       config = updated;
       currentExpression = buildExpression(config);
       resetTimeline();

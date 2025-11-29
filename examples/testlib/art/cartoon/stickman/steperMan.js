@@ -1,6 +1,10 @@
 const DEFAULT_POSITION = [0, 10];
 const DEFAULT_LEFT_OFFSET = [-2, -11];
 const DEFAULT_RIGHT_OFFSET = [2, -11];
+const DEFAULT_HAND_FORWARD = 3.9;
+const DEFAULT_HAND_DROP = 2.35;
+const DEFAULT_LEFT_HAND_OFFSET = [-DEFAULT_HAND_FORWARD, DEFAULT_HAND_DROP];
+const DEFAULT_RIGHT_HAND_OFFSET = [DEFAULT_HAND_FORWARD, DEFAULT_HAND_DROP];
 
 const baseStaticBuilder = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
 const distanceBetweenPoints = typeof distance === "function" ? distance : fallbackDistance;
@@ -18,6 +22,19 @@ const defaultOffsetsBySide = {
   left: defaultLeftOffset,
   right: defaultRightOffset
 };
+const defaultLeftHandPoint = isPoint(baseSkeleton?.hands?.left?.targetPoint)
+  ? baseSkeleton.hands.left.targetPoint
+  : addPoints(skeletonPosition, DEFAULT_LEFT_HAND_OFFSET);
+const defaultRightHandPoint = isPoint(baseSkeleton?.hands?.right?.targetPoint)
+  ? baseSkeleton.hands.right.targetPoint
+  : addPoints(skeletonPosition, DEFAULT_RIGHT_HAND_OFFSET);
+const defaultLeftHandOffset = subtractPoints(defaultLeftHandPoint, skeletonPosition);
+const defaultRightHandOffset = subtractPoints(defaultRightHandPoint, skeletonPosition);
+const defaultHandOffsetsBySide = {
+  left: defaultLeftHandOffset,
+  right: defaultRightHandOffset
+};
+const baseTorsoDirection = normalizeDirectionValue(baseSkeleton?.torso?.direction);
 const MAX_VERTICAL_ANCHOR_DELTA = 1.2;
 
 function steperMan(optionsInput = {}) {
@@ -39,22 +56,39 @@ function steperMan(optionsInput = {}) {
   anchorCandidates.push(subtractPoints(movingWorldPoint, defaultOffsetsBySide[movingSide]));
   const averagedAnchor = averagePoints(anchorCandidates) ?? fallbackPosition;
   const anchorPosition = clampAnchorVerticalDrift(averagedAnchor, fallbackPosition);
+  const fixedLegOffset = subtractPoints(fixedWorldPoint, anchorPosition);
+  const movingLegOffset = subtractPoints(movingWorldPoint, anchorPosition);
+  const legOffsets = fixedSide === "left"
+    ? { left: fixedLegOffset, right: movingLegOffset }
+    : { left: movingLegOffset, right: fixedLegOffset };
 
   const measurements = ensureObject(options.measurements);
   const legs = ensureObject(measurements.legs);
+  const hands = ensureObject(measurements.hands);
+  const torsoDirection = normalizeDirectionValue(measurements?.torso?.direction, baseTorsoDirection);
+  const handSwingOptions = resolveHandSwingOptions(options.handSwing);
+  const swingingHands = applyHandSwing(hands, {
+    swing: handSwingOptions,
+    movingSide,
+    fixedSide,
+    torsoDirection,
+    progress,
+    legOffsets
+  });
   const updatedMeasurements = {
     ...measurements,
     legs: {
       ...legs,
       [fixedSide]: {
         ...ensureObject(legs[fixedSide]),
-        effectorCoordinate: subtractPoints(fixedWorldPoint, anchorPosition)
+        effectorCoordinate: fixedLegOffset
       },
       [movingSide]: {
         ...ensureObject(legs[movingSide]),
-        effectorCoordinate: subtractPoints(movingWorldPoint, anchorPosition)
+        effectorCoordinate: movingLegOffset
       }
-    }
+    },
+    hands: swingingHands
   };
 
   const forwardedOptions = {
@@ -100,6 +134,16 @@ function normalizeSide(value, fallback = "left") {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (text === "left" || text === "right") {
     return text;
+  }
+  return fallback;
+}
+
+function normalizeDirectionValue(value, fallback = "front") {
+  if (typeof value === "string") {
+    const text = value.trim().toLowerCase();
+    if (text === "left" || text === "right" || text === "front" || text === "back") {
+      return text;
+    }
   }
   return fallback;
 }
@@ -231,6 +275,142 @@ function fallbackDistance(a, b) {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+function resolveHandSwingOptions(value) {
+  const options = ensureObject(value);
+  const enabled = options.enabled !== false;
+  const amplitude = Math.max(0, toNumber(options.amplitude, 1.4));
+  const lift = Math.max(0, toNumber(options.lift, 0.35));
+  const forwardOffset = toNumber(options.forwardOffset, 0);
+  const phase = toNumber(options.phase, 0);
+  const mode = normalizeSwingMode(options.mode);
+  return { enabled, amplitude, lift, forwardOffset, phase, mode };
+}
+
+function normalizeSwingMode(value) {
+  if (typeof value === "string") {
+    const text = value.trim().toLowerCase();
+    if (text === "mirror" || text === "sine") {
+      return text;
+    }
+  }
+  return "mirror";
+}
+
+function applyHandSwing(handMeasurements, context) {
+  const swing = context.swing;
+  if (!swing.enabled) {
+    return handMeasurements;
+  }
+  const baseHands = ensureObject(handMeasurements);
+  if (swing.mode === "sine") {
+    return applySineHandSwing(baseHands, context);
+  }
+  return applyMirrorHandSwing(baseHands, context);
+}
+
+function applySineHandSwing(baseHands, context) {
+  const swing = context.swing;
+  const angle = Math.PI * clamp01(context.progress) + swing.phase;
+  const swingSignal = Math.cos(angle);
+  const liftSignal = Math.sin(angle);
+  const forwardSign = resolveForwardSign(context.torsoDirection);
+  const amplitude = swing.amplitude * forwardSign;
+  const liftAmount = swing.lift;
+  const forwardOffset = swing.forwardOffset * forwardSign;
+
+  const result = {
+    ...baseHands,
+    left: applySwingToSide("left", ensureObject(baseHands.left)),
+    right: applySwingToSide("right", ensureObject(baseHands.right))
+  };
+
+  return result;
+
+  function applySwingToSide(side, input) {
+    const fallback = defaultHandOffsetsBySide[side] || [0, 0];
+    const baseEffector = toPoint(input.effectorCoordinate, fallback);
+    const isMoving = side === context.movingSide;
+    const horizontalSwing = (isMoving ? swingSignal : -swingSignal) * amplitude + forwardOffset;
+    const verticalSwing = (isMoving ? liftSignal : -liftSignal) * liftAmount;
+    return {
+      ...input,
+      effectorCoordinate: [baseEffector[0] + horizontalSwing, baseEffector[1] + verticalSwing]
+    };
+  }
+}
+
+function applyMirrorHandSwing(baseHands, context) {
+  const swing = context.swing;
+  const legOffsets = ensureObject(context.legOffsets);
+  const forwardSign = resolveForwardSign(context.torsoDirection);
+  const depthScale = resolveLegDepthScale(legOffsets);
+  const averageY = resolveAverageY(legOffsets);
+  const result = {
+    ...baseHands,
+    left: applySwingToSide("left", ensureObject(baseHands.left)),
+    right: applySwingToSide("right", ensureObject(baseHands.right))
+  };
+  return result;
+
+  function applySwingToSide(side, input) {
+    const fallback = defaultHandOffsetsBySide[side] || [0, 0];
+    const baseEffector = toPoint(input.effectorCoordinate, fallback);
+    const mirroredLegSide = side === "left" ? "right" : "left";
+    const sourceLeg = legOffsets[mirroredLegSide];
+    if (!isPoint(sourceLeg)) {
+      return {
+        ...input,
+        effectorCoordinate: baseEffector
+      };
+    }
+    const normalizedHorizontal = clampSymmetric(sourceLeg[0] / depthScale);
+    const normalizedVertical = clampSymmetric((sourceLeg[1] - averageY) / depthScale);
+    const horizontalSwing = normalizedHorizontal * swing.amplitude * forwardSign + swing.forwardOffset * forwardSign;
+    const verticalSwing = normalizedVertical * swing.lift;
+    return {
+      ...input,
+      effectorCoordinate: [baseEffector[0] + horizontalSwing, baseEffector[1] + verticalSwing]
+    };
+  }
+}
+
+function resolveLegDepthScale(legOffsets) {
+  let maxDepth = 0;
+  for (const side of ["left", "right"]) {
+    const leg = legOffsets[side];
+    if (isPoint(leg)) {
+      maxDepth = Math.max(maxDepth, Math.abs(leg[1]));
+    }
+  }
+  return Math.max(1, maxDepth);
+}
+
+function resolveAverageY(legOffsets) {
+  let sum = 0;
+  let count = 0;
+  for (const side of ["left", "right"]) {
+    const leg = legOffsets[side];
+    if (isPoint(leg)) {
+      sum += leg[1];
+      count += 1;
+    }
+  }
+  return count > 0 ? sum / count : 0;
+}
+
+function clampSymmetric(value, limit = 1) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  if (value > limit) return limit;
+  if (value < -limit) return -limit;
+  return value;
+}
+
+function resolveForwardSign(direction) {
+  return direction === "left" ? -1 : 1;
 }
 
 return steperMan;

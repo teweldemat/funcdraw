@@ -46,6 +46,8 @@ Use `funcdraw-play --help` to see the full list. Defaults listen on `127.0.0.1:5
 
 Use `--debug` when you want the server to print evaluated scene payloads (including warnings) directly to the terminal for troubleshooting.
 
+Use `--test` to run FuncScript package tests (pairs like `scene.fs` and `scene.test.fs`) through the runtime `testPackage` helper. The CLI reports failing cases, sets a non-zero exit code when any test fails, and exits without starting the preview server.
+
 Use `--dump` to skip server/browse launching altogether, evaluate the configured scene once (with SVG output), print the payload to the console, and exit. This is handy for CI pipelines or quick inspection without spinning up the preview UI.
 
 Use `--exp <expression>` to evaluate a FuncScript snippet without editing `art/eval.*`. The snippet runs with `art` bound to the loaded package, so `--exp art.altScene --dump --t 1` dumps the `art/altScene.*` expression at `t = 1`—perfect for debugging alternate compositions.

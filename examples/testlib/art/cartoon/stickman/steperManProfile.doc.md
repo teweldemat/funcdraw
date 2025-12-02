@@ -1,6 +1,6 @@
-# steperMan Model
+# steperManProfile Model (profile walk)
 ## Overview
-`stickman/steperMan.js` reuses the static cartoon stickman while orchestrating a single walking step. Call `package("@funcdraw/testlib").cartoon.stickman.steperMan(options)` to pin one foot in place (`fixedFeet`), move the opposite foot from `movingFeetStartPoint` toward `movingFeetTargetPoint`, and let the helper animate that leg along a simple arc (lift controlled by the segment length). The helper also slides the torso anchor (stickman `position`) between both ankle constraints, so the character’s body shifts naturally as the step progresses. The rest of the pose is forwarded to `stickman/staticMan`, so every measurement override behaves exactly like the base model.
+`stickman/steperManProfile.js` reuses the static cartoon stickman while orchestrating a single profile (side-view) walking step. Call `package("@funcdraw/testlib").cartoon.stickman.steperManProfile(options)` to pin one foot in place (`fixedFeet`), move the opposite foot from `movingFeetStartPoint` toward `movingFeetTargetPoint`, and let the helper animate that leg along a simple arc (lift controlled by the segment length). The helper also slides the torso anchor (stickman `position`) between both ankle constraints, so the character’s body shifts naturally as the step progresses. The rest of the pose is forwarded to `stickman/staticMan`, so every measurement override behaves exactly like the base model.
 
 ## Construction Overview
 
@@ -13,12 +13,12 @@
 
 ## Inputs
 
-`steperMan(options?)` accepts everything `stickman.static` understands plus a handful of step-specific fields:
+`steperManProfile(options?)` accepts everything `stickman.static` understands plus a handful of step-specific fields:
 
 ```ts
 type Side = "left" | "right";
 
-type SteperManOptions = {
+type SteperManProfileOptions = {
   position?: PointInput;            // Fallback torso anchor if neither ankle supplies a usable position
   measurements?: StickmanOptions["measurements"];
   palette?: StickmanOptions["palette"];
@@ -46,12 +46,12 @@ type SteperManOptions = {
 
 ### Hand swing controls
 
-When `handSwing.enabled !== false`, `steperMan` offsets the stickman’s arm effectors every frame so they swing opposite the stepping leg (right leg forward pushes the left arm forward, etc.). In the default `mode: "mirror"` the helper inspects both leg offsets, computes how far each ankle leads/lag relative to the torso, and applies a mirrored version of that angle/height to the opposite arm. `amplitude` and `lift` act as multipliers on the mirrored horizontal/vertical deltas, while `forwardOffset` nudges both hands equally. Swap to `mode: "sine"` if you want the legacy cosine/sine sweep that ignores leg placement but still responds to `amplitude`, `lift`, `forwardOffset`, and `phase`.
+When `handSwing.enabled !== false`, `steperManProfile` offsets the stickman’s arm effectors every frame so they swing opposite the stepping leg (right leg forward pushes the left arm forward, etc.). In the default `mode: "mirror"` the helper inspects both leg offsets, computes how far each ankle leads/lag relative to the torso, and applies a mirrored version of that angle/height to the opposite arm. `amplitude` and `lift` act as multipliers on the mirrored horizontal/vertical deltas, while `forwardOffset` nudges both hands equally. Swap to `mode: "sine"` if you want the legacy cosine/sine sweep that ignores leg placement but still responds to `amplitude`, `lift`, `forwardOffset`, and `phase`.
 
 ## Outputs
 
 ```ts
-type SteperManResult = {
+type SteperManProfileResult = {
   graphics: DrawableShape[];
   overlays: OverlayPoint[];
   skeleton: SkeletonPose;
@@ -70,4 +70,4 @@ type SteperManResult = {
 };
 ```
 
-`graphics`, `overlays`, and `skeleton` come directly from `stickman.static`, so render or inspect them the same way you would the base model. `sequenceState` exposes the resolved `position` plus the leg-updated `measurements`, making it easy to pass the pose into another step or animation stage. The additional `step` metadata tells you which limb is grounded, the resolved ankle coordinates (world space), the animated torso anchor, and the clamped progress value; downstream callers can use that to synchronize props (e.g., footprints) or blend multiple steperMan calls into a full gait cycle.
+`graphics`, `overlays`, and `skeleton` come directly from `stickman.static`, so render or inspect them the same way you would the base model. `sequenceState` exposes the resolved `position` plus the leg-updated `measurements`, making it easy to pass the pose into another step or animation stage. The additional `step` metadata tells you which limb is grounded, the resolved ankle coordinates (world space), the animated torso anchor, and the clamped progress value; downstream callers can use that to synchronize props (e.g., footprints) or blend multiple steperManProfile calls into a full gait cycle.

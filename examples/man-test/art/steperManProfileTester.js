@@ -1,9 +1,9 @@
 const cartoonLibrary = package('@funcdraw/testlib')?.cartoon ?? {};
 const stickmanModule = cartoonLibrary?.stickman ?? {};
 const helperModule = cartoonLibrary?.helpers ?? {};
-const hasSteperMan = typeof stickmanModule?.steperMan === 'function';
-const steperBuilder = hasSteperMan
-  ? stickmanModule.steperMan
+const hasSteperManProfile = typeof stickmanModule?.steperManProfile === 'function';
+const steperBuilder = hasSteperManProfile
+  ? stickmanModule.steperManProfile
   : () => ({ graphics: [], overlays: [], skeleton: {}, step: {} });
 const measureDistance = typeof helperModule?.distance === 'function' ? helperModule.distance : fallbackDistance;
 
@@ -19,13 +19,13 @@ const testerHandSwing = {
   forwardOffset: 0.2
 };
 
-if (!hasSteperMan) {
+if (!hasSteperManProfile) {
   return {
     view,
     graphics: [
       {
         type: 'text',
-        text: 'package("@funcdraw/testlib").cartoon.stickman.steperMan is unavailable.',
+        text: 'package("@funcdraw/testlib").cartoon.stickman.steperManProfile is unavailable.',
         position: [0, 12],
         fill: '#ef4444',
         fontSize: 3,

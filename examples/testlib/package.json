@@ -10,5 +10,9 @@
     "library"
   ],
   "author": "Tewelde Ma. Tegegne <teweldemat@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+
 }

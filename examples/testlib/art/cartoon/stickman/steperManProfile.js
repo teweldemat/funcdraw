@@ -35,9 +35,27 @@ const defaultHandOffsetsBySide = {
   right: defaultRightHandOffset
 };
 const baseTorsoDirection = normalizeDirectionValue(baseSkeleton?.torso?.direction);
+const baseTorsoMeasurements = ensureObject(baseSkeleton?.torso);
+const DEFAULT_TORSO_WIDTH = toNumber(baseTorsoMeasurements.width, 6);
+const DEFAULT_TORSO_HEIGHT = toNumber(baseTorsoMeasurements.height, 11);
+const DEFAULT_SHOULDER_EXTENSION = Math.max(
+  toNumber(baseTorsoMeasurements.shoulderExtension, DEFAULT_TORSO_WIDTH * 0.15),
+  0
+);
+const defaultShoulderOffsetsBySide = resolveShoulderOffsets({
+  width: DEFAULT_TORSO_WIDTH,
+  height: DEFAULT_TORSO_HEIGHT,
+  shoulderExtension: DEFAULT_SHOULDER_EXTENSION,
+  direction: baseTorsoDirection
+});
+const defaultHandReachBySide = {
+  left: resolveDefaultHandReach("left", defaultShoulderOffsetsBySide),
+  right: resolveDefaultHandReach("right", defaultShoulderOffsetsBySide)
+};
+const MIN_REACH_RATIO = 0.9;
 const MAX_VERTICAL_ANCHOR_DELTA = 1.2;
 
-function steperMan(optionsInput = {}) {
+function steperManProfile(optionsInput = {}) {
   const options = ensureObject(optionsInput);
   const fallbackPosition = toPoint(options.position, DEFAULT_POSITION);
   const fixedSide = normalizeSide(options.fixedFeet, "left");
@@ -65,13 +83,15 @@ function steperMan(optionsInput = {}) {
   const measurements = ensureObject(options.measurements);
   const legs = ensureObject(measurements.legs);
   const hands = ensureObject(measurements.hands);
-  const torsoDirection = normalizeDirectionValue(measurements?.torso?.direction, baseTorsoDirection);
+  const torsoMeasurements = ensureObject(measurements.torso);
+  const torsoDirection = normalizeDirectionValue(torsoMeasurements.direction, baseTorsoDirection);
   const handSwingOptions = resolveHandSwingOptions(options.handSwing);
   const swingingHands = applyHandSwing(hands, {
     swing: handSwingOptions,
     movingSide,
     fixedSide,
     torsoDirection,
+    torsoMeasurements,
     progress,
     legOffsets
   });
@@ -298,16 +318,119 @@ function normalizeSwingMode(value) {
   return "mirror";
 }
 
+function resolveShoulderOffsetsFromContext(context) {
+  const torso = ensureObject(context.torsoMeasurements);
+  const width = toNumber(torso.width, DEFAULT_TORSO_WIDTH);
+  const height = toNumber(torso.height, DEFAULT_TORSO_HEIGHT);
+  const shoulderExtension = Math.max(
+    toNumber(
+      torso.shoulderExtension,
+      DEFAULT_SHOULDER_EXTENSION != null ? DEFAULT_SHOULDER_EXTENSION : width * 0.15
+    ),
+    0
+  );
+  const direction = normalizeDirectionValue(torso.direction, context.torsoDirection);
+  const resolved = resolveShoulderOffsets({ width, height, shoulderExtension, direction });
+  return {
+    left: resolved.left || defaultShoulderOffsetsBySide.left || [0, 0],
+    right: resolved.right || defaultShoulderOffsetsBySide.right || [0, 0]
+  };
+}
+
+function resolveShoulderOffsets(torsoMeasurements = {}) {
+  const width = toNumber(torsoMeasurements.width, DEFAULT_TORSO_WIDTH);
+  const height = toNumber(torsoMeasurements.height, DEFAULT_TORSO_HEIGHT);
+  const shoulderExtension = Math.max(toNumber(torsoMeasurements.shoulderExtension, width * 0.15), 0);
+  const direction = normalizeDirectionValue(torsoMeasurements.direction, baseTorsoDirection);
+  const halfWidth = width / 2;
+  const handsY = height * 0.85;
+  const handOffset = halfWidth + shoulderExtension;
+  if (direction === "left" || direction === "right") {
+    const center = [0, handsY];
+    return { left: center, right: center };
+  }
+  return {
+    left: [-handOffset, handsY],
+    right: [handOffset, handsY]
+  };
+}
+
+function resolveDefaultHandReach(side, shoulderOffsets) {
+  const baseHand = baseSkeleton?.hands?.[side];
+  if (isPoint(baseHand?.attachmentPoint) && isPoint(baseHand?.targetPoint)) {
+    return distanceBetweenPoints(baseHand.attachmentPoint, baseHand.targetPoint);
+  }
+  const lengths = ensureObject(baseHand?.lengths);
+  const upper = toNumber(lengths.upper, NaN);
+  const lower = toNumber(lengths.lower, NaN);
+  if (Number.isFinite(upper) && Number.isFinite(lower)) {
+    return Math.max(upper + lower, 0);
+  }
+  if (isPoint(shoulderOffsets?.[side]) && isPoint(defaultHandOffsetsBySide[side])) {
+    const reach = distanceBetweenPoints(shoulderOffsets[side], defaultHandOffsetsBySide[side]);
+    if (reach > 0) {
+      return reach;
+    }
+  }
+  return 7;
+}
+
+function resolveHandReachLength(side, shoulderOffsets, handMeasurements = null) {
+  const baseReach = defaultHandReachBySide[side] || 0;
+  const sideMeasurements = ensureObject(handMeasurements && handMeasurements[side]);
+  const upper = toNumber(sideMeasurements.upperLength, NaN);
+  const lower = toNumber(sideMeasurements.lowerLength, NaN);
+  if (Number.isFinite(upper) && Number.isFinite(lower)) {
+    const measured = Math.max(upper + lower, 0);
+    if (measured > 0) {
+      return measured;
+    }
+  }
+  if (isPoint(shoulderOffsets?.[side]) && isPoint(defaultHandOffsetsBySide[side])) {
+    const reach = distanceBetweenPoints(shoulderOffsets[side], defaultHandOffsetsBySide[side]);
+    if (reach > 0) {
+      return Math.max(baseReach, reach);
+    }
+  }
+  return Math.max(baseReach, 1);
+}
+
+function constrainEffectorReach(effectorCoordinate, shoulderOffset, reach, baseLength = null, minRatio = MIN_REACH_RATIO) {
+  const shoulder = isPoint(shoulderOffset) ? shoulderOffset : [0, 0];
+  const targetReach = Math.max(toNumber(reach, 0), 1e-6);
+  const dx = effectorCoordinate[0] - shoulder[0];
+  const dy = effectorCoordinate[1] - shoulder[1];
+  const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+  const resolvedBase = typeof baseLength === "number" && Number.isFinite(baseLength) ? Math.max(baseLength, 0) : targetReach;
+  const minReach = clampRange(resolvedBase * clampRange(minRatio, 0, 1), 0, targetReach);
+  const clampedDistance = clampRange(distance, minReach, targetReach);
+  const scale = clampedDistance / distance;
+  return [
+    shoulder[0] + dx * scale,
+    shoulder[1] + dy * scale
+  ];
+}
+
 function applyHandSwing(handMeasurements, context) {
   const swing = context.swing;
   if (!swing.enabled) {
     return handMeasurements;
   }
   const baseHands = ensureObject(handMeasurements);
+  const shoulderOffsets = resolveShoulderOffsetsFromContext(context);
+  const reachBySide = {
+    left: resolveHandReachLength("left", shoulderOffsets, baseHands),
+    right: resolveHandReachLength("right", shoulderOffsets, baseHands)
+  };
+  const swingContext = {
+    ...context,
+    shoulderOffsets,
+    reachBySide
+  };
   if (swing.mode === "sine") {
-    return applySineHandSwing(baseHands, context);
+    return applySineHandSwing(baseHands, swingContext);
   }
-  return applyMirrorHandSwing(baseHands, context);
+  return applyMirrorHandSwing(baseHands, swingContext);
 }
 
 function applySineHandSwing(baseHands, context) {
@@ -319,6 +442,8 @@ function applySineHandSwing(baseHands, context) {
   const amplitude = swing.amplitude * forwardSign;
   const liftAmount = swing.lift;
   const forwardOffset = swing.forwardOffset * forwardSign;
+  const shoulderOffsets = ensureObject(context.shoulderOffsets);
+  const reachBySide = ensureObject(context.reachBySide);
 
   const result = {
     ...baseHands,
@@ -331,12 +456,18 @@ function applySineHandSwing(baseHands, context) {
   function applySwingToSide(side, input) {
     const fallback = defaultHandOffsetsBySide[side] || [0, 0];
     const baseEffector = toPoint(input.effectorCoordinate, fallback);
+    const shoulderOffset = shoulderOffsets[side] || defaultShoulderOffsetsBySide[side] || [0, 0];
+    const reach = reachBySide[side]
+      || defaultHandReachBySide[side]
+      || distanceBetweenPoints(baseEffector, shoulderOffset);
     const isMoving = side === context.movingSide;
     const horizontalSwing = (isMoving ? swingSignal : -swingSignal) * amplitude + forwardOffset;
     const verticalSwing = (isMoving ? liftSignal : -liftSignal) * liftAmount;
+    const candidate = [horizontalSwing, baseEffector[1] + verticalSwing];
+    const targetEffector = scaleVectorToLength(candidate, shoulderOffset, reach);
     return {
       ...input,
-      effectorCoordinate: [baseEffector[0] + horizontalSwing, baseEffector[1] + verticalSwing]
+      effectorCoordinate: targetEffector
     };
   }
 }
@@ -347,6 +478,7 @@ function applyMirrorHandSwing(baseHands, context) {
   const forwardSign = resolveForwardSign(context.torsoDirection);
   const depthScale = resolveLegDepthScale(legOffsets);
   const averageY = resolveAverageY(legOffsets);
+
   const result = {
     ...baseHands,
     left: applySwingToSide("left", ensureObject(baseHands.left)),
@@ -359,19 +491,34 @@ function applyMirrorHandSwing(baseHands, context) {
     const baseEffector = toPoint(input.effectorCoordinate, fallback);
     const mirroredLegSide = side === "left" ? "right" : "left";
     const sourceLeg = legOffsets[mirroredLegSide];
+
     if (!isPoint(sourceLeg)) {
       return {
         ...input,
         effectorCoordinate: baseEffector
       };
     }
+
+    const radius = Math.max(1e-6, distanceBetweenPoints([0, 0], baseEffector));
+
     const normalizedHorizontal = clampSymmetric(sourceLeg[0] / depthScale);
     const normalizedVertical = clampSymmetric((sourceLeg[1] - averageY) / depthScale);
-    const horizontalSwing = normalizedHorizontal * swing.amplitude * forwardSign + swing.forwardOffset * forwardSign;
+
+    const horizontalSwing =
+      normalizedHorizontal * swing.amplitude * forwardSign +
+      swing.forwardOffset * forwardSign;
+
     const verticalSwing = normalizedVertical * swing.lift;
+
+    const candidateX = baseEffector[0] + horizontalSwing;
+    const candidateY = baseEffector[1] + verticalSwing;
+
+    const candidateLen = Math.sqrt(candidateX * candidateX + candidateY * candidateY) || 1;
+    const scale = radius / candidateLen;
+
     return {
       ...input,
-      effectorCoordinate: [baseEffector[0] + horizontalSwing, baseEffector[1] + verticalSwing]
+      effectorCoordinate: [candidateX * scale, candidateY * scale]
     };
   }
 }
@@ -413,4 +560,19 @@ function resolveForwardSign(direction) {
   return direction === "left" ? -1 : 1;
 }
 
-return steperMan;
+function scaleVectorToLength(point, origin, length) {
+  const ox = Array.isArray(origin) ? toNumber(origin[0], 0) : 0;
+  const oy = Array.isArray(origin) && origin.length > 1 ? toNumber(origin[1], 0) : 0;
+  const dx = toNumber(point?.[0], 0) - ox;
+  const dy = toNumber(point?.[1], 0) - oy;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  if (distance < 1e-6) {
+    const target = Math.max(0, toNumber(length, 0));
+    return [ox, oy - target];
+  }
+  const targetLength = Math.max(0, toNumber(length, 0));
+  const scale = targetLength / distance;
+  return [ox + dx * scale, oy + dy * scale];
+}
+
+return steperManProfile;

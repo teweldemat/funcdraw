@@ -1,8 +1,8 @@
 const cartoonLibrary = package('@funcdraw/testlib')?.cartoon ?? {};
 const stickmanModule = cartoonLibrary?.stickman ?? {};
-const hasSteperMan = typeof stickmanModule?.steperMan === 'function';
-const steperBuilder = hasSteperMan
-  ? stickmanModule.steperMan
+const hasSteperManProfile = typeof stickmanModule?.steperManProfile === 'function';
+const steperBuilder = hasSteperManProfile
+  ? stickmanModule.steperManProfile
   : () => ({ graphics: [], overlays: [], skeleton: {}, step: {} });
 
 const view = { left: -36, bottom: -12, right: 36, top: 32 };
@@ -11,13 +11,13 @@ const anchorBaseY = 9.3;
 const testingLegLengths = { upper: 6.2, lower: 5.8 };
 const timeValue = typeof t === 'number' ? t : 0;
 
-if (!hasSteperMan) {
+if (!hasSteperManProfile) {
   return {
     view,
     graphics: [
       {
         type: 'text',
-        text: 'package("@funcdraw/testlib").cartoon.stickman.steperMan is unavailable.',
+        text: 'package("@funcdraw/testlib").cartoon.stickman.steperManProfile is unavailable.',
         position: [0, 12],
         fill: '#ef4444',
         fontSize: 3,
@@ -93,9 +93,10 @@ function buildWalkingScene() {
       overlayHand: '#0ea5e9'
     },
     handSwing: {
-      amplitude: 1.8,
-      lift: 0.4,
-      forwardOffset: 0.2
+      amplitude: 6,
+      lift: 0.23,
+      forwardOffset: 0,
+      mode: 'sine'
     }
   });
 

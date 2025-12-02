@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@funcdraw/core": "file:../funcdraw-core",
+    "@tewelde/funcscript": "file:../../funcscript/js-port/funcscript-js",
     "express": "^4.19.2",
     "get-port": "^7.0.0",
     "open": "^10.1.0",

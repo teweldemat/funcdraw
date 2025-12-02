@@ -63,10 +63,11 @@ Run `npm run play -- [options]` from a FuncDraw package to start the preview ser
 - `--host <address>` bind to a specific interface, e.g. `0.0.0.0` for LAN access.
 - `--open` / `--no-open` toggle automatic browser launch (default: on).
 - `--debug` print every evaluated scene payload to the terminal; helpful when inspecting warnings or raw output.
+- `--test` run FuncScript package tests (pairs like `scene.fs` with `scene.test.fs`) and exit with non-zero status on failures; skips starting the preview server.
 - `--dump` evaluate once, print the scene payload, and exit (no UI server).
 - `--exp <expression>` temporarily evaluate a FuncScript snippet with `art` bound to the loaded package (e.g., `art.altScene`), handy for debugging alternates without touching `art/eval.*`.
 - `--svg` (dump mode only) also emit the rendered SVG payload when using `--dump`.
 - `--t <seconds>` seed the timeline hook (`fd.valueHooks.t`) before evaluation.
 - `--canvas <width> [height]` set the initial preview canvas size in pixels; omit height to keep the previous value.
 
-All options can be combined. For example, `npm run play -- --dump --svg --t 12.5` quickly inspects the scene at `t = 12.5s` and prints both raw data and SVG without starting the dev server.
+All options can be combined. For example, `npm run play -- --dump --svg --t 12.5` quickly inspects the scene at `t = 12.5s` and prints both raw data and SVG without starting the dev server. Use `--test` alone when you just want to run the package’s `.test.fs` suites and exit.

@@ -1,7 +1,15 @@
 const safeStatic = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
-const safeSteper = typeof steperMan === "function" ? steperMan : () => ({ graphics: [] });
+const safeSteperProfile = typeof steperManProfile === "function"
+  ? steperManProfile
+  : typeof steperMan === "function"
+    ? steperMan
+    : () => ({ graphics: [] });
+const safeSteperZoom = typeof steperManZoom === "function" ? steperManZoom : () => ({ graphics: [] });
 
 return {
   static: safeStatic,
-  steperMan: safeSteper
+  steperManProfile: safeSteperProfile,
+  steperManZoom: safeSteperZoom,
+  // Legacy alias to ease the transition; remove when callers swap to steperManProfile
+  steperMan: safeSteperProfile
 };

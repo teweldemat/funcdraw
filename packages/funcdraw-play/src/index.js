@@ -5,6 +5,7 @@ const path = require('path');
 const picocolors = require('picocolors');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
+const funcscript = require('@tewelde/funcscript');
 const { createExpression: createFuncDrawExpression } = require('@funcdraw/core');
 const { loadUserConfig } = require('./config');
 const { startServer } = require('./server');
@@ -35,6 +36,10 @@ async function startPlayer(cwd, argvInput) {
       type: 'boolean',
       describe: 'Evaluate once, dump the scene payload to the console, and exit (no server)',
       default: false
+    })
+    .option('test', {
+      type: 'boolean',
+      describe: 'Run FuncScript package tests and exit (no server)'
     })
     .option('svg', {
       type: 'boolean',
@@ -69,6 +74,14 @@ async function startPlayer(cwd, argvInput) {
     console.log(picocolors.gray('Using'), picocolors.white(config.sourceDescription));
   } else {
     console.log(picocolors.gray('Using inline sample expression (art/ directory not found)'));
+  }
+
+  if (argv.test) {
+    const exitCode = await runPackageTests(config);
+    if (exitCode !== 0) {
+      process.exitCode = exitCode;
+    }
+    return;
   }
 
   let currentExpression = buildExpression(config);
@@ -288,3 +301,158 @@ function pathsEqual(a, b) {
 module.exports = {
   startPlayer
 };
+
+async function runPackageTests(config) {
+  if (!config || !config.resolver) {
+    console.error(picocolors.red('No FuncScript package resolver available for testing.'));
+    return 1;
+  }
+
+  console.log(picocolors.cyan('FuncDraw Play test mode'));
+  const start = Date.now();
+  try {
+    const result = funcscript.testPackage(config.resolver);
+    const summary = normalizeTestSummary(result && result.summary);
+    const failures = collectTestFailures(result && result.tests);
+
+    if (summary.scripts === 0) {
+      console.log(picocolors.yellow('No FuncScript test pairs found in the loaded package.'));
+      return 0;
+    }
+
+    if (summary.failed === 0) {
+      console.log(
+        picocolors.green(
+          `All ${summary.cases} case(s) passed across ${summary.scripts} script(s) in ${Date.now() - start}ms.`
+        )
+      );
+      return 0;
+    }
+
+    console.error(
+      picocolors.red(
+        `FuncScript package tests failed (${summary.failed}/${summary.cases} case(s) across ${summary.scripts} script(s)).`
+      )
+    );
+    const maxFailuresToShow = 10;
+    failures.slice(0, maxFailuresToShow).forEach((failure) => {
+      console.error(formatFailureMessage(failure));
+      if (failure.error && failure.error.stack) {
+        console.error(picocolors.gray(indentMultiline(failure.error.stack, 4)));
+      }
+    });
+    if (failures.length > maxFailuresToShow) {
+      console.error(
+        picocolors.gray(
+          `...and ${failures.length - maxFailuresToShow} more failure(s) not shown (limit ${maxFailuresToShow}).`
+        )
+      );
+    }
+    return 1;
+  } catch (error) {
+    console.error(picocolors.red('Failed to run FuncScript package tests:'), error.message || error);
+    return 1;
+  }
+}
+
+function normalizeTestSummary(summary) {
+  if (!summary || typeof summary !== 'object') {
+    return { scripts: 0, suites: 0, cases: 0, passed: 0, failed: 0 };
+  }
+  return {
+    scripts: Number(summary.scripts) || 0,
+    suites: Number(summary.suites) || 0,
+    cases: Number(summary.cases) || 0,
+    passed: Number(summary.passed) || 0,
+    failed: Number(summary.failed) || 0
+  };
+}
+
+function collectTestFailures(tests) {
+  const entries = Array.isArray(tests) ? tests : [];
+  const failures = [];
+  for (const entry of entries) {
+    const suites = (entry && entry.result && Array.isArray(entry.result.suites)) ? entry.result.suites : [];
+    for (const suite of suites) {
+      const cases = Array.isArray(suite.cases) ? suite.cases : [];
+      for (const caseResult of cases) {
+        if (caseResult && caseResult.passed === false) {
+          failures.push({
+            scriptPath: entry ? entry.path : null,
+            testPath: entry ? entry.testPath : null,
+            suiteName: suite.name || suite.id,
+            caseIndex: caseResult.index,
+            error: caseResult.error
+          });
+        }
+      }
+    }
+  }
+  return failures;
+}
+
+function formatFailureMessage(failure) {
+  const parts = [];
+  if (failure.scriptPath) {
+    parts.push(failure.scriptPath);
+  }
+  if (failure.testPath && failure.testPath !== failure.scriptPath) {
+    parts.push(`test: ${failure.testPath}`);
+  }
+  if (failure.suiteName) {
+    parts.push(`suite: ${failure.suiteName}`);
+  }
+  if (failure.caseIndex !== undefined && failure.caseIndex !== null) {
+    parts.push(`case #${failure.caseIndex}`);
+  }
+  const location = parts.length > 0 ? parts.join(' · ') : 'Test';
+  const message = formatCaseErrorMessage(failure.error);
+  return picocolors.red(`- ${location} failed${message ? `: ${message}` : ''}`);
+}
+
+function formatCaseErrorMessage(error) {
+  if (!error) {
+    return '';
+  }
+  if (error.fsError) {
+    const type = error.fsError.errorType || 'Error';
+    const msg = error.fsError.errorMessage || '';
+    const data = error.fsError.errorData;
+    if (data !== undefined) {
+      return `${type}: ${msg || 'FuncScript error'} (data: ${safeStringify(data)})`;
+    }
+    return `${type}: ${msg || 'FuncScript error'}`;
+  }
+  if (typeof error.message === 'string' && error.message.trim()) {
+    return error.message.trim();
+  }
+  if (error.reason) {
+    return String(error.reason);
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return safeStringify(error);
+}
+
+function safeStringify(value) {
+  try {
+    if (typeof value === 'string') {
+      return value;
+    }
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function indentMultiline(text, spaces = 2) {
+  if (!text) {
+    return '';
+  }
+  const padding = ' '.repeat(spaces);
+  return String(text)
+    .split('\n')
+    .map((line) => padding + line)
+    .join('\n');
+}

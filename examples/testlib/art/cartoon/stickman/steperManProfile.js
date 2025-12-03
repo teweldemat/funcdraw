@@ -57,85 +57,102 @@ const MAX_VERTICAL_ANCHOR_DELTA = 1.2;
 
 function steperManProfile(optionsInput = {}) {
   const options = ensureObject(optionsInput);
-  const fallbackPosition = toPoint(options.position, DEFAULT_POSITION);
-  const fixedSide = normalizeSide(options.fixedFeet, "left");
-  const movingSide = fixedSide === "left" ? "right" : "left";
-  const defaultFixedWorld = addPoints(fallbackPosition, defaultOffsetsBySide[fixedSide]);
-  const defaultMovingWorld = addPoints(fallbackPosition, defaultOffsetsBySide[movingSide]);
-
-  const fixedWorldPoint = toPoint(options.fixedFeetPoint, defaultFixedWorld);
-  const movingStartWorld = toPoint(options.movingFeetStartPoint, defaultMovingWorld);
-  const movingTargetWorld = toPoint(options.movingFeetTargetPoint, movingStartWorld);
+  const anchorBase = toPoint(options.position, DEFAULT_POSITION);
+  const measurementInput = ensureObject(options.measurements);
   const progress = clamp01(toNumber(options.progress, 0));
-  const arcHeight = resolveArcHeight(movingStartWorld, movingTargetWorld);
-  const movingWorldPoint = computeArcPoint(movingStartWorld, movingTargetWorld, progress, arcHeight);
-  const anchorCandidates = [];
-  anchorCandidates.push(subtractPoints(fixedWorldPoint, defaultOffsetsBySide[fixedSide]));
-  anchorCandidates.push(subtractPoints(movingWorldPoint, defaultOffsetsBySide[movingSide]));
-  const averagedAnchor = averagePoints(anchorCandidates) ?? fallbackPosition;
-  const anchorPosition = clampAnchorVerticalDrift(averagedAnchor, fallbackPosition);
-  const fixedLegOffset = subtractPoints(fixedWorldPoint, anchorPosition);
-  const movingLegOffset = subtractPoints(movingWorldPoint, anchorPosition);
-  const legOffsets = fixedSide === "left"
-    ? { left: fixedLegOffset, right: movingLegOffset }
-    : { left: movingLegOffset, right: fixedLegOffset };
+  const movingSideFromOptions = normalizeSide(options.movingSide || options.movingFeet, null);
+  const fixedSideFromOptions = normalizeSide(options.fixedFeet, null);
+  const movingSide = movingSideFromOptions || (fixedSideFromOptions === "left" ? "right" : fixedSideFromOptions === "right" ? "left" : "left");
+  const fixedSide = movingSide === "left" ? "right" : "left";
 
-  const measurements = ensureObject(options.measurements);
-  const legs = ensureObject(measurements.legs);
-  const hands = ensureObject(measurements.hands);
-  const torsoMeasurements = ensureObject(measurements.torso);
-  const torsoDirection = normalizeDirectionValue(torsoMeasurements.direction, baseTorsoDirection);
-  const handSwingOptions = resolveHandSwingOptions(options.handSwing);
-  const swingingHands = applyHandSwing(hands, {
-    swing: handSwingOptions,
-    movingSide,
-    fixedSide,
-    torsoDirection,
-    torsoMeasurements,
-    progress,
-    legOffsets
-  });
+  const baseLegs = ensureObject(measurementInput.legs);
+  const legOffsets = {
+    left: toPoint(baseLegs.left?.effectorCoordinate, defaultOffsetsBySide.left),
+    right: toPoint(baseLegs.right?.effectorCoordinate, defaultOffsetsBySide.right)
+  };
+
+  const defaultFixedWorld = addPoints(anchorBase, legOffsets[fixedSide]);
+  const defaultMovingWorld = addPoints(anchorBase, legOffsets[movingSide]);
+
+  const fixedWorld = toPoint(options.fixedFeetPoint || options.fixedFeetTargetPoint, defaultFixedWorld);
+  const movingStartWorld = toPoint(options.movingFeetStartPoint || options.movingFeetStart, defaultMovingWorld);
+  const movingTargetWorld = toPoint(
+    options.movingFeetTargetPoint || options.movingFeetTarget || options.targetFeetPoint || options.targetFootPoint,
+    movingStartWorld
+  );
+  const arcHeight = Number.isFinite(options.arcHeight) ? options.arcHeight : resolveArcHeight(movingStartWorld, movingTargetWorld);
+  const movingWorld = computeArcPoint(movingStartWorld, movingTargetWorld, progress, arcHeight);
+
+  const anchorCandidates = [
+    subtractPoints(fixedWorld, legOffsets[fixedSide]),
+    subtractPoints(movingWorld, legOffsets[movingSide])
+  ];
+  const averagedAnchor = averagePoints(anchorCandidates) ?? anchorBase;
+  const anchorPosition = clampAnchorVerticalDrift(averagedAnchor, anchorBase);
+
+  const updatedLegOffsets = {
+    left: subtractPoints(fixedSide === "left" ? fixedWorld : movingWorld, anchorPosition),
+    right: subtractPoints(fixedSide === "right" ? fixedWorld : movingWorld, anchorPosition)
+  };
+
+  const torsoMeasurements = ensureObject(measurementInput.torso);
+  const headMeasurements = ensureObject(measurementInput.head);
+  const baseHands = ensureObject(measurementInput.hands);
+  const torsoDirection = normalizeDirectionValue(torsoMeasurements.direction || headMeasurements.direction, baseTorsoDirection);
+  const swing = resolveHandSwingOptions(options.handSwing);
+
   const updatedMeasurements = {
-    ...measurements,
+    ...measurementInput,
+    torso: { ...torsoMeasurements, direction: torsoDirection },
+    head: { ...headMeasurements, direction: torsoDirection },
     legs: {
-      ...legs,
-      [fixedSide]: {
-        ...ensureObject(legs[fixedSide]),
-        effectorCoordinate: fixedLegOffset
-      },
-      [movingSide]: {
-        ...ensureObject(legs[movingSide]),
-        effectorCoordinate: movingLegOffset
-      }
-    },
-    hands: swingingHands
+      ...baseLegs,
+      left: { ...ensureObject(baseLegs.left), effectorCoordinate: updatedLegOffsets.left },
+      right: { ...ensureObject(baseLegs.right), effectorCoordinate: updatedLegOffsets.right }
+    }
   };
 
-  const forwardedOptions = {
-    ...options,
+  const hands = applyHandSwing(baseHands, {
+    swing,
+    progress,
+    torsoDirection,
+    torsoMeasurements: updatedMeasurements.torso,
+    movingSide,
+    legOffsets: updatedLegOffsets
+  });
+
+  const finalMeasurements = {
+    ...updatedMeasurements,
+    hands
+  };
+
+  const staticResult = baseStaticBuilder({
     position: anchorPosition,
-    measurements: updatedMeasurements
-  };
-  delete forwardedOptions.fixedFeet;
-  delete forwardedOptions.fixedFeetPoint;
-  delete forwardedOptions.movingFeetStartPoint;
-  delete forwardedOptions.movingFeetTargetPoint;
-  delete forwardedOptions.progress;
+    measurements: finalMeasurements
+  }) || {};
 
-  const figure = baseStaticBuilder(forwardedOptions);
-  figure.sequenceState = {
-    position: [...anchorPosition],
-    measurements: cloneValue(updatedMeasurements)
+  const sequenceState = {
+    position: cloneValue(anchorPosition),
+    measurements: cloneValue(finalMeasurements)
   };
-  figure.step = {
+
+  const step = {
     fixedSide,
     movingSide,
-    fixedPoint: fixedWorldPoint,
-    movingPoint: movingWorldPoint,
-    anchorPoint: anchorPosition,
+    fixedPoint: cloneValue(fixedWorld),
+    movingPoint: cloneValue(movingWorld),
+    anchorPoint: cloneValue(anchorPosition),
     progress
   };
-  return figure;
+
+  return {
+    ...staticResult,
+    ...sequenceState,
+    finalPosition: sequenceState.position,
+    finalMeasurements: sequenceState.measurements,
+    sequenceState,
+    step
+  };
 }
 
 function computeArcPoint(start, end, progress, height) {

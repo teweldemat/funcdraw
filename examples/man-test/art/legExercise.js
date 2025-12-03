@@ -11,16 +11,16 @@ const time = typeof t === 'number' ? t : 0;
 const phase = time * 3;
 const leftLiftAmount = Math.max(Math.sin(phase), 0);
 const rightLiftAmount = Math.max(Math.sin(phase + Math.PI), 0);
-const heroPosition = [0, 10];
+const heroPosition = [0, 20];
 
 const referenceSkeleton = createStickman({ position: heroPosition })?.skeleton ?? {};
 const leftLegBaseDrop = resolveLegBaseDrop(referenceSkeleton, 'left');
 const rightLegBaseDrop = resolveLegBaseDrop(referenceSkeleton, 'right');
 
-const leftFootLift = leftLegBaseDrop + leftLiftAmount * 3.2;
-const leftFootOffsetX = -2 + leftLiftAmount * 0.6;
-const rightFootLift = rightLegBaseDrop + rightLiftAmount * 3.2;
-const rightFootOffsetX = 2 - rightLiftAmount * 0.6;
+const leftFootLift = leftLegBaseDrop + leftLiftAmount * 6.4;
+const leftFootOffsetX = -4 + leftLiftAmount * 1.2;
+const rightFootLift = rightLegBaseDrop + rightLiftAmount * 6.4;
+const rightFootOffsetX = 4 - rightLiftAmount * 1.2;
 const leftLegTarget = [leftFootOffsetX, leftFootLift];
 const rightLegTarget = [rightFootOffsetX, rightFootLift];
 
@@ -40,12 +40,12 @@ const hero = createStickman({
 });
 
 const armSpeed = time * 1.2;
-const leftAttachment = hero.skeleton?.hands?.left?.attachmentPoint ?? [-3, 22];
-const rightAttachment = hero.skeleton?.hands?.right?.attachmentPoint ?? [3, 22];
+const leftAttachment = hero.skeleton?.hands?.left?.attachmentPoint ?? [-6, 44];
+const rightAttachment = hero.skeleton?.hands?.right?.attachmentPoint ?? [6, 44];
 const leftArmLength =
-  (hero.skeleton?.hands?.left?.lengths?.upper ?? 4) + (hero.skeleton?.hands?.left?.lengths?.lower ?? 3);
+  (hero.skeleton?.hands?.left?.lengths?.upper ?? 8) + (hero.skeleton?.hands?.left?.lengths?.lower ?? 6);
 const rightArmLength =
-  (hero.skeleton?.hands?.right?.lengths?.upper ?? 4) + (hero.skeleton?.hands?.right?.lengths?.lower ?? 3);
+  (hero.skeleton?.hands?.right?.lengths?.upper ?? 8) + (hero.skeleton?.hands?.right?.lengths?.lower ?? 6);
 
 const leftHandTargetWorld = [
   leftAttachment[0] + leftArmLength * Math.cos(armSpeed),
@@ -81,8 +81,8 @@ const heroWithArms = createStickman({
 
 const ground = {
   type: 'line',
-  from: [-24, 0],
-  to: [24, 0],
+  from: [-380, 0],
+  to: [380, 0],
   stroke: '#94a3b8',
   width: 0.6
 };
@@ -92,7 +92,7 @@ const caption = {
   text: 'Left leg lift exercise',
   position: [0, -3],
   fill: '#0f172a',
-  fontSize: 3,
+  fontSize: 12,
   align: 'center'
 };
 
@@ -101,8 +101,8 @@ function resolveLegBaseDrop(referenceSkeleton, side) {
   const lowerLength = referenceSkeleton?.legs?.[side]?.lengths?.lower;
   const fallbackUpper = 5.2;
   const fallbackLower = 4.8;
-  const safeUpper = typeof upperLength === 'number' && Number.isFinite(upperLength) ? upperLength : fallbackUpper;
-  const safeLower = typeof lowerLength === 'number' && Number.isFinite(lowerLength) ? lowerLength : fallbackLower;
+  const safeUpper = typeof upperLength === 'number' && Number.isFinite(upperLength) ? upperLength : fallbackUpper * 2;
+  const safeLower = typeof lowerLength === 'number' && Number.isFinite(lowerLength) ? lowerLength : fallbackLower * 2;
   return -(safeUpper + safeLower);
 }
 
@@ -236,7 +236,7 @@ const skeletonPoints = collectSkeletonPoints(finalSkeleton);
 const skeletonPointDots = skeletonPoints.map(createDebugDot).filter(Boolean);
 
 return {
-  view: { left: -26, bottom: -6, right: 26, top: 28 },
+  view: { left: -400, bottom: -300, right: 400, top: 300 },
   graphics: [
     ground,
     ...(heroWithArms.graphics ?? []),

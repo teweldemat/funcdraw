@@ -1,26 +1,25 @@
 const cartoonLibrary = package('@funcdraw/testlib')?.cartoon ?? {};
 const stickmanModule = cartoonLibrary?.stickman ?? {};
 const hasSteperManProfile = typeof stickmanModule?.steperManProfile === 'function';
-const steperBuilder = hasSteperManProfile
-  ? stickmanModule.steperManProfile
-  : () => ({ graphics: [], overlays: [], skeleton: {}, step: {} });
+const staticBuilder = typeof stickmanModule?.static === 'function' ? stickmanModule.static : null;
+const steperBuilder = hasSteperManProfile ? stickmanModule.steperManProfile : null;
 
-const view = { left: -36, bottom: -12, right: 36, top: 32 };
+const view = { left: -400, bottom: -300, right: 400, top: 300 };
 const groundY = 0;
-const anchorBaseY = 9.3;
-const testingLegLengths = { upper: 6.2, lower: 5.8 };
+const anchorBaseY = 18.6;
+const testingLegLengths = { upper: 12.4, lower: 11.6 };
 const timeValue = typeof t === 'number' ? t : 0;
 
-if (!hasSteperManProfile) {
+if (!steperBuilder || !staticBuilder) {
   return {
     view,
     graphics: [
       {
         type: 'text',
-        text: 'package("@funcdraw/testlib").cartoon.stickman.steperManProfile is unavailable.',
+        text: 'package("@funcdraw/testlib").cartoon.stickman.steperManProfile/static are unavailable.',
         position: [0, 12],
         fill: '#ef4444',
-        fontSize: 3,
+        fontSize: 12,
         align: 'center'
       },
       {
@@ -28,7 +27,7 @@ if (!hasSteperManProfile) {
         text: 'Make sure @funcdraw/testlib is installed and rebuilt.',
         position: [0, 8],
         fill: '#ef4444',
-        fontSize: 2.4,
+        fontSize: 12,
         align: 'center'
       }
     ]
@@ -41,7 +40,7 @@ return {
 };
 
 function buildWalkingScene() {
-  const strideLength = 6;
+  const strideLength = 12;
   const laneMargin = 2;
   const startX = view.left + laneMargin;
   const endX = view.right - laneMargin;
@@ -57,41 +56,42 @@ function buildWalkingScene() {
   const fixedPoint = [startX + stepIndex * strideLength, groundY];
   const movingStartPoint = [startX + (stepIndex - 1) * strideLength, groundY];
   const movingTargetPoint = [startX + (stepIndex + 1) * strideLength, groundY];
-  const fixedFeet = stepIndex % 2 === 0 ? 'left' : 'right';
+  const movingSide = stepIndex % 2 === 0 ? 'right' : 'left';
+  const fixedSide = movingSide === 'left' ? 'right' : 'left';
   const anchorProgressBias = 1 - progress;
   // Keep the torso a touch forward/up at the start of each step so the walk feels lighter.
-  const forwardLean = 0.9 * anchorProgressBias;
+  const forwardLean = 0;
   const liftBias = 0.6 * anchorProgressBias;
   // Add a gentle rise/fall around the middle of each step to mimic cresting an incline.
-  const midStepLift = Math.sin(Math.PI * progress) * 0.9;
-  const anchorX = averageNumbers([fixedPoint[0], movingStartPoint[0], movingTargetPoint[0]]) + forwardLean;
-  const anchorBob = Math.sin(timeValue * 1.4) * 0.45;
+  const midStepLift = Math.sin(Math.PI * progress) * 1.8;
+  const anchorX = averageNumbers([fixedPoint[0], movingStartPoint[0]]) + forwardLean;
+  const anchorBob = Math.sin(timeValue * 1.4) * 0.9;
+  const anchorGuess = [anchorX, anchorBaseY + liftBias + midStepLift + anchorBob];
 
-  const hero = steperBuilder({
-    fixedFeet,
-    fixedFeetPoint: fixedPoint,
-    movingFeetStartPoint: movingStartPoint,
+  const worldLeftFoot = fixedSide === 'left' ? fixedPoint : movingStartPoint;
+  const worldRightFoot = fixedSide === 'right' ? fixedPoint : movingStartPoint;
+  const leftOffset = [worldLeftFoot[0] - anchorGuess[0], worldLeftFoot[1] - anchorGuess[1]];
+  const rightOffset = [worldRightFoot[0] - anchorGuess[0], worldRightFoot[1] - anchorGuess[1]];
+
+  const baseMeasurements = {
+    torso: { direction: 'right', height: 22, width: 12 },
+    head: { direction: 'right', verticalExtent: 9 },
+    hands: {
+      left: { effectorCoordinate: [-7.8, 4.7] },
+      right: { effectorCoordinate: [7.8, 4.7] }
+    },
+    legs: {
+      left: { upperLength: testingLegLengths.upper, lowerLength: testingLegLengths.lower, effectorCoordinate: leftOffset },
+      right: { upperLength: testingLegLengths.upper, lowerLength: testingLegLengths.lower, effectorCoordinate: rightOffset }
+    }
+  };
+
+  const stepPose = steperBuilder({
+    position: anchorGuess,
+    measurements: baseMeasurements,
+    movingSide,
     movingFeetTargetPoint: movingTargetPoint,
     progress,
-    position: [anchorX, anchorBaseY + liftBias + midStepLift + anchorBob],
-    measurements: {
-      torso: { direction: 'right' },
-      head: { direction: 'right' },
-      legs: {
-        left: {
-          upperLength: testingLegLengths.upper,
-          lowerLength: testingLegLengths.lower
-        },
-        right: {
-          upperLength: testingLegLengths.upper,
-          lowerLength: testingLegLengths.lower
-        }
-      }
-    },
-    palette: {
-      overlayLeg: '#f97316',
-      overlayHand: '#0ea5e9'
-    },
     handSwing: {
       amplitude: 6,
       lift: 0.23,
@@ -100,8 +100,20 @@ function buildWalkingScene() {
     }
   });
 
-  const walkerGraphics = Array.isArray(hero.graphics) ? hero.graphics : [];
-  const overlayGraphics = renderOverlays(hero.overlays);
+  const posed = staticBuilder({
+    position: isPoint(stepPose.position) ? stepPose.position : anchorGuess,
+    measurements: stepPose.measurements || baseMeasurements,
+    palette: {
+      overlayLeg: '#f97316',
+      overlayHand: '#0ea5e9'
+    }
+  }) || {};
+
+  const overlayGraphics = renderOverlays(posed.overlays || stepPose.overlays);
+  const walkerGraphics = ensureArray(posed.graphics);
+  const stepMeta = stepPose.step || {};
+  const movingPoint = isPoint(stepMeta.movingPoint) ? stepMeta.movingPoint : computeArcPoint(movingStartPoint, movingTargetPoint, progress);
+  const fixedMarker = isPoint(stepMeta.fixedPoint) ? stepMeta.fixedPoint : fixedPoint;
   const routeProgress = clamp01((fixedPoint[0] - startX) / Math.max(1, endX - startX));
 
   return [
@@ -109,9 +121,10 @@ function buildWalkingScene() {
     ...createWalkwayGuides(startX, endX, strideLength),
     ...walkerGraphics,
     ...overlayGraphics,
-    createMarker(fixedPoint, '#10b981', '#064e3b', 0.55),
+    createMarker(fixedMarker, '#10b981', '#064e3b', 0.55),
     createMarker(movingStartPoint, '#94a3b8', '#475569', 0.45),
     createMarker(movingTargetPoint, '#facc15', '#854d0e', 0.55),
+    createMarker(movingPoint, '#fb923c', '#c2410c', 0.5),
     createProgressLabel(stepIndex, totalSteps, routeProgress)
   ].filter(Boolean);
 }
@@ -181,7 +194,7 @@ function createFlag(point, label) {
     text: label,
     position: [point[0], point[1]],
     fill: '#0f172a',
-    fontSize: 1.8,
+    fontSize: 12,
     align: 'center'
   };
 }
@@ -230,7 +243,7 @@ function createProgressLabel(stepIndex, totalSteps, routeProgress) {
     text: `walking step ${stepIndex + 1}/${totalSteps} • ${Math.round(routeProgress * 100)}% across`,
     position: [0, view.top - 3],
     fill: '#0f172a',
-    fontSize: 2.4,
+    fontSize: 12,
     align: 'center'
   };
 }
@@ -245,6 +258,14 @@ function averageNumbers(values) {
     }
   }
   return count > 0 ? sum / count : 0;
+}
+
+function computeArcPoint(start, end, progress) {
+  const clamped = clamp01(progress);
+  const base = [start[0] + (end[0] - start[0]) * clamped, start[1] + (end[1] - start[1]) * clamped];
+  const span = Math.max(1.5, fallbackDistance(start, end) * 0.25);
+  const lift = Math.sin(Math.PI * clamped) * span;
+  return [base[0], base[1] + lift];
 }
 
 function isPoint(value) {
@@ -279,4 +300,15 @@ function positiveMod(value, modulus) {
     result += modulus;
   }
   return result;
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function fallbackDistance(a, b) {
+  if (!isPoint(a) || !isPoint(b)) return 0;
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  return Math.sqrt(dx * dx + dy * dy);
 }

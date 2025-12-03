@@ -1,6 +1,5 @@
 const buildOptions = (progress, extras = {}) => ({
   progress,
-  swing: 0.5,
   ...extras
 });
 
@@ -34,29 +33,21 @@ const zoomScalingSuite = {
 };
 
 const swingSuite = {
-  name: "legs swing opposite in depth as progress advances",
+  name: "moving leg swings while fixed leg stays put",
   cases: [{}],
   test: (steperFn, _caseData) => {
-    const base = steperFn(buildOptions(0, { swing: 0.5 }));
-    const quarter = steperFn(buildOptions(0.25, { swing: 0.5 }));
-    const threeQuarter = steperFn(buildOptions(0.75, { swing: 0.5 }));
+    const base = steperFn(buildOptions(0, { movingFeetStartY: -11, movingFeetEndY: -6 }));
+    const mid = steperFn(buildOptions(0.5, { movingFeetStartY: -11, movingFeetEndY: -6 }));
 
-    const baseLeftY = base.sequenceState.measurements.legs.left.effectorCoordinate[1];
-    const baseRightY = base.sequenceState.measurements.legs.right.effectorCoordinate[1];
+    const baseLeftY = base.skeleton.legs.left.reachTarget[1];
+    const baseRightY = base.skeleton.legs.right.reachTarget[1];
 
-    const quarterLeftY = quarter.sequenceState.measurements.legs.left.effectorCoordinate[1];
-    const quarterRightY = quarter.sequenceState.measurements.legs.right.effectorCoordinate[1];
-
-    const threeLeftY = threeQuarter.sequenceState.measurements.legs.left.effectorCoordinate[1];
-    const threeRightY = threeQuarter.sequenceState.measurements.legs.right.effectorCoordinate[1];
+    const midLeftY = mid.skeleton.legs.left.reachTarget[1];
+    const midRightY = mid.skeleton.legs.right.reachTarget[1];
 
     return [
-      assert.greater(quarterLeftY, baseLeftY),  // left leg lifts (shorter drop)
-      assert.less(quarterRightY, baseRightY),   // right leg drops deeper
-      assert.greater(quarterLeftY, quarterRightY),
-      assert.less(threeLeftY, baseLeftY),       // swing reverses later in the cycle
-      assert.greater(threeRightY, baseRightY),
-      assert.less(threeLeftY, threeRightY)
+      assert.less(Math.abs(baseLeftY - midLeftY), 1e-6), // fixed leg unchanged in world space
+      assert.greater(midRightY, baseRightY) // moving leg lifts toward target
     ];
   }
 };
@@ -81,4 +72,129 @@ const metadataSuite = {
   }
 };
 
-return [zoomScalingSuite, swingSuite, metadataSuite];
+const straightLegSuite = {
+  name: "legs remain straight (no visible knee bend)",
+  cases: [{}],
+  test: (steperFn, _caseData) => {
+    const sample = steperFn(buildOptions(0.25, { swing: 0.5 }));
+    const alt = steperFn(buildOptions(0.75, { swing: 0.5 }));
+    const legsA = sample?.skeleton?.legs || {};
+    const legsB = alt?.skeleton?.legs || {};
+
+    const checkDeviation = (leg) => {
+      if (!leg?.joints?.attachment || !leg?.joints?.hinge || !leg?.joints?.effector) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      return pointLineDistance(leg.joints.hinge, leg.joints.attachment, leg.joints.effector);
+    };
+
+    const deviations = [
+      checkDeviation(legsA.left),
+      checkDeviation(legsA.right),
+      checkDeviation(legsB.left),
+      checkDeviation(legsB.right)
+    ];
+
+    return deviations.map((dev) => assert.less(dev, 1e-3));
+  }
+};
+
+const yOnlyFootInputSuite = {
+  name: "y-only foot input keeps x controlled by model",
+  cases: [{}],
+  test: (steperFn, _caseData) => {
+    const overrideDepth = -14;
+    const progress = 0.3;
+    const result = steperFn(buildOptions(progress, {
+      measurements: {
+        legs: {
+          left: { effectorCoordinate: { x: -2, y: overrideDepth } },
+          right: { effectorCoordinate: { x: 2, y: overrideDepth } }
+        }
+      }
+    }));
+    const legs = result.sequenceState.measurements.legs;
+    const leftX = legs.left.effectorCoordinate[0];
+    const rightX = legs.right.effectorCoordinate[0];
+    const leftY = legs.left.effectorCoordinate[1];
+    const rightY = legs.right.effectorCoordinate[1];
+
+    return [
+      assert.less(leftX, 0),
+      assert.greater(rightX, 0),
+      assert.less(Math.abs(leftY - overrideDepth), 0.2),
+      assert.less(Math.abs(rightY - overrideDepth), 0.2)
+    ];
+  }
+};
+
+const fixedFootWorldSuite = {
+  name: "fixed leg stays in place across the stride",
+  cases: [{}],
+  test: (steperFn, _caseData) => {
+    const depth = -12;
+    const endDepth = -6;
+    const baseMeasurements = {
+      legs: {
+        left: { effectorCoordinate: { x: -2, y: depth } },
+        right: { effectorCoordinate: { x: 2, y: depth } }
+      }
+    };
+    const start = steperFn(buildOptions(0, {
+      zoomProgress: 0,
+      zoomFactor: 1,
+      measurements: baseMeasurements,
+      movingFeetStartY: depth,
+      movingFeetEndY: endDepth
+    }));
+    const end = steperFn(buildOptions(1, {
+      zoomProgress: 0,
+      zoomFactor: 1,
+      measurements: baseMeasurements,
+      movingFeetStartY: depth,
+      movingFeetEndY: endDepth
+    }));
+    const startWorld = start?.skeleton?.legs?.left?.reachTarget;
+    const endWorld = end?.skeleton?.legs?.left?.reachTarget;
+    const startLength = start?.sequenceState?.measurements?.legs?.left;
+    const endLength = end?.sequenceState?.measurements?.legs?.left;
+    if (!isPoint(startWorld) || !isPoint(endWorld)) {
+      return [assert.fail("missing leg reach target")];
+    }
+
+    return [
+      assert.less(distance(startWorld, endWorld), 0.2),
+      assert.less(Math.abs(startWorld[1] - endWorld[1]), 0.2),
+      assert.greater(
+        Math.abs((endLength.upperLength + endLength.lowerLength) - (startLength.upperLength + startLength.lowerLength)),
+        0.1
+      )
+    ];
+  }
+};
+
+function pointLineDistance(point, a, b) {
+  const px = point?.[0] ?? 0;
+  const py = point?.[1] ?? 0;
+  const ax = a?.[0] ?? 0;
+  const ay = a?.[1] ?? 0;
+  const bx = b?.[0] ?? 0;
+  const by = b?.[1] ?? 0;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const denom = Math.sqrt(dx * dx + dy * dy) || 1;
+  return Math.abs((px - ax) * dy - (py - ay) * dx) / denom;
+}
+
+function isPoint(value) {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    typeof value[0] === "number" &&
+    typeof value[1] === "number" &&
+    Number.isFinite(value[0]) &&
+    Number.isFinite(value[1])
+  );
+}
+
+return [zoomScalingSuite, swingSuite, metadataSuite, straightLegSuite, yOnlyFootInputSuite, fixedFootWorldSuite];

@@ -10,9 +10,6 @@ const DEFAULT_ARM_UPPER_LENGTH = 4;
 const DEFAULT_ARM_LOWER_LENGTH = 3;
 const DEFAULT_LEG_UPPER_LENGTH = 5.2;
 const DEFAULT_LEG_LOWER_LENGTH = 4.8;
-const DEFAULT_SWING = 0.25; // 25% depth swing for legs by default
-const TWO_PI = Math.PI * 2;
-
 const baseStaticBuilder = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
 const baseSkeleton = typeof baseStaticBuilder.skeleton === "function" ? baseStaticBuilder.skeleton() : null;
 const skeletonPosition = isPoint(baseSkeleton?.position) ? baseSkeleton.position : DEFAULT_POSITION;
@@ -70,21 +67,16 @@ const defaultLegLengthsBySide = {
 
 function steperManZoom(optionsInput = {}) {
   const options = ensureObject(optionsInput);
-  const measurementInput = ensureObject(options.measurements || options.baseMeasurements);
+  const measurementInput = ensureObject(options.measurements || options.initialMeasurements);
+  const movingSide = normalizeSide(options.movingSide || options.movingFeet || options.movingFoot, "left");
+  const fixedSide = movingSide === "left" ? "right" : "left";
   const progress = clamp01(toNumber(options.progress, 0));
-  const zoomProgress = clamp01(toNumber(options.zoomProgress, progress));
-  const zoomFactor = Math.max(0, toNumber(options.zoomFactor, 1));
-  const bodyScale = lerp(1, zoomFactor, zoomProgress);
-  const swingAmount = clamp01(toNumber(options.swing, DEFAULT_SWING));
-  const handSwingAmount = clamp01(toNumber(options.handSwing, swingAmount * 0.6));
-  const phase = progress * TWO_PI;
+  const zoomTarget = Math.max(0, toNumber(options.zoom ?? options.zoomFactor, 1));
+  const zoomProgress = clamp01(toNumber(options.zoomProgress, 1));
+  const bodyScale = lerp(1, zoomTarget, zoomProgress);
   const torsoBase = ensureObject(measurementInput.torso);
   const headBase = ensureObject(measurementInput.head);
-  const direction = normalizeDirection(
-    options.direction || torsoBase.direction || headBase.direction || baseSkeleton?.torso?.direction,
-    "front"
-  );
-  const anchorPoint = toPoint(options.position, skeletonPosition);
+  const anchorBase = toPoint(options.position, skeletonPosition);
 
   const legOffsets = {
     left: readEffectorOffset(measurementInput?.legs?.left, defaultOffsetsBySide.left),
@@ -94,30 +86,76 @@ function steperManZoom(optionsInput = {}) {
     left: readEffectorOffset(measurementInput?.hands?.left, defaultHandOffsetsBySide.left),
     right: readEffectorOffset(measurementInput?.hands?.right, defaultHandOffsetsBySide.right)
   };
-
   const legLengths = {
-    left: scaleLimbLengths(readLimbLengths(measurementInput?.legs?.left, defaultLegLengthsBySide.left), bodyScale),
-    right: scaleLimbLengths(readLimbLengths(measurementInput?.legs?.right, defaultLegLengthsBySide.right), bodyScale)
+    left: readLimbLengths(measurementInput?.legs?.left, defaultLegLengthsBySide.left),
+    right: readLimbLengths(measurementInput?.legs?.right, defaultLegLengthsBySide.right)
   };
   const handLengths = {
-    left: scaleLimbLengths(readLimbLengths(measurementInput?.hands?.left, defaultHandLengthsBySide.left), bodyScale),
-    right: scaleLimbLengths(readLimbLengths(measurementInput?.hands?.right, defaultHandLengthsBySide.right), bodyScale)
+    left: readLimbLengths(measurementInput?.hands?.left, defaultHandLengthsBySide.left),
+    right: readLimbLengths(measurementInput?.hands?.right, defaultHandLengthsBySide.right)
   };
 
-  const legEffectors = computeSwingOffsets(legOffsets, bodyScale, swingAmount, phase, {
-    left: legLengths.left.upper + legLengths.left.lower,
-    right: legLengths.right.upper + legLengths.right.lower
-  });
-  const handEffectors = computeSwingOffsets(handOffsets, bodyScale, handSwingAmount, phase, {
-    left: handLengths.left.upper + handLengths.left.lower,
-    right: handLengths.right.upper + handLengths.right.lower
-  });
+  const fixedWorldY = anchorBase[1] + legOffsets[fixedSide][1];
+  const movingStartWorldY = anchorBase[1] + legOffsets[movingSide][1];
+  const movingTargetWorldY = toNumber(
+    options.movingFootTargetY ?? options.movingFeetTargetY ?? options.targetY ?? movingStartWorldY,
+    movingStartWorldY
+  );
+  const movingWorldY = lerp(movingStartWorldY, movingTargetWorldY, progress);
+  const deltaY = movingWorldY - movingStartWorldY;
+  const baseDirection = normalizeDirection(
+    torsoBase.direction || headBase.direction || baseSkeleton?.torso?.direction,
+    "front"
+  );
+  const direction = deltaY > 0 ? "back" : deltaY < 0 ? "front" : baseDirection;
 
-  const resolvedLegs = resolveStraightLimbs(legEffectors, legLengths, { left: true, right: true });
-  const resolvedHands = resolveStraightLimbs(handEffectors, handLengths, {
-    left: toBoolean(measurementInput?.hands?.left?.positiveBend, false),
-    right: toBoolean(measurementInput?.hands?.right?.positiveBend, true)
-  });
+  const averageStartY = (fixedWorldY + movingStartWorldY) * 0.5;
+  const initialDistanceRaw = anchorBase[1] - averageStartY;
+  const initialDistance = Math.abs(initialDistanceRaw) > 1e-6 ? initialDistanceRaw : defaultTorsoHeight;
+  const distanceSign = initialDistance >= 0 ? 1 : -1;
+  const averageCurrentY = (fixedWorldY + movingWorldY) * 0.5;
+  const baseDistance = Math.max(Math.abs(initialDistance), defaultTorsoHeight);
+  const desiredDistance = baseDistance * bodyScale * distanceSign;
+  const anchorPoint = [anchorBase[0], averageCurrentY + desiredDistance];
+
+  const torsoDimensions = resolveTorsoDimensions(torsoBase, bodyScale, direction);
+  const attachments = resolveAttachments(torsoDimensions);
+  const straighten = clamp01(Math.abs(zoomTarget - 1) * zoomProgress);
+
+  const hipX = {
+    left: Array.isArray(attachments.legs?.left) ? attachments.legs.left[0] : 0,
+    right: Array.isArray(attachments.legs?.right) ? attachments.legs.right[0] : 0
+  };
+
+  const legEffectors = {
+    [fixedSide]: [hipX[fixedSide], fixedWorldY - anchorPoint[1]],
+    [movingSide]: [hipX[movingSide], movingWorldY - anchorPoint[1]]
+  };
+
+  const handEffectors = {
+    left: [lerp(handOffsets.left[0] * bodyScale, 0, straighten), handOffsets.left[1] * bodyScale],
+    right: [lerp(handOffsets.right[0] * bodyScale, 0, straighten), handOffsets.right[1] * bodyScale]
+  };
+
+  const legLengthsScaled = {
+    left: scaleLengths(legLengths.left, bodyScale),
+    right: scaleLengths(legLengths.right, bodyScale)
+  };
+  const handLengthsScaled = {
+    left: scaleLengths(handLengths.left, bodyScale),
+    right: scaleLengths(handLengths.right, bodyScale)
+  };
+
+  const resolvedLegs = resolveStraightLimbs(legEffectors, legLengthsScaled, { left: true, right: true }, attachments.legs);
+  const resolvedHands = resolveStraightLimbs(
+    handEffectors,
+    handLengthsScaled,
+    {
+      left: toBoolean(measurementInput?.hands?.left?.positiveBend, false),
+      right: toBoolean(measurementInput?.hands?.right?.positiveBend, true)
+    },
+    attachments.hands
+  );
 
   const legsBase = ensureObject(measurementInput.legs);
   const handsBase = ensureObject(measurementInput.hands);
@@ -126,9 +164,9 @@ function steperManZoom(optionsInput = {}) {
     ...measurementInput,
     torso: {
       ...torsoBase,
-      width: toNumber(torsoBase.width, defaultTorsoWidth) * bodyScale,
-      height: toNumber(torsoBase.height, defaultTorsoHeight) * bodyScale,
-      shoulderExtension: Math.max(toNumber(torsoBase.shoulderExtension, defaultShoulderExtension), 0) * bodyScale,
+      width: torsoDimensions.width,
+      height: torsoDimensions.height,
+      shoulderExtension: torsoDimensions.shoulderExtension,
       direction
     },
     head: {
@@ -149,20 +187,10 @@ function steperManZoom(optionsInput = {}) {
     }
   };
 
-  const forwardedOptions = {
-    ...options,
+  const figure = baseStaticBuilder({
     position: anchorPoint,
     measurements: updatedMeasurements
-  };
-  delete forwardedOptions.progress;
-  delete forwardedOptions.zoomProgress;
-  delete forwardedOptions.zoomFactor;
-  delete forwardedOptions.swing;
-  delete forwardedOptions.handSwing;
-  delete forwardedOptions.direction;
-  delete forwardedOptions.baseMeasurements;
-
-  const figure = baseStaticBuilder(forwardedOptions);
+  });
   figure.sequenceState = {
     position: [...anchorPoint],
     measurements: cloneValue(updatedMeasurements)
@@ -171,11 +199,14 @@ function steperManZoom(optionsInput = {}) {
     mode: "zoom",
     progress,
     zoomProgress,
-    zoomFactor,
-    swing: swingAmount,
-    handSwing: handSwingAmount,
+    zoom: zoomTarget,
+    zoomFactor: zoomTarget,
     anchorPoint,
-    direction
+    direction,
+    fixedSide,
+    movingSide,
+    fixedPoint: addPoints(anchorPoint, legEffectors[fixedSide]),
+    movingPoint: addPoints(anchorPoint, legEffectors[movingSide])
   };
   return figure;
 
@@ -212,40 +243,24 @@ function steperManZoom(optionsInput = {}) {
   }
 }
 
-function computeSwingOffsets(baseOffsets, bodyScale, swingAmount, phase, targetLengthBySide = null) {
-  const result = {};
-  for (const side of ["left", "right"]) {
-    const base = toPoint(baseOffsets[side], [0, 0]);
-    const wave = Math.sin(phase + (side === "right" ? Math.PI : 0));
-    const depthScale = Math.max(0, 1 - wave * swingAmount);
-    const raw = [
-      base[0] * bodyScale,
-      base[1] * bodyScale * depthScale
-    ];
-    const targetLength = targetLengthBySide && typeof targetLengthBySide[side] === "number"
-      ? Math.max(1e-6, targetLengthBySide[side] * depthScale)
-      : null;
-    result[side] = targetLength ? scaleToLength(raw, targetLength) : raw;
-  }
-  return result;
-}
-
-function resolveStraightLimbs(effectorBySide, baseLengthsBySide, bendFallback = {}) {
+function resolveStraightLimbs(effectorBySide, lengthsBySide, bendFallback = {}, attachmentOffsets = null) {
   const result = {};
   for (const side of ["left", "right"]) {
     const effector = toPoint(effectorBySide[side], [0, 0]);
-    const lengths = baseLengthsBySide[side] || { upper: 1, lower: 1 };
-    const upperBase = toNumber(lengths.upper, 0);
-    const lowerBase = toNumber(lengths.lower, 0);
+    const attachment = attachmentOffsets && toPoint(attachmentOffsets[side], [0, 0]);
+    const dx = attachment ? effector[0] - attachment[0] : effector[0];
+    const dy = attachment ? effector[1] - attachment[1] : effector[1];
+    const effectorLength = Math.max(1e-6, Math.sqrt(dx * dx + dy * dy));
+    const lengths = lengthsBySide[side] || { upper: 1, lower: 1 };
+    const upperBase = Math.max(0, toNumber(lengths.upper, 0));
+    const lowerBase = Math.max(0, toNumber(lengths.lower, 0));
     const totalBase = Math.max(1e-6, upperBase + lowerBase);
-    const effectorLength = Math.max(1e-6, distanceFromOrigin(effector));
     const upperRatio = upperBase / totalBase;
     const lowerRatio = lowerBase / totalBase;
-    const targetTotal = effectorLength;
     result[side] = {
       effectorCoordinate: effector,
-      upperLength: targetTotal * upperRatio,
-      lowerLength: targetTotal * lowerRatio,
+      upperLength: effectorLength * upperRatio,
+      lowerLength: effectorLength * lowerRatio,
       positiveBend: toBoolean(lengths.positiveBend, bendFallback[side])
     };
   }
@@ -253,7 +268,12 @@ function resolveStraightLimbs(effectorBySide, baseLengthsBySide, bendFallback = 
 }
 
 function readEffectorOffset(measurement, fallback) {
-  return toPoint(measurement?.effectorCoordinate, fallback);
+  const raw = measurement?.effectorCoordinate;
+  if (typeof raw === "number") {
+    const base = toPoint(fallback, [0, 0]);
+    return [base[0], toNumber(raw, base[1])];
+  }
+  return toPoint(raw, fallback);
 }
 
 function readLimbLengths(measurement, defaults) {
@@ -266,7 +286,7 @@ function readLimbLengths(measurement, defaults) {
   return { upper, lower, positiveBend };
 }
 
-function scaleLimbLengths(lengths, scale) {
+function scaleLengths(lengths, scale) {
   const factor = Math.max(0, toNumber(scale, 1));
   return {
     upper: toNumber(lengths?.upper, 0) * factor,
@@ -275,9 +295,28 @@ function scaleLimbLengths(lengths, scale) {
   };
 }
 
+function readDepth(input, fallbackY) {
+  if (Array.isArray(input) && input.length > 1 && Number.isFinite(input[1])) {
+    return toNumber(input[1], fallbackY);
+  }
+  if (input && typeof input === "object") {
+    if (typeof input.y === "number") return toNumber(input.y, fallbackY);
+    if (typeof input.top === "number") return toNumber(input.top, fallbackY);
+  }
+  return toNumber(fallbackY, 0);
+}
+
 function normalizeDirection(value, fallback = "front") {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (text === "front" || text === "back" || text === "left" || text === "right") {
+    return text;
+  }
+  return fallback;
+}
+
+function normalizeSide(value, fallback = "left") {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (text === "left" || text === "right") {
     return text;
   }
   return fallback;
@@ -361,12 +400,37 @@ function subtractPoints(a, b) {
   return [a[0] - b[0], a[1] - b[1]];
 }
 
-function scaleToLength(point, targetLength) {
-  const current = distanceFromOrigin(point);
-  if (!Number.isFinite(current) || current < 1e-6) {
-    return [0, -targetLength];
+function resolveTorsoDimensions(torsoBase, bodyScale, direction) {
+  const width = toNumber(torsoBase.width, defaultTorsoWidth) * bodyScale;
+  const height = toNumber(torsoBase.height, defaultTorsoHeight) * bodyScale;
+  const shoulderExtension = Math.max(toNumber(torsoBase.shoulderExtension, defaultShoulderExtension), 0) * bodyScale;
+  return { width, height, shoulderExtension, direction };
+}
+
+function resolveAttachments(torso) {
+  const halfWidth = torso.width / 2;
+  const handOffset = halfWidth + torso.shoulderExtension;
+  const handsY = torso.height * 0.85;
+  const legOffset = torso.width * 0.25;
+  if (torso.direction === "left" || torso.direction === "right") {
+    return {
+      hands: { left: [0, handsY], right: [0, handsY] },
+      legs: { left: [0, 0], right: [0, 0] }
+    };
   }
-  const scale = targetLength / current;
+  return {
+    hands: {
+      left: [-handOffset, handsY],
+      right: [handOffset, handsY]
+    },
+    legs: {
+      left: [-legOffset, 0],
+      right: [legOffset, 0]
+    }
+  };
+}
+
+function scalePoint(point, scale) {
   return [point[0] * scale, point[1] * scale];
 }
 

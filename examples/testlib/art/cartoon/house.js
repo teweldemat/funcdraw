@@ -44,6 +44,57 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, num));
 }
 
+function normalizeGraphics(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.slice();
+  }
+  if (typeof value === "object") {
+    if (Array.isArray(value.graphics)) {
+      return value.graphics.slice();
+    }
+    return [value];
+  }
+  return [];
+}
+
+function applyOpacity(nodes, opacity) {
+  const clamped = clampNumber(opacity, 0, 1, 1);
+  if (clamped >= 1) {
+    return nodes;
+  }
+  return nodes.map((node) => {
+    if (!node || typeof node !== "object") {
+      return node;
+    }
+    const existing = typeof node.opacity === "number" ? node.opacity : 1;
+    return { ...node, opacity: existing * clamped };
+  });
+}
+
+function resolveInterior(spec, context) {
+  if (!spec) {
+    return [];
+  }
+  const baseValue = typeof spec === "function" ? spec(context) : spec;
+  const graphics = normalizeGraphics(
+    baseValue && typeof baseValue === "object" && !Array.isArray(baseValue) && baseValue.graphics
+      ? baseValue.graphics
+      : baseValue
+  );
+  if (graphics.length === 0) {
+    return [];
+  }
+
+  const resolvedOpacity =
+    typeof baseValue === "object" && !Array.isArray(baseValue)
+      ? baseValue.opacity ?? context.reveal
+      : context.reveal;
+  return applyOpacity(graphics, resolvedOpacity);
+}
+
 function selectPalette(type) {
   switch (type) {
     case "modern":
@@ -83,13 +134,15 @@ function createWindow(position, size) {
 
 function createDoor(position, width, height, color, outline, openLevel, interiorColor) {
   const clampedLevel = Math.max(0, Math.min(1, openLevel || 0));
+  const baseOpacity = clampedLevel <= 0 ? 1 : 0; // hide the static slab as soon as the door starts opening
   const base = {
     type: "rect",
     position: [position[0] - width / 2, position[1]],
     size: [width, height],
     fill: clampedLevel > 0 ? interiorColor : color,
     stroke: outline,
-    width: Math.max(width * 0.08, 0.25)
+    width: Math.max(width * 0.08, 0.25),
+    opacity: baseOpacity
   };
 
   if (clampedLevel <= 0) {
@@ -99,7 +152,7 @@ function createDoor(position, width, height, color, outline, openLevel, interior
   const hingeX = position[0] - width / 2;
   const bottomY = position[1];
   const topY = position[1] + height;
-  const angle = clampedLevel * Math.PI * 0.5;
+  const angle = clampedLevel * Math.PI; // swing fully flat against the wall
   const swingOut = Math.sin(angle);
   const swingForward = Math.cos(angle);
   const outwardOffsetX = width * 0.6 * swingOut;
@@ -120,7 +173,7 @@ function createDoor(position, width, height, color, outline, openLevel, interior
     width: strokeWidth
   };
 
-  return [base, panel];
+  return [panel];
 }
 
 function createClassicRoof(center, width, roofHeight, color, outline) {
@@ -187,25 +240,43 @@ function house(rawOptions = {}) {
   const roofHeight = width * (type === "modern" ? 0.08 : type === "cottage" ? 0.3 : 0.4);
   const baseLeft = position[0] - width / 2;
   const doorWidth = Math.max(width * 0.18, 2.2);
-  const doorHeight = baseHeight * 0.45;
+  const doorHeight = baseHeight * 0.9; // taller opening so interior occupants are visible
   const windowSize = width * 0.2;
   const windowY = position[1] + baseHeight * 0.55;
+  const interiorReveal = doorOpenLevel;
+  const doorLeft = position[0] - doorWidth / 2;
+  const doorRight = position[0] + doorWidth / 2;
+  const baseTop = position[1] + baseHeight;
 
-  const graphics = [];
-  graphics.push({
-    type: "rect",
-    position: [baseLeft, position[1]],
-    size: [width, baseHeight],
-    fill: palette.body,
-    stroke: palette.outline,
-    width: Math.max(width * 0.04, 0.4)
+  const interiorNodes = resolveInterior(options.interior, {
+    doorWidth,
+    doorHeight,
+    doorPosition: [position[0], position[1]],
+    doorCenter: [position[0], position[1] + doorHeight / 2],
+    baseHeight,
+    baseWidth: width,
+    reveal: interiorReveal,
+    palette,
+    doorAnchor: [position[0], position[1]]
   });
 
-  graphics.push(
-    createWindow([position[0] - width * 0.25, windowY], windowSize),
-    createWindow([position[0] + width * 0.25, windowY], windowSize)
-  );
+  const graphics = [];
 
+  // Dark room fill behind the door
+  graphics.push({
+    type: "rect",
+    position: [doorLeft, position[1]],
+    size: [doorWidth, doorHeight],
+    fill: "#0b1224",
+    stroke: "#0b1224",
+    width: Math.max(doorWidth * 0.04, 0.25),
+    opacity: Math.max(0, 1 - interiorReveal)
+  });
+
+  // Interior occupant/content
+  graphics.push(...interiorNodes);
+
+  // Door on top of interior
   graphics.push(
     ...createDoor(
       [position[0], position[1]],
@@ -216,6 +287,47 @@ function house(rawOptions = {}) {
       doorOpenLevel,
       palette.outline
     )
+  );
+
+  // Walls over door (hide the portion swinging inside), then windows
+  const wallStroke = Math.max(width * 0.04, 0.4);
+  const leftWidth = Math.max(0, doorLeft - baseLeft);
+  if (leftWidth > 0) {
+    graphics.push({
+      type: "rect",
+      position: [baseLeft, position[1]],
+      size: [leftWidth, baseHeight],
+      fill: palette.body,
+      stroke: palette.outline,
+      width: wallStroke
+    });
+  }
+  const rightWidth = Math.max(0, baseLeft + width - doorRight);
+  if (rightWidth > 0) {
+    graphics.push({
+      type: "rect",
+      position: [doorRight, position[1]],
+      size: [rightWidth, baseHeight],
+      fill: palette.body,
+      stroke: palette.outline,
+      width: wallStroke
+    });
+  }
+  const topHeight = Math.max(0, baseHeight - doorHeight);
+  if (topHeight > 0) {
+    graphics.push({
+      type: "rect",
+      position: [doorLeft, position[1] + doorHeight],
+      size: [doorWidth, topHeight],
+      fill: palette.body,
+      stroke: palette.outline,
+      width: wallStroke
+    });
+  }
+
+  graphics.push(
+    createWindow([position[0] - width * 0.25, windowY], windowSize),
+    createWindow([position[0] + width * 0.25, windowY], windowSize)
   );
 
   if (type === "modern") {

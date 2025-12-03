@@ -3,14 +3,14 @@ const stickmanModule = cartoonLibrary?.stickman ?? {};
 const hasSteperManProfile = typeof stickmanModule?.steperManProfile === 'function';
 const steperBuilder = hasSteperManProfile ? stickmanModule.steperManProfile : null;
 
-const view = { left: -24, bottom: -6, right: 24, top: 38 };
+const view = { left: -400, bottom: -300, right: 400, top: 300 };
 const groundY = 0;
-const anchorBaseY = 9.4;
+const anchorBaseY = 18.8;
 const timeValue = typeof t === 'number' ? t : 0;
 const progress = clamp01(timeValue);
-const fixedPoint = [-16, groundY];
-const movingStartPoint = [-24, groundY];
-const movingTargetPoint = [-8, groundY];
+const fixedPoint = [-32, groundY];
+const movingStartPoint = [-48, groundY];
+const movingTargetPoint = [-16, groundY];
 
 if (!steperBuilder) {
   return {
@@ -21,7 +21,7 @@ if (!steperBuilder) {
         text: 'package("@funcdraw/testlib").cartoon.stickman.steperManProfile unavailable',
         position: [0, 12],
         fill: '#ef4444',
-        fontSize: 3,
+        fontSize: 12,
         align: 'center'
       }
     ]
@@ -29,7 +29,7 @@ if (!steperBuilder) {
 }
 
 const anchorX = lerp(fixedPoint[0], movingTargetPoint[0], progress * 0.5);
-const anchorLift = Math.sin(Math.PI * progress) * 0.6;
+const anchorLift = Math.sin(Math.PI * progress) * 1.2;
 
 const hero = steperBuilder({
   fixedFeet: 'left',
@@ -39,8 +39,16 @@ const hero = steperBuilder({
   progress,
   position: [anchorX, anchorBaseY + anchorLift],
   measurements: {
-    torso: { direction: 'right' },
-    head: { direction: 'right' }
+    torso: { direction: 'right', height: 22, width: 12 },
+    head: { direction: 'right', verticalExtent: 9 },
+    legs: {
+      left: { effectorCoordinate: [-4, -18.8] },
+      right: { effectorCoordinate: [4, -18.8] }
+    },
+    hands: {
+      left: { effectorCoordinate: [-7.8, 4.7] },
+      right: { effectorCoordinate: [7.8, 4.7] }
+    }
   },
   handSwing: {
     amplitude: 6,
@@ -137,7 +145,7 @@ function createDebugText({ left, right, anchor }) {
       type: 'text',
       text,
       position: [basePos[0], basePos[1] - index * lineHeight],
-      fontSize: 2,
+      fontSize: 12,
       align: 'left',
       fill: '#e2e8f0'
     });

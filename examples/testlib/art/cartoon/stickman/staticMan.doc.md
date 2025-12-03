@@ -16,11 +16,10 @@ Pass a single `options` object (or omit it) when calling `stickman`. Values may 
 
 ### Option schema
 
+Shared types (`Direction`, `Side`, `FootDirection`, `PointInput`, and `StickmanMeasurements`) live in `schema.md`.
+
 ```ts
 type Color = string; // CSS-compatible color
-type Direction = "front" | "back" | "left" | "right";
-type FootDirection = "left" | "right";
-type PointInput = [number, number] | { x: number; y: number } | { left: number; top: number };
 
 type StickmanOptions = {
   position?: PointInput; // torso center-bottom anchor; defaults to [0, 10.5] so toes land at y=0
@@ -37,56 +36,16 @@ type StickmanOptions = {
     handWidth?: number;       // arm stroke width (default 0.8)
     legStroke?: Color;        // overrides leg stroke color (defaults to skinStroke)
     legWidth?: number;        // leg stroke width (default 1.1)
-    footStroke?: Color;       // toe-line stroke color (default "#f97316")
+    footStroke?: Color;       // toe-line stroke color (default "#f59e0b")
     footStrokeWidth?: number; // toe-line stroke width (default 0.5)
     overlayHand?: Color;      // debug marker color for hand targets (default "#fb7185")
     overlayLeg?: Color;       // debug marker color for leg targets (default "#38bdf8")
   };
-  measurements?: {
-    torso?: {
-      width?: number;              // torso width in units (default 6)
-      height?: number;             // torso height (default 11)
-      shoulderExtension?: number;  // distance arms sit away from torso (default width * 0.15)
-      direction?: Direction;       // facing for torso/head default (default "front")
-    };
-    head?: {
-      verticalExtent?: number;     // head height (default 4.5)
-      angle?: number;              // head tilt in degrees (default 90 upright)
-      direction?: Direction;       // head facing (defaults to torso direction)
-    };
-    hands?: {
-      left?: HandSideOptions;
-      right?: HandSideOptions;
-    };
-    legs?: {
-      left?: LegSideOptions;
-      right?: LegSideOptions;
-    };
-  };
-};
-
-// "left" and "right" always refer to screen-left/screen-right limbs regardless of torso.direction.
-
-type HandSideOptions = {
-  upperLength?: number;          // shoulder→elbow length (default 4)
-  lowerLength?: number;          // elbow→hand length (default 3)
-  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (default straight below shoulder)
-  positiveBend?: boolean;        // shoulder->elbow vector rotation sign relative to the shoulder→effector vector (left false, right true by default)
-};
-
-type LegSideOptions = {
-  upperLength?: number;          // hip→knee length (default 5.2)
-  lowerLength?: number;          // knee→ankle length (default 4.8)
-  effectorCoordinate?: PointInput;// IK foot target relative to StickmanOptions.position (default [±1.5, -10])
-  positiveBend?: boolean;        // hip->knee rotation sign relative to the hip→effector vector (left false, right true)
-  foot?: {
-    length?: number | null;      // toe-line length (default ≈ 2.2, null keeps base)
-    direction?: FootDirection;   // toe direction (defaults to bend direction; positive => "right")
-  };
+  measurements?: StickmanMeasurements; // see schema.md for field shapes; defaults come from skeleton.doc.md
 };
 ```
 
-All fields are optional. Omitted palette colors fall back to the defaults inside `defaultPalette`. Missing measurement branches inherit the base pose documented in `skeleton.doc.md`.
+All fields are optional. Omitted palette colors fall back to the defaults inside `defaultPalette`. Missing measurement branches inherit the base pose documented in `skeleton.doc.md`; `schema.md` documents the measurement fields themselves. "Left" and "right" always refer to screen-left/screen-right limbs regardless of torso facing.
 
 ## Output
 

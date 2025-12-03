@@ -16,7 +16,7 @@
 
 ```ts
 type Direction = "front" | "back" | "left" | "right";
-type FootDirection = "left" | "right";
+type FootDirection = "left" | "right" | "center";
 type PointInput = [number, number] | { x: number; y: number } | { left: number; top: number };
 
 type StickmanOptions = {
@@ -60,8 +60,8 @@ type LegSideConfig = {
   effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults keep toes under the torso, e.g. [±1.5, -10])
   positiveBend?: boolean;         // knee rotation relative to the hip→effector vector (left false, right true)
   foot?: {
-    length?: number | null;       // toe-line length (default defers to feet.js base when null)
-    direction?: FootDirection;    // toe direction (screen referential; defaults to bend direction: positive => "right")
+    length?: number | null;       // toe-line length (front/back facings shrink to a narrow line; otherwise defers to feet.js base when null)
+    direction?: FootDirection;    // toe direction (profile facings follow torso.direction; front/back default to "center" for a symmetric dash; otherwise defaults to bend direction: positive => "right")
   };
 };
 ```

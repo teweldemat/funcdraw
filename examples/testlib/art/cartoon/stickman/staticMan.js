@@ -9,7 +9,7 @@ const defaultPalette = {
   skinStroke: "#f97316",
   handWidth: 0.8,
   legWidth: 1.1,
-  footStroke: "#f97316",
+  footStroke: "#f59e0b",
   footStrokeWidth: 0.5,
   overlayHand: "#fb7185",
   overlayLeg: "#38bdf8"
@@ -58,6 +58,9 @@ function stickMan(optionsInput = {}) {
     height: skeletonPose.torso.height,
     shoulderExtension: skeletonPose.torso.shoulderExtension,
     direction: skeletonPose.torso.direction,
+    handAttachmentPoints: skeletonPose.torso.handAttachmentPoints,
+    legAttachmentPoints: skeletonPose.torso.legAttachmentPoints,
+    headAttachmentPoint: skeletonPose.torso.headAttachmentPoint,
     fill: palette.torsoFill,
     stroke: palette.torsoStroke,
     strokeWidth: palette.torsoStrokeWidth

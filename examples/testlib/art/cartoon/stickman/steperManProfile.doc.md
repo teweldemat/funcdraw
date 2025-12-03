@@ -1,73 +1,64 @@
 # steperManProfile Model (profile walk)
 ## Overview
-`stickman/steperManProfile.js` reuses the static cartoon stickman while orchestrating a single profile (side-view) walking step. Call `package("@funcdraw/testlib").cartoon.stickman.steperManProfile(options)` to pin one foot in place (`fixedFeet`), move the opposite foot from `movingFeetStartPoint` toward `movingFeetTargetPoint`, and let the helper animate that leg along a simple arc (lift controlled by the segment length). The helper also slides the torso anchor (stickman `position`) between both ankle constraints, so the character’s body shifts naturally as the step progresses. The rest of the pose is forwarded to `stickman/staticMan`, so every measurement override behaves exactly like the base model.
+`stickman/steperManProfile.js` now focuses on producing a single profile step pose that you can chain yourself. Give it a torso anchor, the current stickman measurements, tell it which side should move, and pass the world target for that moving foot. The helper animates the moving foot along a lifted arc toward the target, recenters the torso anchor between both ankles, and patches the leg offsets (plus arm swing, if enabled) so you can feed the returned `position`/`measurements` into the next call or straight into `stickman/staticMan`.
 
 ## Construction Overview
 
-1. **Determine defaults** – capture the static stickman’s skeletal rest pose to figure out reasonable baseline ankle offsets if the caller omits explicit points.
-2. **Resolve inputs** – normalize `position` (fallback anchor), `fixedFeet*`, `movingFeet*`, and `progress` (clamped between 0 and 1) while converting everything to world-space coordinates.
-3. **Arc interpolation** – compute the moving foot’s current world coordinate by lerping between `movingFeetStartPoint` and `movingFeetTargetPoint`, then add a sine-based vertical lift so the toes follow an arc.
-4. **Recenter torso anchor** – subtract each ankle’s default offset from its world position, average the candidates so the stickman anchor glides between both legs, and clamp the vertical drift to ±1.2 units so the torso bobs gently instead of pogoing.
-5. **Update measurements** – translate both world-space ankle targets into offsets relative to the recentered anchor and patch them into `measurements.legs.left/right.effectorCoordinate`.
-6. **Delegate to static stickman** – pass the augmented options to `staticMan` and attach a small `step` metadata object that reports which foot was fixed, which is moving, and the resolved world coordinates/anchor.
+1. **Resolve inputs** – normalize the current anchor (`position`), measurements, `movingSide`, `movingFeetTargetPoint`, and `progress` (clamped 0–1). Defaults pull from the base static pose when a measurement offset is missing.
+2. **Arc interpolation** – animate the moving foot from its current world position (anchor + effectorCoordinate) toward `movingFeetTargetPoint` along a sine-lifted arc (height scales with stride length, minimum lift 1.5).
+3. **Recenter torso anchor** – compute the anchor implied by each ankle (`footWorld - effectorCoordinate`), average them, and clamp vertical drift to ±1.2 around the incoming anchor so the torso bobs instead of pogoing.
+4. **Update measurements** – translate both world ankle targets into new `legs.*.effectorCoordinate` offsets relative to the recentered anchor; mirror the torso/head direction and apply optional hand swing based on the leg offsets.
+5. **Render (optional)** – the updated pose is forwarded to `stickman/staticMan`, so you still get `graphics`, `overlays`, and `skeleton` when you want to draw the step directly.
 
 ## Inputs
 
-`steperManProfile(options?)` accepts everything `stickman.static` understands plus a handful of step-specific fields:
+`steperManProfile(options?)` accepts the same base options as `stickman.static` plus a small set of step fields. Shared types (`Side`, `PointInput`, `StickmanMeasurements`) are defined in `schema.md` and `staticMan.doc.md`.
 
 ```ts
-type Side = "left" | "right";
-
 type SteperManProfileOptions = {
-  position?: PointInput;            // Fallback torso anchor if neither ankle supplies a usable position
-  measurements?: StickmanOptions["measurements"];
-  palette?: StickmanOptions["palette"];
+  position?: PointInput;                     // current torso anchor
+  measurements?: StickmanOptions["measurements"]; // current pose (legs offsets, torso/head direction, etc.)
 
-  fixedFeet?: Side;                 // Which foot should stay planted ("left" by default)
-  fixedFeetPoint?: PointInput;      // World-space target for the fixed ankle (defaults to static pose)
-  movingFeetStartPoint?: PointInput;// World-space point where the moving foot begins (defaults to static pose)
-  movingFeetTargetPoint?: PointInput;// World-space destination the moving foot should reach (falls back to start)
-  progress?: number;                // Step progress between 0 and 1 (clamped); drives interpolation along the arc
+  movingSide?: Side;                         // which foot is stepping ("left" default)
+  movingFeetTargetPoint?: PointInput;        // world-space destination for the moving ankle
+  progress?: number;                         // step phase between 0 and 1
+  arcHeight?: number;                        // optional lift override
 
-  handSwing?: {                     // Optional arm swing controls
-    enabled?: boolean;              // false disables the automation entirely (default true)
-    amplitude?: number;             // horizontal offset multiplier (default 1.4)
-    lift?: number;                  // vertical swing multiplier (default 0.35)
-    forwardOffset?: number;         // constant horizontal offset applied to both arms (default 0)
-    phase?: number;                 // extra radians used only when mode === "sine" (default 0)
-    mode?: "mirror" | "sine";       // "mirror" copies the opposite leg angles (default), "sine" preserves the legacy wave
+  handSwing?: {                              // optional arm swing controls (same as before)
+    enabled?: boolean;                       // false disables automation (default true)
+    amplitude?: number;                      // horizontal swing multiplier (default 1.4)
+    lift?: number;                           // vertical swing multiplier (default 0.35)
+    forwardOffset?: number;                  // horizontal bias applied to both arms (default 0)
+    phase?: number;                          // extra radians when mode === "sine" (default 0)
+    mode?: "mirror" | "sine";                // "mirror" follows the opposite leg (default)
   };
+
+  // Legacy compatibility helpers (kept so older callers keep working)
+  fixedFeet?: Side;
+  fixedFeetPoint?: PointInput;
+  movingFeetStartPoint?: PointInput;
+  movingFeetTarget?: PointInput;
 };
 ```
 
-- All point inputs accept `[x, y]`, `{ x, y }`, or `{ left, top }` just like the static model.
-- If `movingFeetTargetPoint` is omitted the leg stays near `movingFeetStartPoint`, letting you hold the foot in mid-air simply by animating `progress`.
-- Arc height defaults to 25% of the planar distance between the start and target (with a minimum lift of 1.5 units) so short steps still pick up slightly.
-
-### Hand swing controls
-
-When `handSwing.enabled !== false`, `steperManProfile` offsets the stickman’s arm effectors every frame so they swing opposite the stepping leg (right leg forward pushes the left arm forward, etc.). In the default `mode: "mirror"` the helper inspects both leg offsets, computes how far each ankle leads/lag relative to the torso, and applies a mirrored version of that angle/height to the opposite arm. `amplitude` and `lift` act as multipliers on the mirrored horizontal/vertical deltas, while `forwardOffset` nudges both hands equally. Swap to `mode: "sine"` if you want the legacy cosine/sine sweep that ignores leg placement but still responds to `amplitude`, `lift`, `forwardOffset`, and `phase`.
+- All point inputs accept `[x, y]`, `{ x, y }`, or `{ left, top }`.
+- If `movingFeetTargetPoint` is omitted the moving foot stays at its current world position; animating `progress` alone lifts/drops the foot in place.
+- The helper infers the fixed foot as the opposite of `movingSide`; the legacy `fixedFeet` and `movingFeetStartPoint` fields are still read for callers that have not switched to the new API yet.
 
 ## Outputs
 
 ```ts
 type SteperManProfileResult = {
-  graphics: DrawableShape[];
-  overlays: OverlayPoint[];
-  skeleton: SkeletonPose;
-  sequenceState: {
-    position: [number, number];
-    measurements: StickmanOptions["measurements"];
-  };
-  step: {
-    fixedSide: Side;
-    movingSide: Side;
-    fixedPoint: [number, number];
-    movingPoint: [number, number];
-    anchorPoint: [number, number];
-    progress: number;
-  };
+  position: [number, number];                     // recentered torso anchor
+  measurements: StickmanOptions["measurements"];  // updated pose with new leg offsets (and optional hand swing)
+  finalPosition: [number, number];                // alias of position
+  finalMeasurements: StickmanOptions["measurements"]; // alias of measurements
+  sequenceState: { position: [number, number]; measurements: StickmanOptions["measurements"]; };
+  step: { fixedSide: Side; movingSide: Side; fixedPoint: [number, number]; movingPoint: [number, number]; anchorPoint: [number, number]; progress: number; };
+  graphics?: DrawableShape[];                     // when staticMan is available
+  overlays?: OverlayPoint[];
+  skeleton?: SkeletonPose;
 };
 ```
 
-`graphics`, `overlays`, and `skeleton` come directly from `stickman.static`, so render or inspect them the same way you would the base model. `sequenceState` exposes the resolved `position` plus the leg-updated `measurements`, making it easy to pass the pose into another step or animation stage. The additional `step` metadata tells you which limb is grounded, the resolved ankle coordinates (world space), the animated torso anchor, and the clamped progress value; downstream callers can use that to synchronize props (e.g., footprints) or blend multiple steperManProfile calls into a full gait cycle.
+Use the top-level `position`/`measurements` (or `sequenceState`) to feed the next step or hand the pose to `stickman.static` yourself. `graphics`, `overlays`, and `skeleton` stay available for drop-in rendering, and `step` exposes the resolved ankle/anchor world points for debug overlays or footprint tracking.

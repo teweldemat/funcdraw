@@ -11,18 +11,26 @@ const defaultPose = typeof createStickman.skeleton === 'function' ? createStickm
 const defaultY = Array.isArray(defaultPose?.position) ? defaultPose.position[1] : 10.5;
 const groundY = 0;
 const lineup = [
-  { x: -24, direction: 'left' },
-  { x: -8, direction: 'front' },
-  { x: 8, direction: 'back' },
-  { x: 24, direction: 'right' }
+  { x: -48, direction: 'left' },
+  { x: -16, direction: 'front' },
+  { x: 16, direction: 'back' },
+  { x: 48, direction: 'right' }
 ];
 
 const heroes = lineup.map(({ x, direction }) =>
   createStickman({
-    position: [x, groundY + 10],
+    position: [x, groundY + 22],
     measurements: {
-      torso: { direction },
-      head: { direction }
+      torso: { direction, height: 22, width: 12 },
+      head: { direction, verticalExtent: 9 },
+      legs: {
+        left: { effectorCoordinate: [-4, -22] },
+        right: { effectorCoordinate: [4, -22] }
+      },
+      hands: {
+        left: { effectorCoordinate: [-7.8, 4.7] },
+        right: { effectorCoordinate: [7.8, 4.7] }
+      }
     }
   })
 );
@@ -30,22 +38,22 @@ const heroes = lineup.map(({ x, direction }) =>
 const labels = lineup.map(({ x, direction }) => ({
   type: 'text',
   text: direction,
-  position: [x, -3],
+  position: [x, -6],
   fill: '#0f172a',
-  fontSize: 3,
+  fontSize: 12,
   align: 'center'
 }));
 
 const baseline = {
   type: 'line',
-  from: [-28, groundY],
-  to: [28, groundY],
+  from: [-56, groundY],
+  to: [56, groundY],
   stroke: '#94a3b8',
   width: 0.5
 };
 
 return {
-  view: { left: -32, bottom: -5, right: 32, top: 32 },
+  view: { left: -400, bottom: -300, right: 400, top: 300 },
   graphics: [
     baseline,
     ...heroes.flatMap((hero) => (hero && Array.isArray(hero.graphics) ? hero.graphics : [])),

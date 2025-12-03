@@ -11,7 +11,7 @@ const DEFAULT_LEG_OFFSET = DEFAULT_TORSO_WIDTH * 0.25;
 const DEFAULT_LEG_TOTAL = DEFAULT_LEG_UPPER_LENGTH + DEFAULT_LEG_LOWER_LENGTH;
 const DEFAULT_FOOT_THICKNESS = 0.5;
 const DEFAULT_POSITION_Y = DEFAULT_LEG_TOTAL + DEFAULT_FOOT_THICKNESS;
-const PROFILE_FOOT_LINE_LENGTH = DEFAULT_TORSO_WIDTH * 0.12;
+const FRONT_BACK_FOOT_LINE_LENGTH = DEFAULT_TORSO_WIDTH * 0.12;
 const IK_EPSILON = 1e-6;
 
 const defaultMeasurements = {
@@ -94,6 +94,9 @@ function normalizeFootDirection(value, fallback = "left") {
     const lowered = value.trim().toLowerCase();
     if (lowered === "left" || lowered === "right") {
       return lowered;
+    }
+    if (lowered === "center" || lowered === "middle") {
+      return "center";
     }
   }
   return fallback;
@@ -260,6 +263,8 @@ function buildLegSkeleton(
 ) {
   const defaults = defaultMeasurements.legs;
   const legOverrides = normalizeInput(legOverrideInputs, null);
+  const isProfile = torsoDirection === "left" || torsoDirection === "right";
+  const isFrontFacing = torsoDirection === "front" || torsoDirection === "back";
   return {
     left: buildLegSide("left"),
     right: buildLegSide("right")
@@ -283,9 +288,15 @@ function buildLegSkeleton(
       : fallbackEffector;
 
     const positiveBend = resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
-    const profileFootLength =
-      torsoDirection === "left" || torsoDirection === "right" ? PROFILE_FOOT_LINE_LENGTH : null;
-    const foot = resolveFootMeasurement(measurement, positiveBend, profileFootLength);
+    const defaultFootDirection = isProfile
+      ? torsoDirection
+      : isFrontFacing
+        ? "center"
+        : positiveBend
+          ? "right"
+          : "left";
+    const frontFacingFootLength = isFrontFacing ? FRONT_BACK_FOOT_LINE_LENGTH : null;
+    const foot = resolveFootMeasurement(measurement, defaultFootDirection, frontFacingFootLength);
     const targetPoint = addOffset(position, effector);
     const ik = solveLimbPose(attachmentPoints[side], targetPoint, upperLength, lowerLength, positiveBend);
 
@@ -311,8 +322,7 @@ function buildLegSkeleton(
   }
 }
 
-function resolveFootMeasurement(measurement, positiveBend, defaultLengthOverride = null) {
-  const defaultDirection = positiveBend ? "right" : "left";
+function resolveFootMeasurement(measurement, defaultDirection, defaultLengthOverride = null) {
   const normalizedFoot = normalizeInput(measurement.foot, null);
   if (normalizedFoot) {
     return {

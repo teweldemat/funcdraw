@@ -69,12 +69,22 @@ Run `npm run play -- [options]` from a FuncDraw package to start the preview ser
 - `--debug` print every evaluated scene payload to the terminal; helpful when inspecting warnings or raw output.
 - `--test` run FuncScript package tests (pairs like `scene.fs` with `scene.test.fs`) and exit with non-zero status on failures; skips starting the preview server.
 - `--dump` evaluate once, print the scene payload, and exit (no UI server).
+- `--trace` print FuncScript package trace info; with `--dump` it includes the payload, without `--dump` it runs a trace-only evaluation and prints just the trace. Add `--trace step-into [filter]` to include every traced step (not just per-expression summaries) and optionally filter by substring.
 - `--exp <expression>` temporarily evaluate a FuncScript snippet with `art` bound to the loaded package (e.g., `art.altScene`), handy for debugging alternates without touching `art/eval.*`. just `art` will evaluate the loaded package. If the package has `eval` at the root that will be evaluated as per the funscript package convension.
 - `--svg` (dump mode only) also emit the rendered SVG payload when using `--dump`.
 - `--t <seconds>` seed the timeline hook (`fd.valueHooks.t`) before evaluation.
 - `--canvas <width> [height]` set the initial preview canvas size in pixels; omit height to keep the previous value.
 
-All options can be combined. For example, `npm run play -- --dump --svg --t 12.5` quickly inspects the scene at `t = 12.5s` and prints both raw data and SVG without starting the dev server. Use `--test` alone when you just want to run the package’s `.test.fs` suites and exit.
+All options can be combined. For example, `npm run play -- --dump --svg --trace --t 12.5` quickly inspects the scene at `t = 12.5s`, prints raw data and SVG, and includes the FuncScript trace without starting the dev server. Use `--test` alone when you just want to run the package’s `.test.fs` suites and exit.
+
+### Tracing with `--trace`
+
+Use `--trace` when you need to inspect how FuncScript resolves and evaluates your package without running the preview server.
+
+- `npm run play -- --trace` runs a single trace-only evaluation, printing per-expression trace entries (path, optional source span, snippet, and a preview of the returned value or error) and then exiting.
+- `npm run play -- --dump --trace [--svg]` prints both the scene payload and the trace, which is helpful in CI or when debugging headless renders.
+- Add `--trace step-into` to log every traced step instead of just per-expression summaries; append a substring to filter noisy output (e.g., `--trace step-into palette`).
+- Trace entries are emitted directly to the terminal via the runtime tracing hook, so they reflect the exact resolver path and values that were produced during evaluation.
 
 ### Working with `--test`
 

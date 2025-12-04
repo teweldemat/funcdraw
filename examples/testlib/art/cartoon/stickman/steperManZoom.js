@@ -10,8 +10,14 @@ const DEFAULT_ARM_UPPER_LENGTH = 4;
 const DEFAULT_ARM_LOWER_LENGTH = 3;
 const DEFAULT_LEG_UPPER_LENGTH = 5.2;
 const DEFAULT_LEG_LOWER_LENGTH = 4.8;
-const baseStaticBuilder = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
-const baseSkeleton = typeof baseStaticBuilder.skeleton === "function" ? baseStaticBuilder.skeleton() : null;
+if (typeof staticMan !== "function") {
+  throw new Error("staticMan builder is unavailable; stickman base rig must be loaded before steperManZoom");
+}
+if (!skeleton || typeof skeleton.build !== "function") {
+  throw new Error("stickman skeleton helper is unavailable; helpers/stickman/skeleton.js must be loaded");
+}
+const baseStaticBuilder = staticMan;
+const baseSkeleton = skeleton.build({}).skeleton;
 const skeletonPosition = isPoint(baseSkeleton?.position) ? baseSkeleton.position : DEFAULT_POSITION;
 const defaultLeftFoot = isPoint(baseSkeleton?.legs?.left?.targetPoint)
   ? baseSkeleton.legs.left.targetPoint

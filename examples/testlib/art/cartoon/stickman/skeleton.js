@@ -56,30 +56,16 @@ const defaultMeasurements = {
   }
 };
 
-const helperCollection = typeof helpers === "object" ? helpers : null;
-const clamp = helperCollection?.clamp;
-const normalizePoint = helperCollection?.normalizePoint;
-const addOffset = helperCollection?.addOffset;
-const resolveNumber = helperCollection?.resolveNumber;
-const resolveOptionalNumber = helperCollection?.resolveOptionalNumber;
-const resolveBoolean = helperCollection?.resolveBoolean;
-const mergeDeep = helperCollection?.mergeDeep;
-const normalizeInput = helperCollection?.normalizeInput;
-
-function requireHelper(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
-  }
-}
-
-requireHelper(clamp, "clamp");
-requireHelper(normalizePoint, "normalizePoint");
-requireHelper(addOffset, "addOffset");
-requireHelper(resolveNumber, "resolveNumber");
-requireHelper(resolveOptionalNumber, "resolveOptionalNumber");
-requireHelper(resolveBoolean, "resolveBoolean");
-requireHelper(mergeDeep, "mergeDeep");
-requireHelper(normalizeInput, "normalizeInput");
+const {
+  clamp,
+  normalizePoint,
+  addOffset,
+  resolveNumber,
+  resolveOptionalNumber,
+  resolveBoolean,
+  mergeDeep,
+  normalizeInput
+} = helpers;
 
 function normalizeDirection(value, fallback = "front") {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";

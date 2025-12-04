@@ -8,7 +8,7 @@ function zoomWalkMan(optionsInput = {}) {
   const progress = clamp01(toNumber(options.progress, 0));
   const direction = normalizeDirection(options.direction, "front");
   const zoomTarget = Math.max(0, toNumber(options.zoom, 1));
-  const stepper = resolveStepper(options.stepper);
+  const stepper = steperManZoom;
 
   const defaultOffsets = resolveDefaultLegOffsets(measurementsInput);
   const defaultStride = resolveStrideLength(measurementsInput, defaultOffsets);
@@ -23,12 +23,6 @@ function zoomWalkMan(optionsInput = {}) {
 
   let currentAnchor = anchorBase;
   let currentMeasurements = mergeFacing(measurementsInput, direction);
-  if (!stepper) {
-    return {
-      measurements: cloneValue(currentMeasurements),
-      position: cloneValue(currentAnchor)
-    };
-  }
   let remainingDepth = Math.abs(depthDelta);
   let leftFoot = addPoints(currentAnchor, resolveLegOffset(currentMeasurements?.legs?.left, defaultOffsets.left));
   let rightFoot = addPoints(currentAnchor, resolveLegOffset(currentMeasurements?.legs?.right, defaultOffsets.right));
@@ -233,15 +227,7 @@ function cloneValue(value) {
   return value;
 }
 
-function resolveStepper(value) {
-  if (typeof value === "function") {
-    return value;
-  }
-  if (typeof steperManZoom === "function") {
-    return steperManZoom;
-  }
-  return null;
-}
+
 
 if (typeof module !== "undefined") {
   module.exports = zoomWalkMan;

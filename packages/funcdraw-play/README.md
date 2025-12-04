@@ -50,6 +50,8 @@ Use `--test` to run FuncScript package tests (pairs like `scene.fs` and `scene.t
 
 Use `--dump` to skip server/browse launching altogether, evaluate the configured scene once (with SVG output), print the payload to the console, and exit. This is handy for CI pipelines or quick inspection without spinning up the preview UI.
 
+Use `--trace` to emit FuncScript package trace entries (paths, snippets, results) using the runtime's package tracing hook. Pair it with `--dump` to see both payload and trace, run `--trace` alone for a trace-only evaluation, or pass `--trace step-into [filter]` to include every traced step (optionally filtered by substring).
+
 Use `--exp <expression>` to evaluate a FuncScript snippet without editing `art/eval.*`. The snippet runs with `art` bound to the loaded package, so `--exp art.altScene --dump --t 1` dumps the `art/altScene.*` expression at `t = 1`—perfect for debugging alternate compositions.
 
 ## Time value hook & animation

@@ -1,19 +1,34 @@
-const safeStatic = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
-const safeSteperProfile = typeof steperManProfile === "function"
-  ? steperManProfile
-  : typeof steperMan === "function"
-    ? steperMan
-    : () => ({ graphics: [] });
-const safeSteperZoom = typeof steperManZoom === "function" ? steperManZoom : () => ({ graphics: [] });
-const safeSideWalkMan = typeof sideWalkMan === "function" ? sideWalkMan : () => ({ graphics: [] });
-const safeZoomWalkMan = typeof zoomWalkMan === "function" ? zoomWalkMan : () => ({ graphics: [] });
+function pick(name) {
+  if (typeof name === 'string') {
+    const direct = typeof globalThis !== 'undefined' ? globalThis[name] : undefined;
+    if (direct !== undefined) return direct;
+  }
+  return undefined;
+}
+
+const staticManExport =
+  typeof staticMan !== 'undefined' ? staticMan : typeof staticman !== 'undefined' ? staticman : pick('staticman');
+const steperProfileExport =
+  typeof steperManProfile !== 'undefined'
+    ? steperManProfile
+    : typeof stepermanprofile !== 'undefined'
+      ? stepermanprofile
+      : pick('stepermanprofile');
+const steperZoomExport =
+  typeof steperManZoom !== 'undefined'
+    ? steperManZoom
+    : typeof stepermanzoom !== 'undefined'
+      ? stepermanzoom
+      : pick('stepermanzoom');
+const sideWalkExport =
+  typeof sideWalkMan !== 'undefined' ? sideWalkMan : typeof sidewalkman !== 'undefined' ? sidewalkman : pick('sidewalkman');
+const zoomWalkExport =
+  typeof zoomWalkMan !== 'undefined' ? zoomWalkMan : typeof zoomwalkman !== 'undefined' ? zoomwalkman : pick('zoomwalkman');
 
 return {
-  static: safeStatic,
-  steperManProfile: safeSteperProfile,
-  steperManZoom: safeSteperZoom,
-  sideWalkMan: safeSideWalkMan,
-  zoomWalkMan: safeZoomWalkMan,
-  // Legacy alias to ease the transition; remove when callers swap to steperManProfile
-  steperMan: safeSteperProfile
+  static: staticManExport,
+  steperManProfile: steperProfileExport,
+  steperManZoom: steperZoomExport,
+  sideWalkMan: sideWalkExport,
+  zoomWalkMan: zoomWalkExport
 };

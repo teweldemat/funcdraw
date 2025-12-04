@@ -4,20 +4,7 @@ const defaultFeet = {
   strokeWidth: 0.5
 };
 
-const helperCollection = typeof helpers === "object" ? helpers : null;
-const normalizeInput = helperCollection?.normalizeInput;
-const normalizePoint = helperCollection?.normalizePoint;
-const resolveNumber = helperCollection?.resolveNumber;
-
-function requireHelper(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
-  }
-}
-
-requireHelper(normalizeInput, "normalizeInput");
-requireHelper(normalizePoint, "normalizePoint");
-requireHelper(resolveNumber, "resolveNumber");
+const { normalizeInput, normalizePoint, resolveNumber } = helpers;
 
 function clampPositive(value, fallback, min = 0.01) {
   const result = resolveNumber(value, fallback);

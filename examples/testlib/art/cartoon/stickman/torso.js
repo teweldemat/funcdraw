@@ -4,20 +4,7 @@ const defaultStyle = {
   strokeWidth: 0.6
 };
 
-const helperCollection = typeof helpers === "object" ? helpers : null;
-const normalizeInput = helperCollection?.normalizeInput;
-const resolveNumber = helperCollection?.resolveNumber;
-const normalizePoint = helperCollection?.normalizePoint;
-
-function requireHelper(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
-  }
-}
-
-requireHelper(normalizeInput, "normalizeInput");
-requireHelper(resolveNumber, "resolveNumber");
-requireHelper(normalizePoint, "normalizePoint");
+const { normalizeInput, resolveNumber, normalizePoint } = helpers;
 
 function normalizeDirection(value, fallback = "front") {
   if (typeof value !== "string") {

@@ -40,10 +40,7 @@ function sideWalkMan(optionsInput = {}) {
   const activeStepPhase = totalProgress - activeStepIndex;
 
   const mergedMeasurements = mergeFacing(measurementsInput, direction);
-  const stepper = typeof steperManProfile === "function" ? steperManProfile : null;
-  if (!stepper) {
-    return { measurements: mergedMeasurements, position: anchorBase };
-  }
+  const stepper = steperManProfile;
 
   let leftFoot = addPoints(anchorBase, resolveLegOffset(measurementsInput?.legs?.left, defaultOffsets.left));
   let rightFoot = addPoints(anchorBase, resolveLegOffset(measurementsInput?.legs?.right, defaultOffsets.right));

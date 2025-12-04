@@ -6,9 +6,15 @@ const DEFAULT_HAND_DROP = 2.35;
 const DEFAULT_LEFT_HAND_OFFSET = [-DEFAULT_HAND_FORWARD, DEFAULT_HAND_DROP];
 const DEFAULT_RIGHT_HAND_OFFSET = [DEFAULT_HAND_FORWARD, DEFAULT_HAND_DROP];
 
-const baseStaticBuilder = typeof staticMan === "function" ? staticMan : () => ({ graphics: [] });
-const distanceBetweenPoints = typeof distance === "function" ? distance : fallbackDistance;
-const baseSkeleton = typeof baseStaticBuilder.skeleton === "function" ? baseStaticBuilder.skeleton() : null;
+if (typeof staticMan !== "function") {
+  throw new Error("staticMan builder is unavailable; stickman base rig must be loaded before steperManProfile");
+}
+if (!skeleton || typeof skeleton.build !== "function") {
+  throw new Error("stickman skeleton helper is unavailable; helpers/stickman/skeleton.js must be loaded");
+}
+const baseStaticBuilder = staticMan;
+const distanceBetweenPoints = resolveDistance();
+const baseSkeleton = skeleton.build({}).skeleton;
 const skeletonPosition = isPoint(baseSkeleton?.position) ? baseSkeleton.position : DEFAULT_POSITION;
 const defaultLeftFoot = isPoint(baseSkeleton?.legs?.left?.targetPoint)
   ? baseSkeleton.legs.left.targetPoint
@@ -167,6 +173,12 @@ function resolveArcHeight(start, end) {
   return Math.max(1.5, span * 0.25);
 }
 
+function resolveDistance() {
+  if (typeof distance === "function") return distance;
+  if (helpers && typeof helpers.distance === "function") return helpers.distance;
+  throw new Error("distance helper is unavailable; helpers/distance.js must be loaded");
+}
+
 function normalizeSide(value, fallback = "left") {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (text === "left" || text === "right") {
@@ -303,15 +315,6 @@ function clampRange(value, min, max) {
   if (value < min) return min;
   if (value > max) return max;
   return value;
-}
-
-function fallbackDistance(a, b) {
-  if (!isPoint(a) || !isPoint(b)) {
-    return 0;
-  }
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  return Math.sqrt(dx * dx + dy * dy);
 }
 
 function resolveHandSwingOptions(value) {

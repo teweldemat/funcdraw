@@ -163,3 +163,40 @@ test('unused value hooks are reported as unused', () => {
     t: { used: false }
   });
 });
+
+test('trace output collects package evaluation', () => {
+  const resolver = {
+    listChildren(path) {
+      const key = path.join('/');
+      if (key === '') {
+        return ['eval', 'value'];
+      }
+      return [];
+    },
+    getExpression(path) {
+      const key = path.join('/');
+      if (key === 'eval') {
+        return 'value';
+      }
+      if (key === 'value') {
+        return '2';
+      }
+      return null;
+    },
+    package() {
+      return null;
+    }
+  };
+
+  const expression = createExpression(resolver);
+  const result = expression.evaluate({ trace: true });
+
+  assert.ok(Array.isArray(result.trace));
+  assert.ok(result.trace.length >= 2);
+  const paths = result.trace.map((entry) => entry.path);
+  assert.ok(paths.includes('eval'));
+  assert.ok(paths.includes('value'));
+  const valueTrace = result.trace.find((entry) => entry.path === 'value');
+  assert.equal(valueTrace.resultPreview, '2');
+  assert.ok(typeof valueTrace.snippet === 'string' && valueTrace.snippet.includes('2'));
+});

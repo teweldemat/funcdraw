@@ -50,10 +50,12 @@ function loadGraphics(resolver, options = {}) {
   });
   const typedFd = createFdValue(engine, fdContext);
   const valueHookEntries = createValueHookEntries(options.valueHooks);
+  const converter = createValueConverter(engine);
+  const traceCollector = createTraceCollector(options.trace, converter, engine);
   const providerFactory = createProviderFactory(engine, typedFd, valueHookEntries);
   const provider = providerFactory();
-  const typedRoot = engine.loadPackage(resolver, provider);
-  const converter = createValueConverter(engine);
+  const traceHook = traceCollector ? traceCollector.hook : null;
+  const typedRoot = engine.loadPackage(resolver, provider, traceHook);
   const plainRoot = converter.toPlain(typedRoot);
   const interpretation = interpretGraphics({
     plainRoot,
@@ -74,6 +76,9 @@ function loadGraphics(resolver, options = {}) {
   }
   if (valueHookEntries) {
     result.valueHooks = summarizeValueHookUsage(valueHookEntries);
+  }
+  if (traceCollector) {
+    result.trace = traceCollector.export();
   }
   return result;
 }
@@ -213,6 +218,306 @@ function normalizeHookValue(engine, value) {
     return engine.normalize(collection);
   }
   return engine.normalize(value);
+}
+
+function createTraceCollector(option, converter, engine) {
+  const normalized = normalizeTraceOption(option);
+  if (!normalized) {
+    return null;
+  }
+
+  const entries = [];
+  const summaries = new Map();
+  const filter = createTraceFilter(normalized.filter);
+  const formatResult = createTraceResultFormatter(engine, converter);
+
+  const hook = (path, info) => {
+    if (normalized.userHook) {
+      try {
+        normalized.userHook(path, info);
+      } catch {
+        // ignore user trace hook errors
+      }
+    }
+    try {
+      const entry = normalizeTraceEntry(path, info, formatResult);
+      if (!entry) {
+        return;
+      }
+      if (filter && !filter(entry)) {
+        return;
+      }
+      if (normalized.stepInto) {
+        entries.push(entry);
+      } else {
+        const key = entry.path || '';
+        summaries.set(key, entry);
+      }
+    } catch {
+      // ignore trace serialization errors
+    }
+  };
+  hook.__fsStepInto = normalized.stepInto;
+
+  return {
+    hook,
+    stepInto: normalized.stepInto,
+    export() {
+      if (!normalized.stepInto && summaries.size > 0) {
+        return Array.from(summaries.values());
+      }
+      return entries;
+    }
+  };
+}
+
+function normalizeTraceOption(option) {
+  if (!option) {
+    return null;
+  }
+  if (option === true) {
+    return { enabled: true, stepInto: false, filter: null, userHook: null };
+  }
+  if (typeof option === 'function') {
+    return { enabled: true, stepInto: false, filter: null, userHook: option };
+  }
+  if (Array.isArray(option)) {
+    const cleaned = option.filter(
+      (item) => item !== undefined && item !== null && String(item).trim() !== ''
+    );
+    if (cleaned.length === 0) {
+      return option.length === 0 ? { enabled: true, stepInto: false, filter: null, userHook: null } : null;
+    }
+    const first = cleaned.length > 0 ? String(cleaned[0]).toLowerCase() : null;
+    const stepInto = first === 'step-into';
+    const filter = stepInto && cleaned.length > 1 ? String(cleaned[1]) : null;
+    return { enabled: true, stepInto, filter, userHook: null };
+  }
+  if (typeof option === 'object') {
+    return {
+      enabled: option.enabled !== false,
+      stepInto: Boolean(option.stepInto),
+      filter: option.filter != null ? String(option.filter) : null,
+      userHook: typeof option.hook === 'function' ? option.hook : null
+    };
+  }
+  return { enabled: Boolean(option), stepInto: false, filter: null, userHook: null };
+}
+
+function createTraceFilter(filter) {
+  if (!filter) {
+    return null;
+  }
+  const needle = String(filter).toLowerCase();
+  return (entry) => {
+    const haystack = `${entry.path || ''} ${entry.snippet || ''}`.toLowerCase();
+    return haystack.includes(needle);
+  };
+}
+
+function createTraceResultFormatter(engine, converter) {
+  const formatToJson =
+    engine && typeof engine.FormatToJson === 'function'
+      ? (val) => safeFormat(() => engine.FormatToJson(val))
+      : null;
+  return (value) => {
+    const kind = detectResultKind(value, engine);
+    const base = { kind };
+
+    if (kind === 'atomic') {
+      base.preview = formatAtomicValue(value);
+      return base;
+    }
+    if (kind === 'error') {
+      base.preview = formatFsError(value);
+      base.json = formatToJson ? formatToJson(value) : safeFormatJson(value, converter);
+      return base;
+    }
+    base.json = formatToJson ? formatToJson(value) : safeFormatJson(value, converter);
+    return base;
+  };
+}
+
+function normalizeTraceEntry(path, info, formatResult) {
+  const entry = {
+    path: formatTracePath(path)
+  };
+  if (!info || typeof info !== 'object') {
+    return entry;
+  }
+
+  const setIfFinite = (key, value) => {
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      entry[key] = num;
+    }
+  };
+
+  setIfFinite('startLine', info.startLine);
+  setIfFinite('startColumn', info.startColumn);
+  setIfFinite('endLine', info.endLine);
+  setIfFinite('endColumn', info.endColumn);
+  setIfFinite('startIndex', info.startIndex);
+  setIfFinite('endIndex', info.endIndex);
+
+  if (info.snippet != null) {
+    entry.snippet = String(info.snippet);
+  }
+  if (Object.prototype.hasOwnProperty.call(info, 'result')) {
+    const formatted = formatResult ? formatResult(info.result) : null;
+    if (formatted) {
+      entry.resultKind = formatted.kind;
+      if (formatted.preview != null) {
+        entry.resultPreview = formatted.preview;
+      }
+      if (formatted.json != null) {
+        entry.resultJson = formatted.json;
+      }
+    }
+  }
+
+  return entry;
+}
+
+function formatTracePath(path) {
+  if (Array.isArray(path)) {
+    return path.join('/');
+  }
+  if (path === null || path === undefined) {
+    return '';
+  }
+  return String(path);
+}
+
+function detectResultKind(value, engine) {
+  if (value === null || value === undefined) {
+    return 'atomic';
+  }
+  const type = typeof value;
+  if (type === 'string' || type === 'number' || type === 'boolean' || type === 'bigint') {
+    return 'atomic';
+  }
+  if (isFsErrorValue(value)) {
+    return 'error';
+  }
+  if (type === 'function') {
+    return 'function';
+  }
+  if (isFsListValue(value, engine)) {
+    return 'list';
+  }
+  if (isKvcValue(value, engine)) {
+    return 'kvc';
+  }
+  if (value && typeof value.evaluate === 'function') {
+    return 'function';
+  }
+  return 'object';
+}
+
+function isFsListValue(value, engine) {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  if (value.__fsKind === 'FsList') {
+    return true;
+  }
+  if (engine && engine.ArrayFsList && value instanceof engine.ArrayFsList) {
+    return true;
+  }
+  if (engine && engine.FsList && value instanceof engine.FsList) {
+    return true;
+  }
+  return false;
+}
+
+function isKvcValue(value, engine) {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  if (value.__fsKind === 'KeyValueCollection') {
+    return true;
+  }
+  if (engine && engine.KeyValueCollection && value instanceof engine.KeyValueCollection) {
+    return true;
+  }
+  if (engine && engine.SimpleKeyValueCollection && value instanceof engine.SimpleKeyValueCollection) {
+    return true;
+  }
+  return false;
+}
+
+function isFsErrorValue(value) {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  if (value.__fsKind === 'FsError') {
+    return true;
+  }
+  if (value.errorType || value.errorMessage || value.errorData) {
+    return true;
+  }
+  if (value.fsError && typeof value.fsError === 'object') {
+    return true;
+  }
+  return false;
+}
+
+function formatAtomicValue(value) {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const max = 120;
+    return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
+  }
+  return String(value);
+}
+
+function formatFsError(value) {
+  const err = value && value.fsError && typeof value.fsError === 'object' ? value.fsError : value;
+  const type = err && err.errorType ? err.errorType : 'Error';
+  const message = err && err.errorMessage ? err.errorMessage : '';
+  if (err && err.errorData !== undefined) {
+    const data = safeStringify(err.errorData);
+    return `${type}: ${message || 'FuncScript error'} (data: ${data})`;
+  }
+  if (message) {
+    return `${type}: ${message}`;
+  }
+  return type;
+}
+
+function safeFormat(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+
+function safeFormatJson(value, converter) {
+  try {
+    const plain = converter ? converter.toPlain(value) : value;
+    return JSON.stringify(plain);
+  } catch {
+    return safeStringify(value);
+  }
+}
+
+function safeStringify(value) {
+  try {
+    if (typeof value === 'string') {
+      return value;
+    }
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 module.exports = {

@@ -17,32 +17,13 @@ const defaultHeadConfig = {
   }
 };
 
-const PI =
-  typeof Math === "object" && typeof Math.PI === "number"
-    ? Math.PI
-    : 3.141592653589793;
-
+const PI = Math.PI;
 const HALF_PI = PI / 2;
 const TAU = PI * 2;
 const MIN_VERTICAL_EXTENT = 1;
 const MIN_SEGMENTS = 6;
 
-const helperCollection = typeof helpers === "object" ? helpers : null;
-const normalizePoint = helperCollection?.normalizePoint;
-const normalizeInput = helperCollection?.normalizeInput;
-const clamp = helperCollection?.clamp;
-const resolveNumber = helperCollection?.resolveNumber;
-
-function requireHelper(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
-  }
-}
-
-requireHelper(normalizePoint, "normalizePoint");
-requireHelper(normalizeInput, "normalizeInput");
-requireHelper(clamp, "clamp");
-requireHelper(resolveNumber, "resolveNumber");
+const { normalizePoint, normalizeInput, clamp, resolveNumber } = helpers;
 
 function normalizeDirection(value) {
   if (typeof value !== "string") {

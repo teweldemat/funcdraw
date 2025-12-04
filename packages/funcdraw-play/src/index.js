@@ -58,11 +58,20 @@ async function startPlayer(cwd, argvInput) {
       type: 'string',
       describe: 'FuncScript expression to evaluate (art refers to the loaded package)'
     })
+    .option('trace', {
+      type: 'array',
+      describe: 'Emit FuncScript package trace info; optionally pass "step-into" and an optional filter'
+    })
     .help()
     .alias('help', 'h')
     .parseSync();
 
-  const debugEnabled = Boolean(argv.debug || argv.dump);
+  const traceOptions = normalizeTraceOption(argv.trace);
+  const traceRequested = Boolean(traceOptions && traceOptions.enabled);
+  const dumpMode = Boolean(argv.dump);
+  const traceOnlyMode = traceRequested && !dumpMode;
+  const debugEnabled = !traceOnlyMode && Boolean(argv.debug || dumpMode);
+  const traceEnabled = traceRequested;
   const expressionOverride = typeof argv.exp === 'string' ? argv.exp : null;
   let config = await loadUserConfig(cwd, { expression: expressionOverride });
   if (config.configPath) {
@@ -141,6 +150,7 @@ async function startPlayer(cwd, argvInput) {
     try {
       const result = await currentExpression.evaluate({
         output: outputs,
+        trace: traceOptions || traceEnabled,
         valueHooks: {
           t: () => timelineState.value,
           canvas: () => ({
@@ -177,11 +187,28 @@ async function startPlayer(cwd, argvInput) {
   if (argv.dump) {
     console.log(picocolors.cyan('FuncDraw Play dump mode'));
     try {
-      await evaluateScene({ includeSvg: Boolean(argv.svg), requestId: 'dump-mode' });
+      const dumpResult = await evaluateScene({ includeSvg: Boolean(argv.svg), requestId: 'dump-mode' });
+      if (traceEnabled) {
+        printTraceEntries(dumpResult && dumpResult.trace);
+      }
       console.log(picocolors.green('Scene evaluation completed (dump mode).'));
       return;
     } catch (error) {
       console.error(picocolors.red('Dump evaluation failed:'), error.message || error);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  if (traceOnlyMode) {
+    console.log(picocolors.cyan('FuncDraw Play trace mode'));
+    try {
+      const traceResult = await evaluateScene({ includeSvg: false, requestId: 'trace-mode' });
+      printTraceEntries(traceResult && traceResult.trace);
+      console.log(picocolors.green('FuncScript trace completed.'));
+      return;
+    } catch (error) {
+      console.error(picocolors.red('Trace run failed:'), error.message || error);
       process.exitCode = 1;
       return;
     }
@@ -455,4 +482,123 @@ function indentMultiline(text, spaces = 2) {
     .split('\n')
     .map((line) => padding + line)
     .join('\n');
+}
+
+function printTraceEntries(entries) {
+  if (!entries || entries.length === 0) {
+    console.log(picocolors.gray('[funcdraw-play] No FuncScript trace entries recorded.'));
+    return;
+  }
+  console.log(
+    picocolors.cyan(
+      `[funcdraw-play] FuncScript trace (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`
+    )
+  );
+  for (const entry of entries) {
+    const pathText = entry && entry.path ? entry.path : '(root)';
+    const location = formatTraceLocation(entry);
+    const snippet = cleanSnippet(entry && entry.snippet);
+    const resultText = formatTraceResult(entry);
+    console.log(picocolors.gray(`- ${pathText}${location ? ` ${location}` : ''}${snippet ? ` ${snippet}` : ''}`));
+    if (resultText) {
+      console.log(picocolors.gray(`  value: ${resultText}`));
+    }
+  }
+}
+
+function formatTraceLocation(entry) {
+  if (!entry) {
+    return '';
+  }
+  const startLine = Number(entry.startLine);
+  const startColumn = Number(entry.startColumn);
+  const endLine = Number(entry.endLine);
+  const endColumn = Number(entry.endColumn);
+  if (!Number.isFinite(startLine) || !Number.isFinite(startColumn)) {
+    return '';
+  }
+  if (Number.isFinite(endLine) && Number.isFinite(endColumn)) {
+    return `@${startLine}:${startColumn}-${endLine}:${endColumn}`;
+  }
+  return `@${startLine}:${startColumn}`;
+}
+
+function cleanSnippet(snippet) {
+  if (!snippet) {
+    return '';
+  }
+  const compact = String(snippet).replace(/\s+/g, ' ').trim();
+  if (!compact) {
+    return '';
+  }
+  const maxLength = 160;
+  return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
+}
+
+function formatTraceResult(entry) {
+  if (!entry) {
+    return '';
+  }
+  if (entry.resultKind === 'atomic') {
+    return entry.resultPreview || '';
+  }
+  if (entry.resultKind === 'error') {
+    return entry.resultPreview || entry.resultJson || '';
+  }
+  if (entry.resultKind === 'function') {
+    return entry.resultPreview || '[function]';
+  }
+  if (entry.resultKind === 'list') {
+    return entry.resultPreview || '[list]';
+  }
+  if (entry.resultKind === 'kvc') {
+    return entry.resultPreview || '[kvc]';
+  }
+  if (entry.resultJson) {
+    const trimmed = String(entry.resultJson).trim();
+    const max = 240;
+    return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
+  }
+  if (entry.resultPreview) {
+    return entry.resultPreview;
+  }
+  return '';
+}
+
+function normalizeTraceOption(raw) {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (Array.isArray(raw)) {
+    const cleaned = raw.filter(
+      (item) => item !== undefined && item !== null && String(item).trim() !== ''
+    );
+    if (cleaned.length === 0) {
+      // yargs sets `[undefined]` when the option is not provided; treat that as "no trace".
+      return raw.length === 0 ? { enabled: true, stepInto: false, filter: null } : null;
+    }
+    if (raw.length === 0) {
+      return { enabled: true, stepInto: false, filter: null };
+    }
+    const first = String(cleaned[0] || '').toLowerCase();
+    const stepInto = first === 'step-into';
+    const filter = stepInto && cleaned.length > 1 ? String(cleaned[1]) : null;
+    return { enabled: true, stepInto, filter };
+  }
+  if (typeof raw === 'boolean') {
+    return { enabled: raw, stepInto: false, filter: null };
+  }
+  if (typeof raw === 'string') {
+    const first = raw.toLowerCase();
+    const stepInto = first === 'step-into';
+    return { enabled: true, stepInto, filter: null };
+  }
+  if (typeof raw === 'object') {
+    return {
+      enabled: raw.enabled !== false,
+      stepInto: Boolean(raw.stepInto),
+      filter: raw.filter != null ? String(raw.filter) : null
+    };
+  }
+  return { enabled: true, stepInto: false, filter: null };
 }

@@ -1,21 +1,7 @@
 const defaultStyle = { stroke: "#0ea5e9", width: 1.1 };
-const helperCollection = typeof helpers === "object" ? helpers : null;
-const toPointOrNull = helperCollection?.toPoint;
-const normalizeInput = helperCollection?.normalizeInput;
-
-function requireHelper(fn, name) {
-  if (typeof fn !== "function") {
-    throw new Error(`cartoon/helpers/${name}.js must export a function as helpers.${name}`);
-  }
-}
-
-requireHelper(toPointOrNull, "toPoint");
-requireHelper(normalizeInput, "normalizeInput");
+const { toPoint: toPointOrNull, normalizeInput } = helpers;
 
 function extractJointPoints(config) {
-  if (typeof toPointOrNull !== "function") {
-    throw new Error("leg model requires helpers.toPoint; ensure cartoon/helpers/toPoint.js is available");
-  }
   const joints = config.joints;
   if (!joints || typeof joints !== "object") {
     return null;

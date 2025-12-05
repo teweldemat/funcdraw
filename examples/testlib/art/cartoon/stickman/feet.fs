@@ -2,12 +2,12 @@
 {
   defaults:{ length:2.2; stroke:"#f97316"; strokeWidth:0.5 };
 
-  input:helpers.normalizeInput(options ?? {}, {});
-  anklePoint:helpers.normalizePoint(input.anklePoint ?? input.anchor ?? input.position, [0,0]);
+  input:options ?? {};
+  anklePoint:if input.anklePoint != null then input.anklePoint else if input.anchor != null then input.anchor else if input.position != null then input.position else [0,0];
   side:normalizeSide(input.side, "left");
   directionHint:normalizeDirection(input.directionHint, normalizeDirection(side, "left"));
   lineLength:clampPositive(input.length, defaults.length, 0.05);
-  style:helpers.normalizeInput(input.style, {});
+  style:input.style ?? {};
   stroke:input.stroke ?? style.stroke ?? defaults.stroke;
   strokeWidth:clampPositive(style.width ?? input.strokeWidth, defaults.strokeWidth, 0.01);
   half:lineLength / 2;
@@ -36,7 +36,7 @@
 
   clampPositive:(value, fallback, min)=> {
     minValue:min ?? 0.01;
-    resolved:helpers.resolveNumber(value, fallback);
+    resolved:if value = null then fallback else value;
     return if resolved >= minValue then resolved else fallback;
   };
 

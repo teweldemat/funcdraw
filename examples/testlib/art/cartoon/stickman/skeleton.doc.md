@@ -2,7 +2,7 @@
 
 ## Overview
 
-`stickman/skeleton.fs` performs the pose math for the cartoon character. Call `skeleton.build(options?)` with high-level measurements and target points to receive a normalized skeleton describing where the torso sits, how the head is attached, and how each limb bends to reach its effector. Rendering modules (`eval.js`, `hand.fs`, `leg.js`, `head.fs`) consume this data in `stickman/eval.js` to draw the final graphics.
+`stickman/skeleton.fs` performs the pose math for the cartoon character. Call `skeleton.build(options?)` with high-level measurements and target points to receive a normalized skeleton describing where the torso sits, how the head is attached, and how each limb bends to reach its effector. Rendering modules (`eval.fs`, `hand.fs`, `leg.fs`, `head.fs`) consume this data in `stickman/eval.fs` to draw the final graphics.
 
 ## Construction Overview
 
@@ -48,9 +48,9 @@ type StickmanOptions = {
 // Even when torso.direction = "back" the left entry still controls the screen-left arm/leg.
 
 type HandSideConfig = {
-  upperLength?: number;           // shoulder→elbow length (default 4)
-  lowerLength?: number;           // elbow→hand length (default 3)
-  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults to ±(torsoWidth/2 + shoulderExtension), drop ≈ 2.35)
+  upperLength?: number;           // shoulder→elbow length (default torsoHeight * 0.45 ≈ 4.95)
+  lowerLength?: number;           // elbow→hand length (default legLengthSum * 0.4 ≈ 4)
+  effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults to ±(torsoWidth/2 + shoulderExtension), drop ≈ 0.4)
   positiveBend?: boolean;         // elbow rotation relative to the shoulder→effector vector (screen-left false, screen-right true)
 };
 
@@ -115,4 +115,4 @@ type SkeletonBuildResult = {
 };
 ```
 
-`skeleton.build(options?)` returns `SkeletonBuildResult`; `stickman/eval.js` forwards its `options` there and hands the data to the head/torso/hand/leg models while also reusing `normalizedOptions.palette` for colors. The module also re-exports `defaultMeasurements`, `normalizeInput`, and `mergeDeep` for callers that want to inspect the presets or run their own override logic. Downstream models primarily read `skeleton.torso`, `skeleton.head`, `skeleton.hands`, and `skeleton.legs` to drive their geometry.
+`skeleton.build(options?)` returns `SkeletonBuildResult`; `stickman/eval.fs` forwards its `options` there and hands the data to the head/torso/hand/leg models while also reusing `normalizedOptions.palette` for colors. The module also re-exports `defaultMeasurements` for callers that want to inspect the presets. Downstream models primarily read `skeleton.torso`, `skeleton.head`, `skeleton.hands`, and `skeleton.legs` to drive their geometry.

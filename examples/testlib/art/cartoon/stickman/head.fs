@@ -25,21 +25,21 @@
   minVerticalExtent:1;
   minSegments:6;
 
-  attachmentPoint:helpers.normalizePoint(attachmentPointInput, [20,17]);
-  rawConfig:helpers.normalizeInput(configInput ?? {}, {});
+  attachmentPoint:if attachmentPointInput = null then [20,17] else attachmentPointInput;
+  rawConfig:configInput ?? {};
 
-  verticalExtent:math.max(helpers.resolveNumber(rawConfig.verticalExtent, defaults.verticalExtent), minVerticalExtent);
+  verticalExtent:math.max(if rawConfig.verticalExtent = null then defaults.verticalExtent else rawConfig.verticalExtent, minVerticalExtent);
   radius:verticalExtent / 2;
 
-  angleDeg:helpers.resolveNumber(rawConfig.angle, defaults.angle);
+  angleDeg:if rawConfig.angle = null then defaults.angle else rawConfig.angle;
   angleRad:ensureFinite(degToRad(angleDeg), halfPi);
 
   fill:rawConfig.fill ?? defaults.fill;
   stroke:rawConfig.stroke ?? defaults.stroke;
-  strokeWidth:math.max(0, helpers.resolveNumber(rawConfig.strokeWidth, defaults.strokeWidth));
+  strokeWidth:math.max(0, if rawConfig.strokeWidth = null then defaults.strokeWidth else rawConfig.strokeWidth);
   gazeColor:rawConfig.gazeColor ?? defaults.gazeColor;
 
-  segmentsRaw:math.floor(helpers.resolveNumber(rawConfig.segments, defaults.segments));
+  segmentsRaw:math.floor(if rawConfig.segments = null then defaults.segments else rawConfig.segments);
   segmentsBase:if segmentsRaw = null then minSegments else segmentsRaw;
   segments:if segmentsBase < minSegments then minSegments else segmentsBase;
 
@@ -255,29 +255,13 @@
   };
 
   mixEyesConfig:(rawConfig, base)=> {
-    config:helpers.normalizeInput(rawConfig ?? {}, {});
+    config:rawConfig ?? {};
     baseConfig:base ?? {};
 
-    separationRatio:helpers.clamp(
-      helpers.resolveNumber(config.separationRatio, baseConfig.separationRatio ?? 0.38),
-      0.1,
-      0.8
-    );
-    offsetRatio:helpers.clamp(
-      helpers.resolveNumber(config.offsetRatio, baseConfig.offsetRatio ?? 0.2),
-      -0.2,
-      0.6
-    );
-    radiusRatio:helpers.clamp(
-      helpers.resolveNumber(config.radiusRatio, baseConfig.radiusRatio ?? 0.14),
-      0.05,
-      0.35
-    );
-    highlightRatio:helpers.clamp(
-      helpers.resolveNumber(config.highlightRatio, baseConfig.highlightRatio ?? 0.4),
-      0,
-      1
-    );
+    separationRatio:helpers.clamp(if config.separationRatio = null then baseConfig.separationRatio ?? 0.38 else config.separationRatio, 0.1, 0.8);
+    offsetRatio:helpers.clamp(if config.offsetRatio = null then baseConfig.offsetRatio ?? 0.2 else config.offsetRatio, -0.2, 0.6);
+    radiusRatio:helpers.clamp(if config.radiusRatio = null then baseConfig.radiusRatio ?? 0.14 else config.radiusRatio, 0.05, 0.35);
+    highlightRatio:helpers.clamp(if config.highlightRatio = null then baseConfig.highlightRatio ?? 0.4 else config.highlightRatio, 0, 1);
 
     fillColor:config.fill ?? baseConfig.fill ?? "#0f172a";
     strokeColor:config.stroke ?? config.fill ?? baseConfig.stroke ?? fillColor;

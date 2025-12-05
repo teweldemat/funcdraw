@@ -19,8 +19,8 @@
   staticMan:(optionsInput)=> {
     skeletonContext:skeleton.build(optionsInput ?? {});
     skeletonPose:skeletonContext.skeleton;
-    normalizedOptions:helpers.normalizeInput(skeletonContext.normalizedOptions, {});
-    paletteOverrides:if skeleton.normalizeInput = null then helpers.normalizeInput(normalizedOptions.palette, {}) else skeleton.normalizeInput(normalizedOptions.palette, {});
+    normalizedOptions:skeletonContext.normalizedOptions ?? {};
+    paletteOverrides:normalizedOptions.palette ?? {};
     palette:defaultPalette + paletteOverrides;
     skinStroke:if normalizedOptions.palette?.skinStroke != null then normalizedOptions.palette.skinStroke
       else if palette.skinStroke != null then palette.skinStroke
@@ -91,8 +91,8 @@
       style:{ stroke:legStroke; width:palette.legWidth };
     });
 
-    leftFootConfig:helpers.normalizeInput(skeletonPose.legs.left.foot, {});
-    rightFootConfig:helpers.normalizeInput(skeletonPose.legs.right.foot, {});
+    leftFootConfig:skeletonPose.legs.left.foot ?? {};
+    rightFootConfig:skeletonPose.legs.right.foot ?? {};
 
     leftFoot:feet({
       anklePoint:skeletonPose.legs.left.reachTarget;

@@ -2,29 +2,6 @@ function ensureObject(value, fallback) {
   return value != null && typeof value === "object" ? value : fallback;
 }
 
-function selectCoordinate(source, keys) {
-  for (const key of keys) {
-    if (key in source) {
-      return { found: true, value: source[key] };
-    }
-  }
-  return { found: false, value: undefined };
-}
-
-function normalizePoint(value, fallback) {
-  if (Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
-    return [value[0], value[1]];
-  }
-  if (value && typeof value === "object") {
-    const xResult = selectCoordinate(value, ["x", "left", "right"]);
-    const yResult = selectCoordinate(value, ["y", "top", "bottom"]);
-    if (xResult.found && yResult.found) {
-      return [toNumber(xResult.value, fallback[0]), toNumber(yResult.value, fallback[1])];
-    }
-  }
-  return fallback.slice();
-}
-
 function toNumber(value, fallback) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -107,7 +84,7 @@ function createColumnCanopy(center, width, height, color, outline) {
 
 function tree(rawOptions = {}) {
   const options = ensureObject(rawOptions, {});
-  const position = normalizePoint(options.position, [0, 0]);
+  const position = Array.isArray(options.position) ? options.position : [0, 0];
   const height = clampNumber(options.height, 6, 500, 14);
   const type = String(options.type ?? "round").toLowerCase();
   const palette = selectTreePalette(type);

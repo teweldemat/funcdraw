@@ -11,64 +11,66 @@
     legLengths:{ upper:5.2; lower:4.8 };
   };
 
+  num:(value, fallback)=> if value = null then fallback else value;
+
   baseStaticBuilder:staticMan;
   skeletonContext:if skeleton = null or skeleton.build = null then { skeleton:{} } else skeleton.build({});
-  baseSkeleton:helpers.normalizeInput(skeletonContext.skeleton, {});
-  skeletonPosition:if isPoint(baseSkeleton.position) then baseSkeleton.position else defaults.position;
+  baseSkeleton:skeletonContext.skeleton ?? {};
+  skeletonPosition:if baseSkeleton.position = null then defaults.position else baseSkeleton.position;
 
-  defaultLeftFoot:if isPoint(baseSkeleton.legs?.left?.targetPoint) then baseSkeleton.legs.left.targetPoint else addPoints(skeletonPosition, defaults.leftLegOffset);
-  defaultRightFoot:if isPoint(baseSkeleton.legs?.right?.targetPoint) then baseSkeleton.legs.right.targetPoint else addPoints(skeletonPosition, defaults.rightLegOffset);
+  defaultLeftFoot:if baseSkeleton.legs?.left?.targetPoint = null then addPoints(skeletonPosition, defaults.leftLegOffset) else baseSkeleton.legs.left.targetPoint;
+  defaultRightFoot:if baseSkeleton.legs?.right?.targetPoint = null then addPoints(skeletonPosition, defaults.rightLegOffset) else baseSkeleton.legs.right.targetPoint;
   defaultOffsets:{
     left:subtractPoints(defaultLeftFoot, skeletonPosition);
     right:subtractPoints(defaultRightFoot, skeletonPosition);
   };
 
-  defaultLeftHandPoint:if isPoint(baseSkeleton.hands?.left?.targetPoint) then baseSkeleton.hands.left.targetPoint else addPoints(skeletonPosition, defaults.leftHandOffset);
-  defaultRightHandPoint:if isPoint(baseSkeleton.hands?.right?.targetPoint) then baseSkeleton.hands.right.targetPoint else addPoints(skeletonPosition, defaults.rightHandOffset);
+  defaultLeftHandPoint:if baseSkeleton.hands?.left?.targetPoint = null then addPoints(skeletonPosition, defaults.leftHandOffset) else baseSkeleton.hands.left.targetPoint;
+  defaultRightHandPoint:if baseSkeleton.hands?.right?.targetPoint = null then addPoints(skeletonPosition, defaults.rightHandOffset) else baseSkeleton.hands.right.targetPoint;
   defaultHandOffsets:{
     left:subtractPoints(defaultLeftHandPoint, skeletonPosition);
     right:subtractPoints(defaultRightHandPoint, skeletonPosition);
   };
 
-  defaultTorsoMeasurements:helpers.normalizeInput(baseSkeleton.torso, {});
-  defaultTorsoWidth:helpers.resolveNumber(defaultTorsoMeasurements.width, defaults.torso.width);
-  defaultTorsoHeight:helpers.resolveNumber(defaultTorsoMeasurements.height, defaults.torso.height);
-  defaultShoulderExtension:math.max(helpers.resolveNumber(defaultTorsoMeasurements.shoulderExtension, defaultTorsoWidth * 0.15), 0);
+  defaultTorsoMeasurements:baseSkeleton.torso ?? {};
+  defaultTorsoWidth:num(defaultTorsoMeasurements.width, defaults.torso.width);
+  defaultTorsoHeight:num(defaultTorsoMeasurements.height, defaults.torso.height);
+  defaultShoulderExtension:math.max(num(defaultTorsoMeasurements.shoulderExtension, defaultTorsoWidth * 0.15), 0);
 
   defaultHandLengths:{
     left:{
-      upper:helpers.resolveNumber(baseSkeleton.hands?.left?.lengths?.upper, defaults.handLengths.upper);
-      lower:helpers.resolveNumber(baseSkeleton.hands?.left?.lengths?.lower, defaults.handLengths.lower);
+      upper:num(baseSkeleton.hands?.left?.lengths?.upper, defaults.handLengths.upper);
+      lower:num(baseSkeleton.hands?.left?.lengths?.lower, defaults.handLengths.lower);
     };
     right:{
-      upper:helpers.resolveNumber(baseSkeleton.hands?.right?.lengths?.upper, defaults.handLengths.upper);
-      lower:helpers.resolveNumber(baseSkeleton.hands?.right?.lengths?.lower, defaults.handLengths.lower);
+      upper:num(baseSkeleton.hands?.right?.lengths?.upper, defaults.handLengths.upper);
+      lower:num(baseSkeleton.hands?.right?.lengths?.lower, defaults.handLengths.lower);
     };
   };
 
   defaultLegLengths:{
     left:{
-      upper:helpers.resolveNumber(baseSkeleton.legs?.left?.lengths?.upper, defaults.legLengths.upper);
-      lower:helpers.resolveNumber(baseSkeleton.legs?.left?.lengths?.lower, defaults.legLengths.lower);
+      upper:num(baseSkeleton.legs?.left?.lengths?.upper, defaults.legLengths.upper);
+      lower:num(baseSkeleton.legs?.left?.lengths?.lower, defaults.legLengths.lower);
     };
     right:{
-      upper:helpers.resolveNumber(baseSkeleton.legs?.right?.lengths?.upper, defaults.legLengths.upper);
-      lower:helpers.resolveNumber(baseSkeleton.legs?.right?.lengths?.lower, defaults.legLengths.lower);
+      upper:num(baseSkeleton.legs?.right?.lengths?.upper, defaults.legLengths.upper);
+      lower:num(baseSkeleton.legs?.right?.lengths?.lower, defaults.legLengths.lower);
     };
   };
 
   steperManZoom:(optionsInput)=> {
-    options:helpers.normalizeInput(optionsInput ?? {}, {});
-    measurementsInput:helpers.normalizeInput(options.measurements ?? options.initialMeasurements, {});
+    options:optionsInput ?? {};
+    measurementsInput:if options.measurements != null then options.measurements else options.initialMeasurements ?? {};
     movingSide:normalizeSide(options.movingSide ?? options.movingFeet ?? options.movingFoot, "left");
     fixedSide:if movingSide = "left" then "right" else "left";
-    progress:clamp01(helpers.resolveNumber(options.progress, 0));
-    zoomTarget:math.max(0, helpers.resolveNumber(if options.zoom != null then options.zoom else options.zoomFactor, 1));
-    zoomProgress:clamp01(helpers.resolveNumber(options.zoomProgress, 1));
+    progress:clamp01(num(options.progress, 0));
+    zoomTarget:math.max(0, num(if options.zoom != null then options.zoom else options.zoomFactor, 1));
+    zoomProgress:clamp01(num(options.zoomProgress, 1));
     bodyScale:lerp(1, zoomTarget, zoomProgress);
-    torsoBase:helpers.normalizeInput(measurementsInput.torso, {});
-    headBase:helpers.normalizeInput(measurementsInput.head, {});
-    anchorBase:helpers.normalizePoint(options.position, skeletonPosition);
+    torsoBase:measurementsInput.torso ?? {};
+    headBase:measurementsInput.head ?? {};
+    anchorBase:if options.position = null then skeletonPosition else options.position;
 
     legOffsets:{
       left:readEffectorOffset(measurementsInput.legs?.left, defaultOffsets.left);
@@ -81,7 +83,7 @@
 
     fixedWorldY:anchorBase[1] + legOffsets[fixedSide][1];
     movingStartWorldY:anchorBase[1] + legOffsets[movingSide][1];
-    movingTargetWorldY:helpers.resolveNumber(
+    movingTargetWorldY:num(
       if options.movingFootTargetY != null then options.movingFootTargetY
       else if options.movingFeetTargetY != null then options.movingFeetTargetY
       else if options.targetY != null then options.targetY
@@ -122,8 +124,8 @@
     straighten:clamp01(math.abs(zoomTarget - 1) * zoomProgress);
 
     hipOffsets:{
-      left:helpers.normalizePoint(attachments.legs?.left, [0,0]);
-      right:helpers.normalizePoint(attachments.legs?.right, [0,0]);
+      left:if attachments.legs?.left = null then [0,0] else attachments.legs.left;
+      right:if attachments.legs?.right = null then [0,0] else attachments.legs.right;
     };
 
     legEffectors:{
@@ -159,29 +161,29 @@
       right:resolveStraightLimb(handEffectors.right, handLengthsScaled.right, handBend.right, attachments.hands?.right);
     };
 
-    legsBase:helpers.normalizeInput(measurementsInput.legs, {});
-    handsBase:helpers.normalizeInput(measurementsInput.hands, {});
-    leftFootBase:helpers.normalizeInput(legsBase.left?.foot, {});
-    rightFootBase:helpers.normalizeInput(legsBase.right?.foot, {});
+    legsBase:measurementsInput.legs ?? {};
+    handsBase:measurementsInput.hands ?? {};
+    leftFootBase:legsBase.left?.foot ?? {};
+    rightFootBase:legsBase.right?.foot ?? {};
     leftFootLength:scaleOptionalLength(leftFootBase.length, bodyScale);
     rightFootLength:scaleOptionalLength(rightFootBase.length, bodyScale);
 
     updatedMeasurements:{
       torso:torsoBase + torsoDimensions;
       head:headBase + {
-        verticalExtent:helpers.resolveNumber(headBase.verticalExtent, defaults.headHeight) * bodyScale;
-        angle:helpers.resolveNumber(headBase.angle, 90);
+        verticalExtent:num(headBase.verticalExtent, defaults.headHeight) * bodyScale;
+        angle:num(headBase.angle, 90);
         direction:normalizeDirection(headBase.direction, direction);
       };
       legs:{
-        left:helpers.normalizeInput(legsBase.left, {}) + {
+        left:(legsBase.left ?? {}) + {
           effectorCoordinate:resolvedLegs.left.effectorCoordinate;
           upperLength:resolvedLegs.left.upperLength;
           lowerLength:resolvedLegs.left.lowerLength;
           positiveBend:resolvedLegs.left.positiveBend;
           foot:mergeFoot(leftFootBase, leftFootLength);
         };
-        right:helpers.normalizeInput(legsBase.right, {}) + {
+        right:(legsBase.right ?? {}) + {
           effectorCoordinate:resolvedLegs.right.effectorCoordinate;
           upperLength:resolvedLegs.right.upperLength;
           lowerLength:resolvedLegs.right.lowerLength;
@@ -190,13 +192,13 @@
         };
       };
       hands:{
-        left:helpers.normalizeInput(handsBase.left, {}) + {
+        left:(handsBase.left ?? {}) + {
           effectorCoordinate:resolvedHands.left.effectorCoordinate;
           upperLength:resolvedHands.left.upperLength;
           lowerLength:resolvedHands.left.lowerLength;
           positiveBend:resolvedHands.left.positiveBend;
         };
-        right:helpers.normalizeInput(handsBase.right, {}) + {
+        right:(handsBase.right ?? {}) + {
           effectorCoordinate:resolvedHands.right.effectorCoordinate;
           upperLength:resolvedHands.right.upperLength;
           lowerLength:resolvedHands.right.lowerLength;
@@ -213,7 +215,7 @@
     }) ?? {};
 
     sequenceState:{
-      position:helpers.normalizePoint(anchorPoint, skeletonPosition);
+      position:if anchorPoint = null then skeletonPosition else anchorPoint;
       measurements:{} + finalMeasurements;
     };
 
@@ -231,7 +233,7 @@
       movingPoint:addPoints(anchorPoint, legEffectors[movingSide]);
     };
 
-    eval helpers.normalizeInput(staticResult, {}) + {
+    eval (staticResult ?? {}) + {
       position:sequenceState.position;
       measurements:sequenceState.measurements;
       finalPosition:sequenceState.position;
@@ -243,41 +245,41 @@
 
   readEffectorOffset:(measurement, fallback)=> {
     raw:if measurement = null then null else measurement.effectorCoordinate;
-    fallbackPoint:helpers.normalizePoint(fallback, [0,0]);
-    numeric:helpers.resolveNumber(raw, null);
-    eval if numeric != null then [fallbackPoint[0], numeric] else helpers.normalizePoint(raw, fallbackPoint);
+    fallbackPoint:if fallback = null then [0,0] else fallback;
+    numeric:if raw = null then null else raw;
+    eval if numeric != null then [fallbackPoint[0], numeric] else if raw = null then fallbackPoint else raw;
   };
 
   readLimbLengths:(measurement, defaults)=> {
-    base:helpers.normalizeInput(measurement, {});
+    base:measurement ?? {};
     eval {
-      upper:math.max(0, helpers.resolveNumber(base.upperLength, defaults.upper));
-      lower:math.max(0, helpers.resolveNumber(base.lowerLength, defaults.lower));
+      upper:math.max(0, num(base.upperLength, defaults.upper));
+      lower:math.max(0, num(base.lowerLength, defaults.lower));
       positiveBend:toBoolean(base.positiveBend, defaults.positiveBend);
     };
   };
 
   scaleLengths:(lengths, scale)=> {
-    factor:math.max(0, helpers.resolveNumber(scale, 1));
+    factor:math.max(0, num(scale, 1));
     eval {
-      upper:helpers.resolveNumber(lengths?.upper, 0) * factor;
-      lower:helpers.resolveNumber(lengths?.lower, 0) * factor;
+      upper:num(lengths?.upper, 0) * factor;
+      lower:num(lengths?.lower, 0) * factor;
       positiveBend:toBoolean(lengths?.positiveBend, false);
     };
   };
 
   resolveTorsoDimensions:(torsoBase, bodyScale, direction)=> {
-    width:helpers.resolveNumber(torsoBase.width, defaultTorsoWidth) * bodyScale;
-    height:helpers.resolveNumber(torsoBase.height, defaultTorsoHeight) * bodyScale;
-    shoulderExtension:math.max(helpers.resolveNumber(torsoBase.shoulderExtension, defaultShoulderExtension), 0) * bodyScale;
+    width:num(torsoBase.width, defaultTorsoWidth) * bodyScale;
+    height:num(torsoBase.height, defaultTorsoHeight) * bodyScale;
+    shoulderExtension:math.max(num(torsoBase.shoulderExtension, defaultShoulderExtension), 0) * bodyScale;
     eval { width:width; height:height; shoulderExtension:shoulderExtension; direction:direction };
   };
 
   resolveAttachments:(torso)=> {
-    halfWidth:helpers.resolveNumber(torso.width, defaultTorsoWidth) * 0.5;
-    handOffset:halfWidth + helpers.resolveNumber(torso.shoulderExtension, defaultShoulderExtension);
-    handsY:helpers.resolveNumber(torso.height, defaultTorsoHeight) * 0.85;
-    legOffset:helpers.resolveNumber(torso.width, defaultTorsoWidth) * 0.25;
+    halfWidth:num(torso.width, defaultTorsoWidth) * 0.5;
+    handOffset:halfWidth + num(torso.shoulderExtension, defaultShoulderExtension);
+    handsY:num(torso.height, defaultTorsoHeight) * 0.85;
+    legOffset:num(torso.width, defaultTorsoWidth) * 0.25;
     dir:normalizeDirection(torso.direction, "front");
     eval if dir = "left" or dir = "right" then {
       hands:{ left:[0, handsY]; right:[0, handsY] };
@@ -289,13 +291,13 @@
   };
 
   resolveStraightLimb:(effector, lengths, bendFallback, attachment)=> {
-    eff:helpers.normalizePoint(effector, [0,0]);
-    attach:helpers.normalizePoint(attachment, [0,0]);
+    eff:if effector = null then [0,0] else effector;
+    attach:if attachment = null then [0,0] else attachment;
     dx:eff[0] - attach[0];
     dy:eff[1] - attach[1];
     effectorLength:math.max(0.000001, math.sqrt(dx * dx + dy * dy));
-    upperBase:math.max(0, helpers.resolveNumber(lengths.upper, 0));
-    lowerBase:math.max(0, helpers.resolveNumber(lengths.lower, 0));
+    upperBase:math.max(0, num(lengths.upper, 0));
+    lowerBase:math.max(0, num(lengths.lower, 0));
     totalBase:math.max(0.000001, upperBase + lowerBase);
     upperRatio:upperBase / totalBase;
     lowerRatio:lowerBase / totalBase;
@@ -308,26 +310,26 @@
   };
 
   scaleOptionalLength:(value, factor)=> {
-    lengthValue:helpers.resolveNumber(value, null);
-    eval if lengthValue = null then value else lengthValue * math.max(0, helpers.resolveNumber(factor, 1));
+    lengthValue:if value = null then null else value;
+    eval if lengthValue = null then value else lengthValue * math.max(0, num(factor, 1));
   };
 
   mergeFoot:(baseFoot, scaledLength)=> {
-    footInput:helpers.normalizeInput(baseFoot, {});
+    footInput:baseFoot ?? {};
     eval if hasFootOverrides(footInput) then footInput + { length:scaledLength } else footInput;
   };
 
   hasFootOverrides:(foot)=> foot != null and (foot.length != null or foot.direction != null);
 
   clamp01:(value)=> {
-    num:helpers.resolveNumber(value, 0);
-    eval if num < 0 then 0 else if num > 1 then 1 else num;
+    v:if value = null then 0 else value;
+    eval if v < 0 then 0 else if v > 1 then 1 else v;
   };
 
   lerp:(a, b, t)=> {
-    start:helpers.resolveNumber(a, 0);
-    end:helpers.resolveNumber(b, 0);
-    blend:helpers.resolveNumber(t, 0);
+    start:if a = null then 0 else a;
+    end:if b = null then 0 else b;
+    blend:if t = null then 0 else t;
     eval start + (end - start) * blend;
   };
 
@@ -348,21 +350,15 @@
   };
 
   addPoints:(a, b)=> {
-    pa:helpers.normalizePoint(a, [0,0]);
-    pb:helpers.normalizePoint(b, [0,0]);
+    pa:if a = null then [0,0] else a;
+    pb:if b = null then [0,0] else b;
     eval [pa[0] + pb[0], pa[1] + pb[1]];
   };
 
   subtractPoints:(a, b)=> {
-    pa:helpers.normalizePoint(a, [0,0]);
-    pb:helpers.normalizePoint(b, [0,0]);
+    pa:if a = null then [0,0] else a;
+    pb:if b = null then [0,0] else b;
     eval [pa[0] - pb[0], pa[1] - pb[1]];
-  };
-
-  isPoint:(value)=> {
-    x:helpers.resolveNumber(if value = null then null else value[0], null);
-    y:helpers.resolveNumber(if value = null then null else value[1], null);
-    eval value != null and x != null and y != null;
   };
 
   toBoolean:(value, fallback)=> if value = true then true else if value = false then false else fallback ?? false;

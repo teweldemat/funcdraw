@@ -1,15 +1,15 @@
 {
   defaultTorsoWidth:6;
   defaultTorsoHeight:11;
-  defaultArmUpper:4;
-  defaultArmLower:3;
   defaultLegUpper:5.2;
   defaultLegLower:4.8;
+  defaultLegTotal:defaultLegUpper + defaultLegLower;
+  defaultArmUpper:defaultTorsoHeight * 0.45;
+  defaultArmLower:defaultLegTotal * 0.4;
   defaultShoulderExtension:defaultTorsoWidth * 0.15;
   defaultHandOffset:defaultTorsoWidth / 2 + defaultShoulderExtension;
   defaultHandDrop:defaultTorsoHeight * 0.85 - (defaultArmUpper + defaultArmLower);
   defaultLegOffset:defaultTorsoWidth * 0.25;
-  defaultLegTotal:defaultLegUpper + defaultLegLower;
   defaultFootThickness:0.5;
   defaultPositionY:defaultLegTotal + defaultFootThickness;
   frontBackFootLineLength:defaultTorsoWidth * 0.12;
@@ -53,10 +53,10 @@
   };
 
   resolveFootMeasurement:(measurement, defaultDirection, defaultLengthOverride)=> {
-    normalizedFoot:helpers.normalizeInput(measurement.foot, null);
-    eval if normalizedFoot != null then {
-      length:helpers.resolveOptionalNumber(normalizedFoot.length);
-      direction:normalizeFootDirection(normalizedFoot.direction, defaultDirection);
+    rawFoot:measurement.foot ?? null;
+    eval if rawFoot != null then {
+      length:rawFoot.length;
+      direction:normalizeFootDirection(rawFoot.direction, defaultDirection);
     } else {
       length:if defaultLengthOverride != null then defaultLengthOverride else null;
       direction:defaultDirection;
@@ -102,10 +102,10 @@
   };
 
   computeTorsoFrame:(position, torsoMeasurements)=> {
-    torsoConfig:helpers.normalizeInput(torsoMeasurements ?? {}, {});
-    width:helpers.resolveNumber(torsoConfig.width, defaultMeasurements.torso.width);
-    height:helpers.resolveNumber(torsoConfig.height, defaultMeasurements.torso.height);
-    rawShoulderExtension:helpers.resolveNumber(torsoConfig.shoulderExtension, null);
+    torsoConfig:torsoMeasurements ?? {};
+    width:if torsoConfig.width = null then defaultMeasurements.torso.width else torsoConfig.width;
+    height:if torsoConfig.height = null then defaultMeasurements.torso.height else torsoConfig.height;
+    rawShoulderExtension:torsoConfig.shoulderExtension;
     direction:normalizeDirection(torsoConfig.direction, defaultMeasurements.torso.direction);
     centerX:position[0];
     bottomY:position[1];
@@ -138,36 +138,36 @@
   };
 
   buildHeadSkeleton:(torso, headMeasurements)=> {
-    headConfig:helpers.normalizeInput(headMeasurements ?? {}, {});
+    headConfig:headMeasurements ?? {};
     eval {
       attachmentPoint:torso.headAttachmentPoint;
-      verticalExtent:helpers.resolveNumber(headConfig.verticalExtent, defaultMeasurements.head.verticalExtent);
-      angle:helpers.resolveNumber(headConfig.angle, defaultMeasurements.head.angle);
+      verticalExtent:if headConfig.verticalExtent = null then defaultMeasurements.head.verticalExtent else headConfig.verticalExtent;
+      angle:if headConfig.angle = null then defaultMeasurements.head.angle else headConfig.angle;
       direction:normalizeDirection(headConfig.direction, torso.direction ?? defaultMeasurements.head.direction);
     };
   };
 
   buildHandSkeleton:(position, attachmentPoints, handMeasurements, torsoDirection, handOverrideInputs)=> {
     defaults:defaultMeasurements.hands;
-    measurements:helpers.normalizeInput(handMeasurements ?? {}, {});
-    handOverrides:helpers.normalizeInput(handOverrideInputs, null);
+    measurements:handMeasurements ?? {};
+    handOverrides:handOverrideInputs ?? null;
 
     buildSide:(side)=> {
-      measurement:helpers.normalizeInput(measurements[side], {});
+      measurement:measurements[side] ?? {};
       sideDefaults:defaults[side];
-      overrideInput:if handOverrides = null then null else helpers.normalizeInput(handOverrides[side], null);
+      overrideInput:if handOverrides = null then null else (handOverrides[side] ?? null);
       hasCustomEffector:overrideInput != null and overrideInput.effectorCoordinate != null;
-      upper:helpers.resolveNumber(measurement.upperLength, sideDefaults.upperLength);
-      lower:helpers.resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
+      upper:if measurement.upperLength = null then sideDefaults.upperLength else measurement.upperLength;
+      lower:if measurement.lowerLength = null then sideDefaults.lowerLength else measurement.lowerLength;
       attachmentOffset:[
         attachmentPoints[side][0] - position[0],
         attachmentPoints[side][1] - position[1] - (upper + lower)
       ];
-      baseDefaultEffector:helpers.normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
+      baseDefaultEffector:if sideDefaults.effectorCoordinate = null then attachmentOffset else sideDefaults.effectorCoordinate;
       fallbackEffector:adjustEffectorForProfile(baseDefaultEffector, torsoDirection);
-      effector:if hasCustomEffector then helpers.normalizePoint(measurement.effectorCoordinate, fallbackEffector) else fallbackEffector;
+      effector:if hasCustomEffector then (measurement.effectorCoordinate ?? fallbackEffector) else fallbackEffector;
       targetPoint:helpers.addOffset(position, effector);
-      positiveBend:helpers.resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
+      positiveBend:if measurement.positiveBend = null then sideDefaults.positiveBend else measurement.positiveBend;
       ik:solveLimbPose(attachmentPoints[side], targetPoint, upper, lower, positiveBend);
 
       eval {
@@ -192,23 +192,23 @@
 
   buildLegSkeleton:(position, attachmentPoints, legMeasurements, torsoDirection, legOverrideInputs)=> {
     defaults:defaultMeasurements.legs;
-    measurements:helpers.normalizeInput(legMeasurements ?? {}, {});
-    legOverrides:helpers.normalizeInput(legOverrideInputs, null);
+    measurements:legMeasurements ?? {};
+    legOverrides:legOverrideInputs ?? null;
     isProfile:torsoDirection = "left" or torsoDirection = "right";
     isFrontFacing:torsoDirection = "front" or torsoDirection = "back";
 
     buildSide:(side)=> {
-      measurement:helpers.normalizeInput(measurements[side], {});
+      measurement:measurements[side] ?? {};
       sideDefaults:defaults[side];
-      overrideInput:if legOverrides = null then null else helpers.normalizeInput(legOverrides[side], null);
+      overrideInput:if legOverrides = null then null else (legOverrides[side] ?? null);
       hasCustomEffector:overrideInput != null and overrideInput.effectorCoordinate != null;
-      upperLength:helpers.resolveNumber(measurement.upperLength, sideDefaults.upperLength);
-      lowerLength:helpers.resolveNumber(measurement.lowerLength, sideDefaults.lowerLength);
+      upperLength:if measurement.upperLength = null then sideDefaults.upperLength else measurement.upperLength;
+      lowerLength:if measurement.lowerLength = null then sideDefaults.lowerLength else measurement.lowerLength;
       attachmentOffset:[attachmentPoints[side][0] - position[0], -(upperLength + lowerLength)];
-      baseDefaultEffector:helpers.normalizePoint(sideDefaults.effectorCoordinate, attachmentOffset);
+      baseDefaultEffector:if sideDefaults.effectorCoordinate = null then attachmentOffset else sideDefaults.effectorCoordinate;
       fallbackEffector:adjustEffectorForProfile(baseDefaultEffector, torsoDirection);
-      effector:if hasCustomEffector then helpers.normalizePoint(measurement.effectorCoordinate, fallbackEffector) else fallbackEffector;
-      positiveBend:helpers.resolveBoolean(measurement.positiveBend, sideDefaults.positiveBend);
+      effector:if hasCustomEffector then (measurement.effectorCoordinate ?? fallbackEffector) else fallbackEffector;
+      positiveBend:if measurement.positiveBend = null then sideDefaults.positiveBend else measurement.positiveBend;
       defaultFootDirection:if isProfile then torsoDirection else if isFrontFacing then "center" else if positiveBend then "right" else "left";
       frontFacingFootLength:if isFrontFacing then frontBackFootLineLength else null;
       foot:resolveFootMeasurement(measurement, defaultFootDirection, frontFacingFootLength);
@@ -237,13 +237,13 @@
   };
 
   buildStickManSkeleton:(optionsInput)=> {
-    normalizedOptions:helpers.normalizeInput(optionsInput ?? {}, {});
-    measurementOverrides:helpers.normalizeInput(normalizedOptions.measurements, {});
+    normalizedOptions:optionsInput ?? {};
+    measurementOverrides:normalizedOptions.measurements ?? {};
     measurements:defaultMeasurements + measurementOverrides;
     positionFallback:[0, defaultPositionY];
-    position:helpers.normalizePoint(normalizedOptions.position, positionFallback);
-    handOverrideInputs:helpers.normalizeInput(measurementOverrides.hands, null);
-    legOverrideInputs:helpers.normalizeInput(measurementOverrides.legs, null);
+    position:if normalizedOptions.position = null then positionFallback else normalizedOptions.position;
+    handOverrideInputs:measurementOverrides.hands ?? null;
+    legOverrideInputs:measurementOverrides.legs ?? null;
 
     torso:computeTorsoFrame(position, measurements.torso);
     head:buildHeadSkeleton(torso, measurements.head);
@@ -265,7 +265,5 @@
   eval {
     build:buildStickManSkeleton;
     defaultMeasurements:defaultMeasurements;
-    normalizeInput:helpers.normalizeInput;
-    mergeDeep:helpers.mergeDeep;
   };
 }

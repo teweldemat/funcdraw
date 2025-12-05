@@ -3,13 +3,15 @@
   defaults:{ position:[0,10]; depthDelta:-12; zoom:1; direction:"front" };
   fallbackOffsets:{ left:[-2,-11]; right:[2,-11] };
 
-  options:helpers.normalizeInput(optionsInput ?? {}, {});
-  anchorBase:helpers.normalizePoint(options.initialPosition, defaults.position);
-  measurementsInput:helpers.normalizeInput(options.initialMeasurements, {});
-  depthDelta:helpers.resolveNumber(options.depthDelta, defaults.depthDelta);
-  progress:clamp01(helpers.resolveNumber(options.progress, 0));
+  num:(value, fallback)=> if value = null then fallback else value;
+
+  options:optionsInput ?? {};
+  anchorBase:if options.initialPosition = null then defaults.position else options.initialPosition;
+  measurementsInput:options.initialMeasurements ?? {};
+  depthDelta:num(options.depthDelta, defaults.depthDelta);
+  progress:clamp01(num(options.progress, 0));
   direction:normalizeDirection(options.direction, defaults.direction);
-  zoomTarget:math.max(0, helpers.resolveNumber(options.zoom, defaults.zoom));
+  zoomTarget:math.max(0, num(options.zoom, defaults.zoom));
   stepper:if options.stepper != null then options.stepper else steperManZoom;
 
   defaultOffsets:resolveDefaultLegOffsets(measurementsInput, fallbackOffsets);
@@ -45,7 +47,7 @@
 
   eval {
     measurements:{} + finalState.measurements;
-    position:helpers.normalizePoint(finalState.anchor, defaults.position);
+    position:if finalState.anchor = null then defaults.position else finalState.anchor;
   };
 
   simulateWalk:(index, state)=> {
@@ -77,14 +79,8 @@
         progress:stepProgress;
       });
 
-      resolvedMeasurements:helpers.normalizeInput(
-        if stepResult?.measurements != null then stepResult.measurements else stepResult?.sequenceState?.measurements,
-        measurementsWithOffsets
-      );
-      resolvedAnchor:helpers.normalizePoint(
-        if stepResult?.position != null then stepResult.position else stepResult?.sequenceState?.position,
-        state.anchor
-      );
+      resolvedMeasurements:if stepResult?.measurements != null then stepResult.measurements else if stepResult?.sequenceState?.measurements != null then stepResult.sequenceState.measurements else measurementsWithOffsets;
+      resolvedAnchor:if stepResult?.position != null then stepResult.position else if stepResult?.sequenceState?.position != null then stepResult.sequenceState.position else state.anchor;
 
       updatedLeftFoot:helpers.addOffset(resolvedAnchor, resolveLegOffset(resolvedMeasurements.legs?.left, defaultOffsets.left));
       updatedRightFoot:helpers.addOffset(resolvedAnchor, resolveLegOffset(resolvedMeasurements.legs?.right, defaultOffsets.right));
@@ -103,24 +99,24 @@
   };
 
   resolveLegOffset:(measurement, fallback)=> {
-    legInput:helpers.normalizeInput(measurement ?? {}, {});
-    eval helpers.normalizePoint(legInput.effectorCoordinate, fallback);
+    legInput:measurement ?? {};
+    eval if legInput.effectorCoordinate = null then fallback else legInput.effectorCoordinate;
   };
 
   resolveDefaultLegOffsets:(measurements, fallback)=> {
-    legs:helpers.normalizeInput((measurements ?? {}).legs, {});
+    legs:(measurements ?? {}).legs ?? {};
     eval {
-      left:helpers.normalizePoint(legs.left?.effectorCoordinate, fallback.left);
-      right:helpers.normalizePoint(legs.right?.effectorCoordinate, fallback.right);
+      left:if legs.left?.effectorCoordinate = null then fallback.left else legs.left.effectorCoordinate;
+      right:if legs.right?.effectorCoordinate = null then fallback.right else legs.right.effectorCoordinate;
     };
   };
 
   resolveStrideLength:(measurements, defaults)=> {
-    legs:helpers.normalizeInput((measurements ?? {}).legs, {});
-    left:helpers.normalizeInput(legs.left, {});
-    right:helpers.normalizeInput(legs.right, {});
-    leftLength:math.max(0, helpers.resolveNumber(left.upperLength, 0) + helpers.resolveNumber(left.lowerLength, 0));
-    rightLength:math.max(0, helpers.resolveNumber(right.upperLength, 0) + helpers.resolveNumber(right.lowerLength, 0));
+    legs:(measurements ?? {}).legs ?? {};
+    left:legs.left ?? {};
+    right:legs.right ?? {};
+    leftLength:math.max(0, num(left.upperLength, 0) + num(left.lowerLength, 0));
+    rightLength:math.max(0, num(right.upperLength, 0) + num(right.lowerLength, 0));
     avgLength:(leftLength + rightLength) / (if leftLength > 0 and rightLength > 0 then 2 else if leftLength > 0 or rightLength > 0 then 1 else 0);
     eval if avgLength > 0 then math.max(1, avgLength * 0.35) else {
       fallbackSpan:math.max(
@@ -133,25 +129,25 @@
   };
 
   applyLegOffsets:(measurements, anchor, leftFoot, rightFoot, defaults)=> {
-    base:helpers.normalizeInput(measurements, {});
-    legs:helpers.normalizeInput(base.legs, {});
-    anchorPoint:helpers.normalizePoint(anchor, [0,0]);
-    leftPoint:helpers.normalizePoint(leftFoot, helpers.addOffset(anchorPoint, defaults.left));
-    rightPoint:helpers.normalizePoint(rightFoot, helpers.addOffset(anchorPoint, defaults.right));
+    base:measurements ?? {};
+    legs:base.legs ?? {};
+    anchorPoint:if anchor = null then [0,0] else anchor;
+    leftPoint:if leftFoot = null then helpers.addOffset(anchorPoint, defaults.left) else leftFoot;
+    rightPoint:if rightFoot = null then helpers.addOffset(anchorPoint, defaults.right) else rightFoot;
     leftOffset:subtractPoints(leftPoint, anchorPoint);
     rightOffset:subtractPoints(rightPoint, anchorPoint);
     eval base + {
       legs:{
-        left:helpers.normalizeInput(legs.left, {}) + { effectorCoordinate:leftOffset };
-        right:helpers.normalizeInput(legs.right, {}) + { effectorCoordinate:rightOffset };
+        left:(legs.left ?? {}) + { effectorCoordinate:leftOffset };
+        right:(legs.right ?? {}) + { effectorCoordinate:rightOffset };
       };
     };
   };
 
   mergeFacing:(measurements, facing)=> {
-    base:helpers.normalizeInput(measurements ?? {}, {});
-    torso:helpers.normalizeInput(base.torso, {});
-    head:helpers.normalizeInput(base.head, {});
+    base:measurements ?? {};
+    torso:base.torso ?? {};
+    head:base.head ?? {};
     resolvedDirection:normalizeDirection(if torso.direction != null then torso.direction else head.direction, facing);
     eval base + { torso:{ direction:resolvedDirection }; head:{ direction:resolvedDirection } };
   };
@@ -167,16 +163,16 @@
   };
 
   clamp01:(value)=> {
-    num:helpers.resolveNumber(value, 0);
-    eval if num < 0 then 0 else if num > 1 then 1 else num;
+    v:num(value, 0);
+    eval if v < 0 then 0 else if v > 1 then 1 else v;
   };
 
   subtractPoints:(a, b)=> {
     aSafe:if a = null then [0,0] else a;
     bSafe:if b = null then [0,0] else b;
     eval [
-      helpers.resolveNumber(aSafe[0], 0) - helpers.resolveNumber(bSafe[0], 0),
-      helpers.resolveNumber(aSafe[1], 0) - helpers.resolveNumber(bSafe[1], 0)
+      num(aSafe[0], 0) - num(bSafe[0], 0),
+      num(aSafe[1], 0) - num(bSafe[1], 0)
     ];
   };
 }

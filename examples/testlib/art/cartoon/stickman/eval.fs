@@ -1,5 +1,5 @@
 {
-  static: staticMan;
+  static: static;
   steperManProfile: steperManProfile;
   steperManZoom: steperManZoom;
   sideWalkMan: sideWalkMan;

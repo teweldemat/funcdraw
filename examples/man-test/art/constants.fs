@@ -1,6 +1,6 @@
 {
   view:{ left:-400; bottom:-300; right:400; top:300 };
-  zoomedInView:{ left:-80; bottom:-20; right:80; top:110 };
+  zoomedInView:{ left:-50; bottom:-20; right:50; top:50 };
   fontSize:12;
 
   shared:{
@@ -20,6 +20,9 @@
   profileTester:{
     view:{ left:-80; bottom:-20; right:80; top:110 };
     anchor:[0, 18.6];
+    strideLength:12;
+    stepCount:10;
+    speed:0.02;
     legLengths:{ upper:12.4; lower:11.6 };
     leftOffset:[-4, -18.6];
     rightOffset:[4, -18.6];

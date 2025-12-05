@@ -2,29 +2,6 @@ function ensureObject(value, fallback) {
   return value != null && typeof value === "object" ? value : fallback;
 }
 
-function selectCoordinate(source, keys) {
-  for (const key of keys) {
-    if (key in source) {
-      return { found: true, value: source[key] };
-    }
-  }
-  return { found: false, value: undefined };
-}
-
-function normalizePoint(value, fallback) {
-  if (Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
-    return [value[0], value[1]];
-  }
-  if (value && typeof value === "object") {
-    const xResult = selectCoordinate(value, ["x", "left", "right"]);
-    const yResult = selectCoordinate(value, ["y", "top", "bottom"]);
-    if (xResult.found && yResult.found) {
-      return [toNumber(xResult.value, fallback[0]), toNumber(yResult.value, fallback[1])];
-    }
-  }
-  return fallback.slice();
-}
-
 function toNumber(value, fallback) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -74,7 +51,7 @@ function createLobe(center, radius, fill, stroke) {
 
 function cloud(rawOptions = {}) {
   const options = ensureObject(rawOptions, {});
-  const position = normalizePoint(options.position, [0, 0]);
+  const position = Array.isArray(options.position) ? options.position : [0, 0];
   const width = clampNumber(options.width, 6, 80, 22);
   const puffiness = clampNumber(options.puffiness ?? options.heightFactor, 0.6, 1.6, 1);
   const lobeCount = clampInteger(options.lobes, 3, 6, 4);

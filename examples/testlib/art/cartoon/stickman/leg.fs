@@ -1,13 +1,11 @@
 (options)=>
 {
-  defaults:{ stroke:"#f97316"; width:0.8 };
+  defaults:{ stroke:"#0ea5e9"; width:1.1 };
 
   config:options ?? {};
   joints:extractJointPoints(config);
 
-  eval if joints = null then {
-    graphics:[];
-  } else {
+  eval if joints = null then error("leg model now requires joints from the skeleton (leg.joints missing)") else {
     style:config.style ?? {};
     stroke:style.stroke ?? defaults.stroke;
     width:style.width ?? defaults.width;
@@ -35,9 +33,10 @@
   extractJointPoints:(config)=> {
     jointsInput:config.joints;
     eval if jointsInput = null then null else {
-      attachment:jointsInput.attachment ?? jointsInput.shoulder;
-      hinge:jointsInput.hinge ?? jointsInput.elbow;
-      effector:jointsInput.effector ?? jointsInput.wrist;
+      attachment:jointsInput.attachment ?? jointsInput.hip;
+      hinge:jointsInput.hinge ?? jointsInput.knee;
+      effector:jointsInput.effector ?? jointsInput.ankle;
+
       eval if attachment = null or hinge = null or effector = null then null else {
         attachment:attachment;
         hinge:hinge;

@@ -1,7 +1,7 @@
 # sideWalkMan Example (profile walk measurer)
 
 ## Overview
-`stickman/sideWalkMan.js` uses `steperManProfile` to generate the stickman measurements for a sideways (profile) walk across multiple steps. Given an initial torso anchor and measurements, a horizontal displacement (positive or negative), and a progress value between 0 and 1, it walks the character across as many steps as needed and returns the measurements/anchor at that progress so callers can render or chain poses without world-point math.
+`stickman/sideWalkMan.fs` uses `steperManProfile` to generate the stickman measurements for a sideways (profile) walk across multiple steps. Given an initial torso anchor and measurements, a horizontal displacement (positive or negative), and a progress value between 0 and 1, it walks the character across as many steps as needed and returns the measurements/anchor at that progress so callers can render or chain poses without world-point math.
 
 ## Construction Overview
 

@@ -14,7 +14,7 @@ if (typeof staticMan !== "function") {
   throw new Error("staticMan builder is unavailable; stickman base rig must be loaded before steperManZoom");
 }
 if (!skeleton || typeof skeleton.build !== "function") {
-  throw new Error("stickman skeleton helper is unavailable; helpers/stickman/skeleton.js must be loaded");
+  throw new Error("stickman skeleton helper is unavailable; helpers/stickman/skeleton.fs must be loaded");
 }
 const baseStaticBuilder = staticMan;
 const baseSkeleton = skeleton.build({}).skeleton;

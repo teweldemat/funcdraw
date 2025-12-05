@@ -2,7 +2,7 @@
 
 ## Overview
 
-`leg.js` draws a limb from the hip attachment to the ankle effector using two straight segments. Visually, each leg is a pair of colored strokes with a slight “joint” break where the knee bends; the foot itself is added by `feet.js`. Call `leg(options?)` with the solved joints from `skeleton.build(...)` so it can render the hip→knee→ankle path without recomputing inverse kinematics.
+`leg.js` draws a limb from the hip attachment to the ankle effector using two straight segments. Visually, each leg is a pair of colored strokes with a slight “joint” break where the knee bends; the foot itself is added by `feet.fs`. Call `leg(options?)` with the solved joints from `skeleton.build(...)` so it can render the hip→knee→ankle path without recomputing inverse kinematics.
 
 ## Construction Overview
 

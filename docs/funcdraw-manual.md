@@ -1,24 +1,25 @@
 # FuncDraw manual
 
 ## Terminology
-**expression** any funscript or javascript code inside the 'art' folder. They should be named with out spaces, dotes, dashes
-**collection** a folder containing one ore more expressions or folders. All the expressions must not be named 'eval' other wise the folder will represent a module
-**module** a folder containing an expression named 'eval' (ignoring the extension)
-**package** is a collection of expressions, modules and collections that reside in 'art' folder. Packages can be designed with the purpose of providing re-usable components in other packages in which case we refer to them library packages. Packages are structured as node packages hence will require package.json at the root folder. To call a library package from expressions you call the `package` function with the package name only, then navigate its collections via `.`.  
-Example:
+**expression** FuncScript code under the `art` folder (`.fs`/`.fx`). Name files without spaces, dots, or dashes.
+**collection** folder containing one or more expressions or folders. If no child is named `eval`, every child expression is directly addressable via dot navigation.
+**module** folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns.
+**package** the entire `art` tree for a project. Packages are Node-style (they live alongside `package.json`) and can be consumed from other FuncDraw packages with `package("<name>")`.
+**model** an expression/module intended to render a graphical object. Anything that returns graphics (e.g., `cartoon/stickman/head.fs`) is a model.
+**component** an expression/module used as a building block for larger models.
+
+Example of loading a library package from FuncScript:
 ```funcscript
 man:package("@funcdraw/testlib").cartoon.stickman.static;
 ```
-**model** is a loose term that is used to describe an expression or a module that is meant to model a graphical object. An expression, a module or a package can be models. When a file outputs tangible graphics (for example `examples/testlib/art/cartoon/stickman/head.js` or `hand.js`) refer to it as a model so readers understand it paints something concrete.
-**component** is a term that is used to describe an expression or module that is meant to be used as component of larger models
 
 ## Documentation guidelines
 
 Every model/component that gets its own `.doc.md` file should follow a predictable structure so readers immediately know what to expect:
 
-- **File name** – mirror the expression path, e.g. `art/cartoon/stickman/head.doc.md` documents `head.js`.
+- **File name** – mirror the expression path, e.g. `art/cartoon/stickman/head.doc.md` documents `head.fs`.
 - **Overview** – first section that states what the model renders in plain graphical terms (shapes, palette roles, facings) and why/where it is used.
-- **Construction Overview** – short, ordered list describing the major building steps (e.g. calls `skeleton.js`, draws torso, invokes limb helpers). Mention any delegated helpers here.
+- **Construction Overview** – short, ordered list describing the major building steps (e.g. calls `skeleton.fs`, draws torso, invokes limb helpers). Mention any delegated helpers here.
 - **Inputs** – use pseudo schema to describe every argument (no ad-hoc prose). Include units, coordinate frames, defaults, and what visual outcome each field controls.
 - **Outputs** – explain the returned structure (graphics arrays, overlay helpers, metadata) so consumers know which pieces to render or inspect.
 
@@ -26,39 +27,23 @@ Keep these sections concise and focused on the model’s behaviour; avoid repeat
 Always title them exactly as `## Overview`, `## Construction Overview`, `## Inputs`, and `## Outputs` so every doc reads the same at a glance.
 
 ## FuncScript runtime
-FuncDraw runs withing FuncScript runtime, a FuncDraw package is abstracted as FuncScript package that resolved using file system. Packages are loaded from node_modules.
-The most important point to remember is:
-- there is no require or export key word:
-  * a FuncScript expression in a file is evaluted and its return play the 'export' of convensional node packagtes
-  * expression are referred to by their name within a packge without explicitly importing or requiring them
-  * package keyword is used to load a package from node_modules
+FuncDraw runs inside the FuncScript runtime. Think of the `art` folder as a FuncScript package that the resolver loads from disk (and from `node_modules` when you call `package("<name>")`).
 
-## JavaScript expressions
-JavaScript language is avilable through FuncScript language binding. When writing javascript expression care should be taken not to retain state.
-- **Stateless execution** – a JS file can be re-evaluated at any time, often multiple times per render. Do not mutate module-level variables or cache mutable objects between runs. Prefer local variables or recreate values on demand so repeated evaluations yield identical results for the same inputs.
-- **Referencing siblings and packages** – every expression/module in scope is exposed as a property when your JavaScript runs. Call other models or helpers directly (`return star(row, col)`), or reach into folders using dot notation when the folder is a collection (no `eval.js`) (`scene.background()`). If a folder defines `eval.js`, it exports only that module, so nested helpers or models such as `cartoon.stickman.static.head` are not surfaced unless you re-export them yourself. To reference another npm FuncDraw package, use the regular FuncScript helper: `const tree = package("@funcdraw/testlib").cartoon.tree;`.
-- **Returning results** – finish the file with a `return` statement. For primitives, return the object or array representing the graphics payload. For reusable helpers, return a function or collection. 
-- **No CommonJS boilerplate** – `require`, `module.exports`, and `export`/`import` are unnecessary because FuncDraw injects the available bindings through the provider scope. Simply reference functions by name and `return` the final value.
+Key points:
+- **No imports/exports** – a FuncScript file is evaluated and its returned value is the “export.” Refer to sibling expressions by name; the resolver injects them automatically.
+- **Modules vs. collections** – when a folder has `eval.fs`, only that return value is exported. Otherwise each file is reachable via dot navigation (`cartoon.stickman.head`).
+- **Stateless by default** – expressions can be re-evaluated many times during a render; rely on function arguments instead of mutable globals.
 
-Example:
-
-```js
-const palette = ["#facc15", "#38bdf8", "#fb7185"];
-
-function badge(centerX, centerY, size, index) {
-  const radius = size ?? 4;
-  return {
-    type: "circle",
-    center: [centerX ?? 0, centerY ?? 0],
-    radius,
-    fill: palette[index % palette.length],
-    stroke: "#0f172a",
-    width: 0.4
-  };
-}
-
-return badge;
-```
+### Best Practice Workflow
+- Prepare a test composition first, starting with an empty output so you have a safe harness to grow into; when authoring a library, build that composition in a separate package that depends on the library so you exercise the consumer path.
+- Plan the expressions, modules, and collections you will need before writing code; name files without spaces/dashes and decide up front which folders are collections vs. modules.
+- Build incrementally: sketch the interface (inputs/outputs) for each expression, then fill in behaviour in small passes.
+- As expressions grow with added detail, convert them into modules and break the work into smaller expressions; aim to keep individual expressions under ~200 lines (shorter is better). Name folders/files to hint at how the art is decomposed.
+- For each expression, write a `.test.fs` (simple sanity for small pieces, richer validation for complex ones) and keep `npm run play -- --test` passing as you iterate; prefer fast, deterministic tests over visual checks. If you’re authoring a library, put the test composition in a separate package that depends on the library so you exercise the real consumer path.
+- Normalize inputs early (`helpers.normalizeInput`/`resolveNumber`, etc.) and keep functions pure (no module-level mutation) so reruns are stable.
+- Once a model is complete, add it to the test composition and verify with `--dump`; use `--trace` (and `--trace step-into` when needed) to chase resolver/evaluation issues.
+- Keep docs in sync: update the model’s `.doc.md` after interfaces change, and record construction steps and inputs/outputs concisely.
+- When multiple helpers share behaviour, refactor to shared collections to avoid duplication; keep palettes and constants near their consumers unless reused broadly.
 
 ## FuncDraw Play CLI
 Run `npm run play -- [options]` from a FuncDraw package to start the preview server. Common flags:
@@ -97,3 +82,6 @@ Use `--trace` when you need to inspect how FuncScript resolves and evaluates you
 - **Pairing rules** – FuncScript looks for `*.test.fs` alongside `*.fs` expressions. JS tests (`*.test.js`) can also be returned from `eval` of a module. Ensure each test file `return`s an array of suite objects: `{ name, cases, test }`.
 - **Non-rendering environments** – `--test` never starts the preview server, so it’s safe in CI and headless environments.
 - **Inspect warnings** – if tests pass but you suspect silent issues, run without `--test` and add `--debug` to inspect any warnings emitted during evaluation.
+
+## Using JavaScript (optional)
+FuncScript is the default, but JavaScript bindings remain available when needed. Keep JS files stateless, end them with a `return` of the value you want to export, and refer to siblings the same way you would from FuncScript (they are injected into scope). Avoid `require`/`module.exports`; just use `package("<name>")` for external packages and direct identifiers for local helpers. Use JS sparingly—prefer `.fs`/`.fx` for new work.

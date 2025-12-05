@@ -2,7 +2,7 @@
 
 ## Overview
 
-`stickman/skeleton.js` performs the pose math for the cartoon character. Call `skeleton.build(options?)` with high-level measurements and target points to receive a normalized skeleton describing where the torso sits, how the head is attached, and how each limb bends to reach its effector. Rendering modules (`eval.js`, `hand.js`, `leg.js`, `head.js`) consume this data in `stickman/eval.js` to draw the final graphics.
+`stickman/skeleton.fs` performs the pose math for the cartoon character. Call `skeleton.build(options?)` with high-level measurements and target points to receive a normalized skeleton describing where the torso sits, how the head is attached, and how each limb bends to reach its effector. Rendering modules (`eval.js`, `hand.fs`, `leg.js`, `head.fs`) consume this data in `stickman/eval.js` to draw the final graphics.
 
 ## Construction Overview
 
@@ -60,7 +60,7 @@ type LegSideConfig = {
   effectorCoordinate?: PointInput;// IK target relative to StickmanOptions.position (defaults keep toes under the torso, e.g. [±1.5, -10])
   positiveBend?: boolean;         // knee rotation relative to the hip→effector vector (left false, right true)
   foot?: {
-    length?: number | null;       // toe-line length (front/back facings shrink to a narrow line; otherwise defers to feet.js base when null)
+    length?: number | null;       // toe-line length (front/back facings shrink to a narrow line; otherwise defers to feet.fs base when null)
     direction?: FootDirection;    // toe direction (profile facings follow torso.direction; front/back default to "center" for a symmetric dash; otherwise defaults to bend direction: positive => "right")
   };
 };

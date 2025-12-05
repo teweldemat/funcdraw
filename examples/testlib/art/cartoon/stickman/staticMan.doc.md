@@ -4,10 +4,10 @@
 
 ## Construction Overview
 
-1. **Delegate to skeleton** – `eval.js` passes the caller’s `position`/`measurements` into `skeleton.js`, which performs the IK math and returns normalized attachment points, limb lengths, bend directions, and effectors.
+1. **Delegate to skeleton** – `eval.js` passes the caller’s `position`/`measurements` into `skeleton.fs`, which performs the IK math and returns normalized attachment points, limb lengths, bend directions, and effectors.
 2. **Draw torso** – Using the skeleton’s torso frame, render the rounded rectangle and keep the attachment coordinates for downstream models.
-3. **Render head** – Call `head.js` with the skeleton’s head attachment and merge its graphics.
-4. **Render arms/legs** – Feed the skeleton’s hand/leg entries into `hand.js`/`leg.js` so they draw the two-segment limbs and toe lines toward each effector.
+3. **Render head** – Call `head.fs` with the skeleton’s head attachment and merge its graphics.
+4. **Render arms/legs** – Feed the skeleton’s hand/leg entries into `hand.fs`/`leg.js` so they draw the two-segment limbs and toe lines toward each effector.
 5. **Optional overlays** – Convert skeleton attachment/target points into small markers if you need IK debugging aids.
 
 ## Inputs
@@ -63,4 +63,4 @@ type StickmanResult = {
 - `overlays` holds small circle markers describing limb targets and hips; consume them only when you need guides.
 - `skeleton` exposes the computed pose (with precomputed limb joints under `skeleton.hands/legs`) so other expressions can align props, constraints, or effects without rerunning inverse-kinematics math.
 
-See the sibling docs (`head.doc.md`, `skeleton.doc.md`, `hand.js`, `leg.js`) for deeper geometry details reused by this model.
+See the sibling docs (`head.doc.md`, `skeleton.doc.md`, `hand.fs`, `leg.js`) for deeper geometry details reused by this model.

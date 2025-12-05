@@ -2,7 +2,7 @@
 
 ## Overview
 
-`stickman/feet.js` draws the slim toe line used for the stickman model. Hand it the IK-solved ankle point, plus a side/direction hint, and it will emit either a short centered dash (front/back facings) or a single line that protrudes left or right (profile facings) to suggest a foot.
+`stickman/feet.fs` draws the slim toe line used for the stickman model. Hand it the IK-solved ankle point, plus a side/direction hint, and it will emit either a short centered dash (front/back facings) or a single line that protrudes left or right (profile facings) to suggest a foot.
 
 ## Inputs
 

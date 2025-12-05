@@ -53,7 +53,7 @@ const baseline = {
 };
 
 return {
-  view: { left: -400, bottom: -300, right: 400, top: 300 },
+  view: { left: -40, bottom: -30, right: 70, top: 90 },
   graphics: [
     baseline,
     ...heroes.flatMap((hero) => (hero && Array.isArray(hero.graphics) ? hero.graphics : [])),

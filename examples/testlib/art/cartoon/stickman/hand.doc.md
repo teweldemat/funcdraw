@@ -2,7 +2,7 @@
 
 ## Overview
 
-`hand.js` draws an arm from the shoulder attachment to the wrist effector using two straight segments. The shoulder→elbow segment represents the upper arm, while the elbow→wrist segment represents the forearm. Call `hand(options?)` with the solved joints from `skeleton.build(...)` so it can render the limb without recomputing inverse kinematics.
+`hand.fs` draws an arm from the shoulder attachment to the wrist effector using two straight segments. The shoulder→elbow segment represents the upper arm, while the elbow→wrist segment represents the forearm. Call `hand(options?)` with the solved joints from `skeleton.build(...)` so it can render the limb without recomputing inverse kinematics.
 
 ## Construction Overview
 

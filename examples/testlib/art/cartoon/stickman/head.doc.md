@@ -2,7 +2,7 @@
 
 ## Overview
 
-`head.js` renders the head used by the cartoon stickman. The model receives the neck attachment point plus a configuration object and returns the polygon/circle primitives that depict the skull, eyes, and facial details. Visually, the skull is a softly rounded polygon (many small edges approximating a circle), the eyes are circles layered on top (or an almond made from two overlapping circles for profile views), and the nose is a short line or right-angled pair of lines. The geometry adapts to four canonical facings (`front`, `back`, `left`, `right`):
+`head.fs` renders the head used by the cartoon stickman. The model receives the neck attachment point plus a configuration object and returns the polygon/circle primitives that depict the skull, eyes, and facial details. Visually, the skull is a softly rounded polygon (many small edges approximating a circle), the eyes are circles layered on top (or an almond made from two overlapping circles for profile views), and the nose is a short line or right-angled pair of lines. The geometry adapts to four canonical facings (`front`, `back`, `left`, `right`):
 
 - **Front** – two highlighted eyes plus a short vertical nose centered between them so it never touches the outline.
 - **Profile (left/right)** – a single almond-shaped eye and a two-segment nose that points away from the face yet stays perpendicular to the skull tilt.

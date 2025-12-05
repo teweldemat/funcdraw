@@ -46,7 +46,7 @@
   finalState:simulateWalk(0, initialState);
 
   eval {
-    measurements:helpers.mergeDeep({}, finalState.measurements);
+    measurements:{} + finalState.measurements;
     position:helpers.normalizePoint(finalState.anchor, defaults.position);
   };
 
@@ -108,10 +108,10 @@
     torso:helpers.normalizeInput(base.torso, {});
     head:helpers.normalizeInput(base.head, {});
     resolvedDirection:normalizeDirection(if torso.direction != null then torso.direction else head.direction, facing);
-    eval helpers.mergeDeep(base, {
+    eval base + {
       torso:{ direction:resolvedDirection };
       head:{ direction:resolvedDirection };
-    });
+    };
   };
 
   resolveStrideLength:(measurements, defaults)=> {
@@ -135,12 +135,12 @@
     rightPoint:helpers.normalizePoint(rightFoot, helpers.addOffset(anchorPoint, defaults.right));
     leftOffset:subtractPoints(leftPoint, anchorPoint);
     rightOffset:subtractPoints(rightPoint, anchorPoint);
-    eval helpers.mergeDeep(base, {
+    eval base + {
       legs:{
-        left:helpers.mergeDeep(helpers.normalizeInput(legs.left, {}), { effectorCoordinate:leftOffset });
-        right:helpers.mergeDeep(helpers.normalizeInput(legs.right, {}), { effectorCoordinate:rightOffset });
+        left:helpers.normalizeInput(legs.left, {}) + { effectorCoordinate:leftOffset };
+        right:helpers.normalizeInput(legs.right, {}) + { effectorCoordinate:rightOffset };
       }
-    });
+    };
   };
 
   normalizeDirection:(value, fallback)=> {

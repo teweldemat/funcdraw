@@ -21,7 +21,7 @@
     skeletonPose:skeletonContext.skeleton;
     normalizedOptions:helpers.normalizeInput(skeletonContext.normalizedOptions, {});
     paletteOverrides:if skeleton.normalizeInput = null then helpers.normalizeInput(normalizedOptions.palette, {}) else skeleton.normalizeInput(normalizedOptions.palette, {});
-    palette:if skeleton.mergeDeep = null then helpers.mergeDeep(defaultPalette, paletteOverrides) else skeleton.mergeDeep(defaultPalette, paletteOverrides);
+    palette:defaultPalette + paletteOverrides;
     skinStroke:if normalizedOptions.palette?.skinStroke != null then normalizedOptions.palette.skinStroke
       else if palette.skinStroke != null then palette.skinStroke
       else if palette.handStroke != null then palette.handStroke

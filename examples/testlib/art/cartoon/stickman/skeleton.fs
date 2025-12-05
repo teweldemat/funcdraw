@@ -239,7 +239,7 @@
   buildStickManSkeleton:(optionsInput)=> {
     normalizedOptions:helpers.normalizeInput(optionsInput ?? {}, {});
     measurementOverrides:helpers.normalizeInput(normalizedOptions.measurements, {});
-    measurements:helpers.mergeDeep(defaultMeasurements, measurementOverrides);
+    measurements:defaultMeasurements + measurementOverrides;
     positionFallback:[0, defaultPositionY];
     position:helpers.normalizePoint(normalizedOptions.position, positionFallback);
     handOverrideInputs:helpers.normalizeInput(measurementOverrides.hands, null);

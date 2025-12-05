@@ -102,14 +102,14 @@
     );
     swing:resolveHandSwingOptions(options.handSwing);
 
-    updatedMeasurements:helpers.mergeDeep(measurementInput, {
-      torso:helpers.mergeDeep(torsoMeasurements, { direction:torsoDirection });
-      head:helpers.mergeDeep(headMeasurements, { direction:torsoDirection });
+    updatedMeasurements:measurementInput + {
+      torso:torsoMeasurements + { direction:torsoDirection };
+      head:headMeasurements + { direction:torsoDirection };
       legs:{
-        left:helpers.mergeDeep(helpers.normalizeInput(baseLegs.left, {}), { effectorCoordinate:updatedLegOffsets.left });
-        right:helpers.mergeDeep(helpers.normalizeInput(baseLegs.right, {}), { effectorCoordinate:updatedLegOffsets.right });
+        left:helpers.normalizeInput(baseLegs.left, {}) + { effectorCoordinate:updatedLegOffsets.left };
+        right:helpers.normalizeInput(baseLegs.right, {}) + { effectorCoordinate:updatedLegOffsets.right };
       };
-    });
+    };
 
     hands:applyHandSwing(baseHands, {
       swing:swing;
@@ -120,7 +120,7 @@
       legOffsets:updatedLegOffsets;
     });
 
-    finalMeasurements:helpers.mergeDeep(updatedMeasurements, { hands:hands });
+    finalMeasurements:updatedMeasurements + { hands:hands };
 
     staticResult:if baseStaticBuilder = null then {} else baseStaticBuilder({
       position:anchorPosition;
@@ -129,7 +129,7 @@
 
     sequenceState:{
       position:helpers.normalizePoint(anchorPosition, defaults.position);
-      measurements:helpers.mergeDeep({}, finalMeasurements);
+      measurements:{} + finalMeasurements;
     };
 
     step:{
@@ -141,14 +141,14 @@
       progress:progress;
     };
 
-    eval helpers.mergeDeep(helpers.normalizeInput(staticResult, {}), {
+    eval helpers.normalizeInput(staticResult, {}) + {
       position:sequenceState.position;
       measurements:sequenceState.measurements;
       finalPosition:sequenceState.position;
       finalMeasurements:sequenceState.measurements;
       sequenceState:sequenceState;
       step:step;
-    });
+    };
   };
 
   computeArcPoint:(start, end, progress, height)=> {
@@ -332,7 +332,7 @@
         left:resolveHandReachLength("left", shoulderOffsets, baseHands);
         right:resolveHandReachLength("right", shoulderOffsets, baseHands);
       };
-      swingContext:helpers.mergeDeep(context, { shoulderOffsets:shoulderOffsets; reachBySide:reachBySide });
+      swingContext:context + { shoulderOffsets:shoulderOffsets; reachBySide:reachBySide };
       eval if swing.mode = "sine" then applySineHandSwing(baseHands, swingContext) else applyMirrorHandSwing(baseHands, swingContext);
     };
   };
@@ -361,7 +361,7 @@
       verticalSwing:(if isMoving then liftSignal else -liftSignal) * liftAmount;
       candidate:[horizontalSwing, baseEffector[1] + verticalSwing];
       targetEffector:scaleVectorToLength(candidate, shoulderOffset, reach);
-      eval helpers.mergeDeep(helpers.normalizeInput(baseHands[side], {}), { effectorCoordinate:targetEffector });
+      eval helpers.normalizeInput(baseHands[side], {}) + { effectorCoordinate:targetEffector };
     };
 
     eval {
@@ -382,7 +382,7 @@
       baseEffector:helpers.normalizePoint(baseHands[side]?.effectorCoordinate, fallback);
       mirroredLeg:if side = "left" then legOffsets?.right else legOffsets?.left;
 
-      eval if !isPoint(mirroredLeg) then helpers.mergeDeep(helpers.normalizeInput(baseHands[side], {}), { effectorCoordinate:baseEffector }) else {
+      eval if !isPoint(mirroredLeg) then helpers.normalizeInput(baseHands[side], {}) + { effectorCoordinate:baseEffector } else {
         radius:math.max(0.000001, distanceBetweenPoints([0,0], baseEffector));
         normalizedHorizontal:clampSymmetric(mirroredLeg[0] / depthScale, 1);
         normalizedVertical:clampSymmetric((mirroredLeg[1] - averageY) / depthScale, 1);
@@ -392,7 +392,7 @@
         candidateY:baseEffector[1] + verticalSwing;
         candidateLen:math.sqrt(candidateX * candidateX + candidateY * candidateY);
         scale:radius / candidateLen;
-        eval helpers.mergeDeep(helpers.normalizeInput(baseHands[side], {}), { effectorCoordinate:[candidateX * scale, candidateY * scale] });
+        eval helpers.normalizeInput(baseHands[side], {}) + { effectorCoordinate:[candidateX * scale, candidateY * scale] };
       };
     };
 

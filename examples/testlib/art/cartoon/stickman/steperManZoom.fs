@@ -167,45 +167,45 @@
     rightFootLength:scaleOptionalLength(rightFootBase.length, bodyScale);
 
     updatedMeasurements:{
-      torso:helpers.mergeDeep(torsoBase, torsoDimensions);
-      head:helpers.mergeDeep(headBase, {
+      torso:torsoBase + torsoDimensions;
+      head:headBase + {
         verticalExtent:helpers.resolveNumber(headBase.verticalExtent, defaults.headHeight) * bodyScale;
         angle:helpers.resolveNumber(headBase.angle, 90);
         direction:normalizeDirection(headBase.direction, direction);
-      });
+      };
       legs:{
-        left:helpers.mergeDeep(helpers.normalizeInput(legsBase.left, {}), {
+        left:helpers.normalizeInput(legsBase.left, {}) + {
           effectorCoordinate:resolvedLegs.left.effectorCoordinate;
           upperLength:resolvedLegs.left.upperLength;
           lowerLength:resolvedLegs.left.lowerLength;
           positiveBend:resolvedLegs.left.positiveBend;
           foot:mergeFoot(leftFootBase, leftFootLength);
-        });
-        right:helpers.mergeDeep(helpers.normalizeInput(legsBase.right, {}), {
+        };
+        right:helpers.normalizeInput(legsBase.right, {}) + {
           effectorCoordinate:resolvedLegs.right.effectorCoordinate;
           upperLength:resolvedLegs.right.upperLength;
           lowerLength:resolvedLegs.right.lowerLength;
           positiveBend:resolvedLegs.right.positiveBend;
           foot:mergeFoot(rightFootBase, rightFootLength);
-        });
+        };
       };
       hands:{
-        left:helpers.mergeDeep(helpers.normalizeInput(handsBase.left, {}), {
+        left:helpers.normalizeInput(handsBase.left, {}) + {
           effectorCoordinate:resolvedHands.left.effectorCoordinate;
           upperLength:resolvedHands.left.upperLength;
           lowerLength:resolvedHands.left.lowerLength;
           positiveBend:resolvedHands.left.positiveBend;
-        });
-        right:helpers.mergeDeep(helpers.normalizeInput(handsBase.right, {}), {
+        };
+        right:helpers.normalizeInput(handsBase.right, {}) + {
           effectorCoordinate:resolvedHands.right.effectorCoordinate;
           upperLength:resolvedHands.right.upperLength;
           lowerLength:resolvedHands.right.lowerLength;
           positiveBend:resolvedHands.right.positiveBend;
-        });
+        };
       };
     };
 
-    finalMeasurements:helpers.mergeDeep(measurementsInput, updatedMeasurements);
+    finalMeasurements:measurementsInput + updatedMeasurements;
 
     staticResult:if baseStaticBuilder = null then {} else baseStaticBuilder({
       position:anchorPoint;
@@ -214,7 +214,7 @@
 
     sequenceState:{
       position:helpers.normalizePoint(anchorPoint, skeletonPosition);
-      measurements:helpers.mergeDeep({}, finalMeasurements);
+      measurements:{} + finalMeasurements;
     };
 
     step:{
@@ -231,14 +231,14 @@
       movingPoint:addPoints(anchorPoint, legEffectors[movingSide]);
     };
 
-    eval helpers.mergeDeep(helpers.normalizeInput(staticResult, {}), {
+    eval helpers.normalizeInput(staticResult, {}) + {
       position:sequenceState.position;
       measurements:sequenceState.measurements;
       finalPosition:sequenceState.position;
       finalMeasurements:sequenceState.measurements;
       sequenceState:sequenceState;
       step:step;
-    });
+    };
   };
 
   readEffectorOffset:(measurement, fallback)=> {
@@ -314,7 +314,7 @@
 
   mergeFoot:(baseFoot, scaledLength)=> {
     footInput:helpers.normalizeInput(baseFoot, {});
-    eval if hasFootOverrides(footInput) then helpers.mergeDeep(footInput, { length:scaledLength }) else footInput;
+    eval if hasFootOverrides(footInput) then footInput + { length:scaledLength } else footInput;
   };
 
   hasFootOverrides:(foot)=> foot != null and (foot.length != null or foot.direction != null);

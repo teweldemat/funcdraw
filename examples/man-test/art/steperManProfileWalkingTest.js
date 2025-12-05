@@ -3,11 +3,16 @@ const stickmanModule = cartoonLibrary?.stickman ?? {};
 const hasSteperManProfile = typeof stickmanModule?.steperManProfile === 'function';
 const staticBuilder = typeof stickmanModule?.static === 'function' ? stickmanModule.static : null;
 const steperBuilder = hasSteperManProfile ? stickmanModule.steperManProfile : null;
+const consts = typeof constants === 'object' && constants ? constants : {};
 
-const view = { left: -400, bottom: -300, right: 400, top: 300 };
+const view =
+  consts.profileWalking?.view ??
+  consts.zoomedInView ??
+  consts.view ??
+  { left: -100, bottom: -24, right: 100, top: 120 };
 const groundY = 0;
-const anchorBaseY = 18.6;
-const testingLegLengths = { upper: 12.4, lower: 11.6 };
+const anchorBaseY = consts.profileWalking?.anchorBaseY ?? consts.shared?.anchor?.[1] ?? 18.6;
+const testingLegLengths = consts.profileWalking?.legLengths ?? consts.shared?.legs?.lengths ?? { upper: 12.4, lower: 11.6 };
 const timeValue = typeof t === 'number' ? t : 0;
 
 if (!steperBuilder || !staticBuilder) {
@@ -40,14 +45,14 @@ return {
 };
 
 function buildWalkingScene() {
-  const strideLength = 12;
+  const strideLength = consts.profileWalking?.strideLength ?? 12;
   const laneMargin = 2;
-  const startX = view.left + laneMargin;
-  const endX = view.right - laneMargin;
-  const usableSpan = Math.max(strideLength * 3, endX - startX);
-  const maxStepIndex = Math.max(2, Math.floor(usableSpan / strideLength) - 1);
-  const totalSteps = maxStepIndex + 1;
-  const stepSpeed = 3;
+  const startX = view.left + laneMargin + strideLength;
+  const maxSpan = Math.max(strideLength * 2, (view.right - laneMargin) - startX);
+  const stepCapacity = Math.max(2, Math.floor(maxSpan / strideLength));
+  const totalSteps = Math.min(10, stepCapacity);
+  const endX = startX + strideLength * totalSteps;
+  const stepSpeed = consts.profileWalking?.stepSpeed ?? 0.75;
   const rawStep = positiveMod(timeValue * stepSpeed, totalSteps);
   const stepIndex = Math.floor(rawStep);
   const stepProgress = rawStep - stepIndex;
@@ -63,9 +68,9 @@ function buildWalkingScene() {
   const forwardLean = 0;
   const liftBias = 0.6 * anchorProgressBias;
   // Add a gentle rise/fall around the middle of each step to mimic cresting an incline.
-  const midStepLift = Math.sin(Math.PI * progress) * 1.8;
+  const midStepLift = Math.sin(Math.PI * progress) * (consts.profileWalking?.midStepLift ?? 1.8);
   const anchorX = averageNumbers([fixedPoint[0], movingStartPoint[0]]) + forwardLean;
-  const anchorBob = Math.sin(timeValue * 1.4) * 0.9;
+  const anchorBob = Math.sin(timeValue * 1.4) * (consts.profileWalking?.anchorBob ?? 0.9);
   const anchorGuess = [anchorX, anchorBaseY + liftBias + midStepLift + anchorBob];
 
   const worldLeftFoot = fixedSide === 'left' ? fixedPoint : movingStartPoint;
@@ -74,11 +79,11 @@ function buildWalkingScene() {
   const rightOffset = [worldRightFoot[0] - anchorGuess[0], worldRightFoot[1] - anchorGuess[1]];
 
   const baseMeasurements = {
-    torso: { direction: 'right', height: 22, width: 12 },
-    head: { direction: 'right', verticalExtent: 9 },
+    torso: { direction: 'right', height: consts.shared?.torso?.height ?? 22, width: consts.shared?.torso?.width ?? 12 },
+    head: { direction: 'right', verticalExtent: consts.shared?.head?.verticalExtent ?? 9 },
     hands: {
-      left: { effectorCoordinate: [-7.8, 4.7] },
-      right: { effectorCoordinate: [7.8, 4.7] }
+      left: { effectorCoordinate: consts.shared?.hands?.left ?? [-7.8, 4.7] },
+      right: { effectorCoordinate: consts.shared?.hands?.right ?? [7.8, 4.7] }
     },
     legs: {
       left: { upperLength: testingLegLengths.upper, lowerLength: testingLegLengths.lower, effectorCoordinate: leftOffset },

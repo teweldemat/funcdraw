@@ -62,8 +62,16 @@ function buildMeasurements() {
       right: { effectorCoordinate: consts.shared?.hands?.right ?? [7.8, 4.7] }
     },
     legs: {
-      left: { effectorCoordinate: consts.shared?.legs?.sideWalkOffsets?.left ?? [0, -20] },
-      right: { effectorCoordinate: consts.shared?.legs?.sideWalkOffsets?.right ?? [-8, -20] }
+      left: {
+        effectorCoordinate: consts.shared?.legs?.sideWalkOffsets?.left ?? [0, -20],
+        upperLength: consts.shared?.legs?.lengths?.upper ?? 12.4,
+        lowerLength: consts.shared?.legs?.lengths?.lower ?? 11.6
+      },
+      right: {
+        effectorCoordinate: consts.shared?.legs?.sideWalkOffsets?.right ?? [-8, -20],
+        upperLength: consts.shared?.legs?.lengths?.upper ?? 12.4,
+        lowerLength: consts.shared?.legs?.lengths?.lower ?? 11.6
+      }
     }
   };
 }

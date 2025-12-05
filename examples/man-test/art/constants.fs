@@ -1,28 +1,29 @@
 {
   view:{ left:-400; bottom:-300; right:400; top:300 };
-  zoomedInView:{ left:-40; bottom:-30; right:40; top:30 };
+  zoomedInView:{ left:-80; bottom:-20; right:80; top:110 };
   fontSize:12;
 
   shared:{
     anchor:[0, 20];
-    torso:{ height:80; width:30 };
+    torso:{ height:22; width:12 };
     head:{ verticalExtent:9 };
     hands:{ left:[-7.8, 4.7]; right:[7.8, 4.7] };
     legs:{
       sideWalkOffsets:{ left:[0, -20]; right:[-8, -20] };
       profileOffsets:{ left:[-4, -18.6]; right:[4, -18.6] };
-      lengths:{ upper:40; lower:30 };
+      lengths:{ upper:12.4; lower:11.6 };
     };
   };
 
   sideWalk:{ steps:10; stride:8 };
 
   profileTester:{
+    view:{ left:-80; bottom:-20; right:80; top:110 };
     anchor:[0, 18.6];
     legLengths:{ upper:12.4; lower:11.6 };
     leftOffset:[-4, -18.6];
     rightOffset:[4, -18.6];
-    movingTarget:[16, 0];
+    movingTarget:[12, 0];
   };
 
   profileSingle:{

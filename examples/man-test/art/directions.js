@@ -7,8 +7,10 @@ const createStickman =
       ? stickmanModule
       : () => ({ graphics: [] });
 
-const defaultPose = typeof createStickman.skeleton === 'function' ? createStickman.skeleton() : null;
-const defaultY = Array.isArray(defaultPose?.position) ? defaultPose.position[1] : 10.5;
+const defaultPoseResult = typeof createStickman === 'function' ? createStickman({}) : null;
+const defaultY = Array.isArray(defaultPoseResult?.skeleton?.position)
+  ? defaultPoseResult.skeleton.position[1]
+  : 20;
 const groundY = 0;
 const lineup = [
   { x: -48, direction: 'left' },
@@ -17,9 +19,11 @@ const lineup = [
   { x: 48, direction: 'right' }
 ];
 
+const anchorY = defaultY;
+
 const heroes = lineup.map(({ x, direction }) =>
   createStickman({
-    position: [x, groundY + 22],
+    position: [x, anchorY],
     measurements: {
       torso: { direction, height: 22, width: 12 },
       head: { direction, verticalExtent: 9 },

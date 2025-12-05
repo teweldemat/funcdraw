@@ -89,7 +89,7 @@ function scene3(sceneTime = 0, previousScene = null) {
 
   const anchorPoint = isPoint(walk.position) ? walk.position : anchorPosition;
   const insideAnchorPoint = offsetPoint(anchorPoint, insideOffset);
-  const heroMeasurements = walk.measurements || baseMeasurements;
+  const heroMeasurements = sanitizeMeasurements(walk.measurements, baseMeasurements);
 
   const heroOutside = staticBuilder
     ? staticBuilder({
@@ -320,6 +320,177 @@ function offsetPoint(point, offset) {
   if (!Array.isArray(point) || point.length < 2) return point;
   if (!Array.isArray(offset) || offset.length < 2) return point;
   return [point[0] + (Number(offset[0]) || 0), point[1] + (Number(offset[1]) || 0)];
+}
+
+function sanitizeMeasurements(candidate, base) {
+  const validObj = (value) => Boolean(value && typeof value === 'object' && value.__fsKind !== 'FsError');
+  const toNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const toPoint = (value) => {
+    if (!Array.isArray(value) || value.length < 2) return null;
+    const x = toNumber(value[0]);
+    const y = toNumber(value[1]);
+    return x !== null && y !== null ? [x, y] : null;
+  };
+  const validEffector = (value, refUpper, refLower) => {
+    const point = toPoint(value);
+    if (!point) return null;
+    const magnitude = Math.abs(point[0]) + Math.abs(point[1]);
+    if (magnitude < 1e-3) return null;
+    const reachLimit = (refUpper ?? 0) + (refLower ?? 0);
+    if (reachLimit > 0 && Math.hypot(point[0], point[1]) > reachLimit * maxScale) {
+      return null;
+    }
+    return point;
+  };
+
+  const baseSafe = validObj(base) ? base : {};
+  const input = validObj(candidate) ? candidate : {};
+  const torsoBase = validObj(baseSafe.torso) ? baseSafe.torso : {};
+  const headBase = validObj(baseSafe.head) ? baseSafe.head : {};
+  const legsBase = validObj(baseSafe.legs) ? baseSafe.legs : {};
+  const handsBase = validObj(baseSafe.hands) ? baseSafe.hands : {};
+  const maxScale = 3;
+
+  const baseTorsoHeight = toNumber(torsoBase.height) ?? 16;
+  const baseTorsoWidth = toNumber(torsoBase.width) ?? 10;
+  const baseHeadExtent = toNumber(headBase.verticalExtent) ?? 9;
+  const defaultShoulder =
+    toNumber(torsoBase.shoulderExtension) ??
+    (baseTorsoWidth ? baseTorsoWidth * 0.15 : 0);
+
+  const sanitizeTorso = (torsoRaw) => {
+    const torso = validObj(torsoRaw) ? torsoRaw : {};
+    const h = toNumber(torso.height);
+    const w = toNumber(torso.width);
+    const shoulder = toNumber(torso.shoulderExtension);
+    return {
+      ...torsoBase,
+      ...torso,
+      height: h !== null && h > 0 && h <= baseTorsoHeight * maxScale ? h : baseTorsoHeight,
+      width: w !== null && w > 0 && w <= baseTorsoWidth * maxScale ? w : baseTorsoWidth,
+      shoulderExtension:
+        shoulder !== null && shoulder >= 0 && shoulder <= baseTorsoWidth * maxScale
+          ? shoulder
+          : defaultShoulder,
+      direction: torso.direction ?? torsoBase.direction ?? 'front'
+    };
+  };
+
+  const sanitizeHead = (headRaw) => {
+    const head = validObj(headRaw) ? headRaw : {};
+    const v = toNumber(head.verticalExtent);
+    return {
+      ...headBase,
+      ...head,
+      verticalExtent: v !== null && v > 0 && v <= baseHeadExtent * maxScale ? v : baseHeadExtent,
+      direction: head.direction ?? headBase.direction ?? torsoBase.direction ?? 'front'
+    };
+  };
+
+  const sanitizeLimb = (limbRaw, baseLimb, defaults) => {
+    const limb = validObj(limbRaw) ? limbRaw : {};
+    const baseSafeLimb = validObj(baseLimb) ? baseLimb : {};
+    const refUpper = toNumber(baseSafeLimb.upperLength) ?? toNumber(defaults.upperLength);
+    const refLower = toNumber(baseSafeLimb.lowerLength) ?? toNumber(defaults.lowerLength);
+    const upperVal = toNumber(limb.upperLength);
+    const lowerVal = toNumber(limb.lowerLength);
+    const upperLength =
+      upperVal !== null && upperVal > 0 && (!refUpper || upperVal <= refUpper * maxScale)
+        ? upperVal
+        : refUpper ?? defaults.upperLength;
+    const lowerLength =
+      lowerVal !== null && lowerVal > 0 && (!refLower || lowerVal <= refLower * maxScale)
+        ? lowerVal
+        : refLower ?? defaults.lowerLength;
+
+    const effector =
+      validEffector(limb.effectorCoordinate, refUpper, refLower) ??
+      validEffector(baseSafeLimb.effectorCoordinate, refUpper, refLower) ??
+      validEffector(defaults.effectorCoordinate, refUpper, refLower);
+
+    const foot = validObj(limb.foot)
+      ? limb.foot
+      : validObj(baseSafeLimb.foot)
+        ? baseSafeLimb.foot
+        : undefined;
+
+    const positiveBend =
+      typeof limb.positiveBend === 'boolean'
+        ? limb.positiveBend
+        : typeof baseSafeLimb.positiveBend === 'boolean'
+          ? baseSafeLimb.positiveBend
+          : typeof defaults.positiveBend === 'boolean'
+            ? defaults.positiveBend
+            : undefined;
+
+    return {
+      ...defaults,
+      ...baseSafeLimb,
+      ...limb,
+      upperLength,
+      lowerLength,
+      effectorCoordinate: effector,
+      foot,
+      positiveBend
+    };
+  };
+
+  const defaultLegUpper = toNumber(legsBase.left?.upperLength) ?? toNumber(legsBase.right?.upperLength) ?? 16;
+  const defaultLegLower = toNumber(legsBase.left?.lowerLength) ?? toNumber(legsBase.right?.lowerLength) ?? 15;
+  const defaultHandUpper = toNumber(handsBase.left?.upperLength) ?? toNumber(handsBase.right?.upperLength) ?? baseTorsoHeight * 0.55;
+  const defaultHandLower = toNumber(handsBase.left?.lowerLength) ?? toNumber(handsBase.right?.lowerLength) ?? baseTorsoHeight * 0.45;
+
+  const legEffector = (side) =>
+    toPoint(legsBase[side]?.effectorCoordinate) ??
+    (side === 'left'
+      ? [0, -Math.max(baseTorsoHeight * 1.6, defaultLegUpper + defaultLegLower)]
+      : [-Math.max(baseTorsoWidth * 0.9, 6), -Math.max(baseTorsoHeight * 1.6, defaultLegUpper + defaultLegLower)]);
+
+  const handEffector = (side) =>
+    toPoint(handsBase[side]?.effectorCoordinate) ??
+    (side === 'left'
+      ? [-Math.max(baseTorsoWidth * 0.75, 1), Math.max(baseTorsoHeight * 0.3, 1)]
+      : [Math.max(baseTorsoWidth * 0.75, 1), Math.max(baseTorsoHeight * 0.3, 1)]);
+
+  return {
+    ...baseSafe,
+    ...input,
+    torso: sanitizeTorso(input.torso),
+    head: sanitizeHead(input.head),
+    legs: {
+      left: sanitizeLimb(input.legs?.left, legsBase.left, {
+        upperLength: defaultLegUpper,
+        lowerLength: defaultLegLower,
+        effectorCoordinate: legEffector('left'),
+        positiveBend: legsBase.left?.positiveBend,
+        foot: legsBase.left?.foot
+      }),
+      right: sanitizeLimb(input.legs?.right, legsBase.right, {
+        upperLength: defaultLegUpper,
+        lowerLength: defaultLegLower,
+        effectorCoordinate: legEffector('right'),
+        positiveBend: legsBase.right?.positiveBend,
+        foot: legsBase.right?.foot
+      })
+    },
+    hands: {
+      left: sanitizeLimb(input.hands?.left, handsBase.left, {
+        upperLength: defaultHandUpper,
+        lowerLength: defaultHandLower,
+        effectorCoordinate: handEffector('left'),
+        positiveBend: handsBase.left?.positiveBend
+      }),
+      right: sanitizeLimb(input.hands?.right, handsBase.right, {
+        upperLength: defaultHandUpper,
+        lowerLength: defaultHandLower,
+        effectorCoordinate: handEffector('right'),
+        positiveBend: handsBase.right?.positiveBend
+      })
+    }
+  };
 }
 
 return scene3;

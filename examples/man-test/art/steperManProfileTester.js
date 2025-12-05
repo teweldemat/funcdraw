@@ -5,7 +5,11 @@ const consts = typeof constants === 'object' && constants ? constants : {};
 const steperManProfile = typeof stickman?.steperManProfile === 'function' ? stickman.steperManProfile : null;
 const staticMan = typeof stickman?.static === 'function' ? stickman.static : null;
 
-const view = consts.view ?? { left: -400, right: 400, bottom: -300, top: 300 };
+const view =
+  consts.profileTester?.view ??
+  consts.zoomedInView ??
+  consts.view ??
+  { left: -120, right: 120, bottom: -40, top: 140 };
 
 if (!steperManProfile || !staticMan) {
   return {
@@ -32,7 +36,7 @@ const leftOffset = consts.profileTester?.leftOffset ?? [-4, -18.6];
 const rightOffset = consts.profileTester?.rightOffset ?? [4, -18.6];
 const fixedFoot = addPoints(anchor, leftOffset);
 const movingStart = addPoints(anchor, rightOffset);
-const movingTarget = consts.profileTester?.movingTarget ?? [16, 0];
+const movingTarget = consts.profileTester?.movingTarget ?? [12, 0];
 
 const baseMeasurements = {
   torso: { direction: 'right', height: consts.shared?.torso?.height ?? 22, width: consts.shared?.torso?.width ?? 12 },

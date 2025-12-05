@@ -5,7 +5,7 @@ const zoomBuilder = hasSteperManZoom
   ? stickmanModule.steperManZoom
   : () => ({ graphics: [], overlays: [], skeleton: {}, step: {} });
 
-const view = constants.view;
+const view = constants.zoomedInView ?? constants.view;
 const anchorBase = [0, 20];
 const groundY = 0;
 const timeValue = typeof t === 'number' ? t : 0;

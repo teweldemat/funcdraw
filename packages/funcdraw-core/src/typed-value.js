@@ -74,12 +74,26 @@ function createValueConverter(funcscript, options = {}) {
     return label;
   }
 
+  function logListItems(path, key, listPreview) {
+    if (!logger || !Array.isArray(listPreview)) {
+      return;
+    }
+    const base = formatPath(path);
+    const prefix = base ? `${base}.${key}` : key;
+    let index = 0;
+    for (const item of listPreview) {
+      logLine(`-[${prefix}[${index}]]: ${formatPreview(item)}`);
+      index += 1;
+    }
+  }
+
   function logKey(path, key, kind, value) {
     if (!logger) {
       return;
     }
     const base = formatPath(path);
     const prefix = base ? `${base}.` : '';
+    const hasPreview = value !== undefined;
     const placeholders = {
       list: '[list]',
       kvc: '[kvc]',
@@ -88,10 +102,13 @@ function createValueConverter(funcscript, options = {}) {
       object: '[object]'
     };
     const rendered =
-      kind === 'atomic'
+      hasPreview
         ? formatPreview(value)
         : placeholders[kind] || `[${kind}]`;
     logLine(`-[${prefix}${key}]: ${rendered}`);
+    if (kind === 'list' && Array.isArray(value)) {
+      logListItems(path, key, value);
+    }
   }
 
   function logKvc(path, value) {
@@ -180,14 +197,12 @@ function createValueConverter(funcscript, options = {}) {
       return;
     }
     let kind = 'atomic';
-    let preview = typedValue;
+    let preview;
     try {
       const typed = funcscript.assertTyped ? funcscript.assertTyped(typedValue) : typedValue;
       kind = classifyTyped(typed);
-      if (kind === 'atomic') {
+      if (kind === 'atomic' || kind === 'list') {
         preview = toPlain(typed, path.concat(key));
-      } else {
-        preview = null;
       }
     } catch {
       // ignore log failures

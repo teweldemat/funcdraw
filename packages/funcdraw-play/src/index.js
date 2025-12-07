@@ -582,15 +582,20 @@ function formatTraceResult(entry) {
   if (!entry || !entry.resultKind) {
     return '';
   }
+  if (entry.resultPreview !== undefined && entry.resultPreview !== null) {
+    return entry.resultPreview;
+  }
   if (entry.resultKind === 'atomic') {
-    return entry.resultPreview || '(atomic)';
+    return '(atomic)';
+  }
+  if (entry.resultKind === 'error') {
+    return 'error';
   }
   const placeholders = {
     function: '<function>',
     list: '<list>',
     kvc: '<kvc>',
-    object: '<object>',
-    error: '<error>'
+    object: '<object>'
   };
   return placeholders[entry.resultKind] || `<${entry.resultKind}>`;
 }

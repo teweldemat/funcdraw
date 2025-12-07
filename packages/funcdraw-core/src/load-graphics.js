@@ -384,7 +384,12 @@ function createTraceFilter(filter) {
 
 function createTraceResultFormatter(engine, converter) {
   return (value) => {
-    const kind = detectResultKind(value, engine);
+    const errorPayload = unwrapErrorValue(value, engine);
+    const kind = detectResultKind(errorPayload, engine);
+    if (kind === 'error') {
+      const preview = formatErrorValue(errorPayload);
+      return preview ? { kind, preview } : { kind };
+    }
     if (kind !== 'atomic') {
       // Only expose result details for atomic values to avoid expensive serialization.
       return { kind };
@@ -407,11 +412,15 @@ function detectResultKind(value, engine) {
   if (value === null || value === undefined) {
     return 'atomic';
   }
+  const typedError = resolveTypedError(value, engine);
+  if (typedError) {
+    return 'error';
+  }
   const type = typeof value;
   if (type === 'string' || type === 'number' || type === 'boolean' || type === 'bigint') {
     return 'atomic';
   }
-  if (isFsErrorValue(value)) {
+  if (isFsErrorValue(value, engine)) {
     return 'error';
   }
   if (type === 'function') {
@@ -461,9 +470,22 @@ function isKvcValue(value, engine) {
   return false;
 }
 
-function isFsErrorValue(value) {
+function resolveTypedError(value, engine) {
+  if (!engine || typeof engine.assertTyped !== 'function' || typeof engine.typeOf !== 'function' || !engine.FSDataType) {
+    return null;
+  }
+  try {
+    const typed = engine.assertTyped(value);
+    const dataType = engine.typeOf(typed);
+    return dataType === engine.FSDataType.Error ? typed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isFsErrorValue(value, engine) {
   if (!value || typeof value !== 'object') {
-    return false;
+    return Boolean(resolveTypedError(value, engine));
   }
   if (value.__fsKind === 'FsError') {
     return true;
@@ -475,6 +497,17 @@ function isFsErrorValue(value) {
     return true;
   }
   return false;
+}
+
+function unwrapErrorValue(value, engine) {
+  const typed = resolveTypedError(value, engine);
+  if (typed && engine && typeof engine.valueOf === 'function') {
+    return engine.valueOf(typed);
+  }
+  if (value && typeof value === 'object' && value.fsError) {
+    return value.fsError;
+  }
+  return value;
 }
 
 function formatAtomicValue(value) {
@@ -490,6 +523,26 @@ function formatAtomicValue(value) {
     return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
   }
   return String(value);
+}
+
+function formatErrorValue(value) {
+  const payload = value && value.fsError ? value.fsError : value;
+  if (!payload || typeof payload !== 'object') {
+    return 'Error';
+  }
+  const type = payload.errorType || payload.type || 'Error';
+  const message = payload.errorMessage || payload.message || '';
+  const data = payload.errorData;
+  if (message && data !== undefined) {
+    return `${type}: ${message} (data: ${formatAtomicValue(data)})`;
+  }
+  if (message) {
+    return `${type}: ${message}`;
+  }
+  if (data !== undefined) {
+    return `${type} (data: ${formatAtomicValue(data)})`;
+  }
+  return type;
 }
 
 module.exports = {

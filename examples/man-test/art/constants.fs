@@ -70,7 +70,7 @@
     heroPosition:[0, 20];
     footLiftScale:6.4;
     footLateralBase:4;
-    handAttachmentY:44;
+    handAttachmentY:30;
     handOffsetX:6;
     handLengths:{ upper:8; lower:6 };
     groundHalfSpan:380;

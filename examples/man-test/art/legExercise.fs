@@ -3,11 +3,25 @@
   stickman:cartoon.stickman;
   createStickman:stickman.static;
 
+  settings:constants.legExercise;
+  heroPosition:settings.heroPosition;
+  footLiftScale:settings.footLiftScale;
+  footLateralBase:settings.footLateralBase;
+  footLateralSwing:footLateralBase * 0.3;
+  handAttachmentY:settings.handAttachmentY;
+  handOffsetX:settings.handOffsetX;
+  handLengths:settings.handLengths;
+  handReach:handLengths.upper + handLengths.lower;
+  groundHalfSpan:settings.groundHalfSpan;
+  handPathColor:"#06b6d4";
+  legPathColor:"#22c55e";
+  handPathWidth:0.4;
+  legPathWidth:0.5;
+
   time:t;
   phase:time * 3;
   leftLift:math.max(math.sin(phase), 0);
   rightLift:math.max(math.sin(phase + math.pi), 0);
-  heroPosition:[0, 20];
 
   reference:createStickman({ position:heroPosition });
   referenceSkeleton:reference.skeleton;
@@ -20,46 +34,24 @@
   leftBaseDrop:resolveLegBaseDrop(referenceSkeleton, "left");
   rightBaseDrop:resolveLegBaseDrop(referenceSkeleton, "right");
 
-  leftFootLift:leftBaseDrop + leftLift * 6.4;
-  leftFootOffsetX:-4 + leftLift * 1.2;
-  rightFootLift:rightBaseDrop + rightLift * 6.4;
-  rightFootOffsetX:4 - rightLift * 1.2;
+  leftFootLift:leftBaseDrop + leftLift * footLiftScale;
+  leftFootOffsetX:-footLateralBase + leftLift * footLateralSwing;
+  rightFootLift:rightBaseDrop + rightLift * footLiftScale;
+  rightFootOffsetX:footLateralBase - rightLift * footLateralSwing;
   leftLegTarget:[leftFootOffsetX, leftFootLift];
   rightLegTarget:[rightFootOffsetX, rightFootLift];
 
-  baseHero:createStickman({
-    position:heroPosition;
-    measurements:{
-      torso:{ direction:"front" };
-      legs:{
-        left:{ effectorCoordinate:leftLegTarget };
-        right:{ effectorCoordinate:rightLegTarget };
-      };
-    };
-  });
-
   armSpeed:time * 1.2;
-  leftAttachment:baseHero.skeleton.hands.left.attachmentPoint;
-  rightAttachment:baseHero.skeleton.hands.right.attachmentPoint;
-  leftArmLength:baseHero.skeleton.hands.left.lengths.upper + baseHero.skeleton.hands.left.lengths.lower;
-  rightArmLength:baseHero.skeleton.hands.right.lengths.upper + baseHero.skeleton.hands.right.lengths.lower;
-
-  leftHandTargetWorld:[
-    leftAttachment[0] + leftArmLength * math.cos(armSpeed),
-    leftAttachment[1] + leftArmLength * math.sin(armSpeed)
-  ];
-  rightHandTargetWorld:[
-    rightAttachment[0] + rightArmLength * math.cos(armSpeed + math.pi),
-    rightAttachment[1] + rightArmLength * math.sin(armSpeed + math.pi)
-  ];
-
+  handAnchorYOffset:handAttachmentY - heroPosition[1];
+  leftHandAnchorWorld:[heroPosition[0] - handOffsetX, handAttachmentY];
+  rightHandAnchorWorld:[heroPosition[0] + handOffsetX, handAttachmentY];
   leftHandEffector:[
-    leftHandTargetWorld[0] - heroPosition[0],
-    leftHandTargetWorld[1] - heroPosition[1]
+    -handOffsetX + handReach * math.cos(armSpeed),
+    handAnchorYOffset + handReach * math.sin(armSpeed)
   ];
   rightHandEffector:[
-    rightHandTargetWorld[0] - heroPosition[0],
-    rightHandTargetWorld[1] - heroPosition[1]
+    handOffsetX + handReach * math.cos(armSpeed + math.pi),
+    handAnchorYOffset + handReach * math.sin(armSpeed + math.pi)
   ];
 
   hero:createStickman({
@@ -67,11 +59,11 @@
     measurements:{
       torso:{ direction:"front" };
       hands:{
-        left:{ effectorCoordinate:leftHandEffector };
-        right:{ effectorCoordinate:rightHandEffector };
+        left:{ effectorCoordinate:leftHandEffector; upperLength:handLengths.upper; lowerLength:handLengths.lower };
+        right:{ effectorCoordinate:rightHandEffector; upperLength:handLengths.upper; lowerLength:handLengths.lower };
       };
       legs:{
-        left:{ effectorCoordinate:leftLegTarget };
+        left:{ effectorCoordinate:leftLegTarget,positiveBend:false };
         right:{ effectorCoordinate:rightLegTarget };
       };
     };
@@ -79,11 +71,30 @@
 
   ground:{
     type:"line";
-    from:[-380, 0];
-    to:[380, 0];
+    from:[-groundHalfSpan, 0];
+    to:[groundHalfSpan, 0];
     stroke:"#94a3b8";
     width:0.6;
   };
+
+  createFootPath:(basePoint, peakPoint, color)=> [
+    { type:"line"; from:basePoint; to:peakPoint; stroke:color; width:legPathWidth; dash:[1.1, 0.7] },
+    { type:"line"; from:peakPoint; to:basePoint; stroke:color; width:legPathWidth; dash:[1.1, 0.7] }
+  ];
+
+  leftFootBase:[heroPosition[0] - footLateralBase, heroPosition[1] + leftBaseDrop];
+  leftFootPeak:[heroPosition[0] - footLateralBase + footLateralSwing, heroPosition[1] + leftBaseDrop + footLiftScale];
+  rightFootBase:[heroPosition[0] + footLateralBase, heroPosition[1] + rightBaseDrop];
+  rightFootPeak:[heroPosition[0] + footLateralBase - footLateralSwing, heroPosition[1] + rightBaseDrop + footLiftScale];
+  legPaths:[
+    createFootPath(leftFootBase, leftFootPeak, legPathColor),
+    createFootPath(rightFootBase, rightFootPeak, legPathColor)
+  ];
+
+  handPaths:[
+    { type:"circle"; center:leftHandAnchorWorld; radius:handReach; stroke:handPathColor; width:handPathWidth; opacity:0.65; fill:"#00000000" },
+    { type:"circle"; center:rightHandAnchorWorld; radius:handReach; stroke:handPathColor; width:handPathWidth; opacity:0.65; fill:"#00000000" }
+  ];
 
   caption:{
     type:"text";
@@ -116,23 +127,21 @@
   finalRightLegTarget:finalLegs.right.targetPoint;
 
   debugPoints:[
-    ...createDebugCross(finalLeftShoulder, 1.6),
-    ...createDebugCross(finalRightShoulder, 1.6),
-    ...createDebugCross(finalLeftHandTarget, 1.6),
-    ...createDebugCross(finalRightHandTarget, 1.6),
-    ...createDebugCross(finalLeftLegTarget, 1.8),
-    ...createDebugCross(finalRightLegTarget, 1.8)
+    createDebugCross(finalLeftShoulder, 1.6),
+    createDebugCross(finalRightShoulder, 1.6),
+    createDebugCross(finalLeftHandTarget, 1.6),
+    createDebugCross(finalRightHandTarget, 1.6),
+    createDebugCross(finalLeftLegTarget, 1.8),
+    createDebugCross(finalRightLegTarget, 1.8)
   ];
 
   createDebugDot:(center)=> {
-    eval {
       type:"circle";
       center:center;
       radius:0.1;
       fill:"#dc2626";
       stroke:"#991b1b";
       width:0.08;
-    };
   };
 
   skeletonDots:[
@@ -146,12 +155,12 @@
 
   eval {
     view:constants.zoomedInView;
-    graphics:[
-      ground,
-      ...hero.graphics,
-      ...debugPoints,
-      ...skeletonDots,
-      caption
-    ];
+    graphics:[ground,
+      legPaths,
+      handPaths,
+      hero.graphics,      
+      debugPoints,
+      skeletonDots,
+      caption];    
   };
 }

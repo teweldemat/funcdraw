@@ -8,6 +8,13 @@ const statCache = new Map();
 const expressionCache = new Map();
 const resolvedFileCache = new Map();
 
+function clearArtResolverCache() {
+  dirEntriesCache.clear();
+  statCache.clear();
+  expressionCache.clear();
+  resolvedFileCache.clear();
+}
+
 function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
   const artRoot = path.resolve(rootDir, artFolderName);
   if (!fs.existsSync(artRoot) || !fs.statSync(artRoot).isDirectory()) {
@@ -150,7 +157,8 @@ function loadTextExpression(filePath, language) {
 }
 
 module.exports = {
-  createArtResolver
+  createArtResolver,
+  clearArtResolverCache
 };
 
 function buildModuleSearchPaths(rootDir, extraPaths) {

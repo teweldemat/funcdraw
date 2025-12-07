@@ -1,6 +1,6 @@
 # Stickman Schema (shared types)
 
-Common input types reused across the stickman helpers (`staticMan`, `steperManProfile`, `steperManZoom`).
+Common input types reused across the stickman helpers (`staticMan`, `singleStepProfile`, `steperManZoom`).
 
 ## Core primitives
 

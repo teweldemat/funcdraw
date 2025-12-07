@@ -53,7 +53,7 @@
   minReachRatio:0.9;
   maxVerticalAnchorDelta:1.2;
 
-  steperManProfile:(optionsInput)=> {
+  singleStepProfile:(optionsInput)=> {
     options:optionsInput ?? {};
     includeStatic:options.disableStatic != true;
     anchorBase:if options.position = null then defaults.position else options.position;
@@ -437,5 +437,5 @@
     };
   };
 
-  eval steperManProfile;
+  eval singleStepProfile;
 }

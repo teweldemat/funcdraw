@@ -1,6 +1,6 @@
-# steperManProfile Model (profile walk)
+# singleStepProfile Model (profile walk)
 ## Overview
-`stickman/steperManProfile.js` now focuses on producing a single profile step pose that you can chain yourself. Give it a torso anchor, the current stickman measurements, tell it which side should move, and pass the world target for that moving foot. The helper animates the moving foot along a lifted arc toward the target, recenters the torso anchor between both ankles, and patches the leg offsets (plus arm swing, if enabled) so you can feed the returned `position`/`measurements` into the next call or straight into `stickman/staticMan`.
+`stickman/singleStepProfile.js` focuses on producing a single profile step pose that you can chain yourself. Give it a torso anchor, the current stickman measurements, tell it which side should move, and pass the world target for that moving foot. The helper animates the moving foot along a lifted arc toward the target, recenters the torso anchor between both ankles, and patches the leg offsets (plus arm swing, if enabled) so you can feed the returned `position`/`measurements` into the next call or straight into `stickman/staticMan`.
 
 ## Construction Overview
 
@@ -12,7 +12,7 @@
 
 ## Inputs
 
-`steperManProfile(options?)` accepts the same base options as `stickman.static` plus a small set of step fields. Shared types (`Side`, `PointInput`, `StickmanMeasurements`) are defined in `schema.md` and `staticMan.doc.md`.
+`singleStepProfile(options?)` accepts the same base options as `stickman.static` plus a small set of step fields. Shared types (`Side`, `PointInput`, `StickmanMeasurements`) are defined in `schema.md` and `staticMan.doc.md`.
 
 ```ts
 type SteperManProfileOptions = {

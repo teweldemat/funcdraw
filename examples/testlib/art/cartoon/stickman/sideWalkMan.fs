@@ -74,7 +74,8 @@
       movingTarget:[targetX, movingStart[1]];
 
       measurementsWithOffsets:applyLegOffsets(mergedMeasurements, state.anchor, state.leftFoot, state.rightFoot, defaultOffsets);
-      stepperResult:steperManProfile({
+      stepperHelper:if singleStepProfile = null then steperManProfile else singleStepProfile;
+      stepperResult:stepperHelper({
         position:state.anchor;
         measurements:measurementsWithOffsets;
         handSwing:input.handSwing;

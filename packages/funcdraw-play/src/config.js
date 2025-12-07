@@ -2,7 +2,7 @@
 
 const path = require('path');
 const { createResolverFromExpression } = require('./resolver');
-const { createArtResolver } = require('./art-resolver');
+const { createArtResolver, clearArtResolverCache } = require('./art-resolver');
 
 const SAMPLE_EXPRESSION = `
 {
@@ -32,6 +32,7 @@ const SAMPLE_EXPRESSION = `
 `;
 
 async function loadUserConfig(cwd, options = {}) {
+  clearArtResolverCache();
   const expressionOverride = normalizeExpressionOverride(options.expression);
   const artResolver = createArtResolver(cwd);
   if (artResolver) {

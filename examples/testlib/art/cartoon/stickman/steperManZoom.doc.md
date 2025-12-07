@@ -1,6 +1,6 @@
 # steperManZoom Model (front/back zoom stride)
 ## Overview
-`stickman/steperManZoom.js` animates a simple zoom step: you provide the current anchor/measurements, which foot should move, the world **Y** target for that foot, a `zoom` factor, and a `progress` value. The moving foot interpolates to the target Y, the torso keeps a zoom-scaled distance above the average of both feet, limbs straighten as zoom increases, and torso facing flips to `"back"` when the moving foot rises (positive Y delta) or `"front"` when it lowers.
+`stickman/steperManZoom.js` animates a simple zoom step: you provide the current anchor/measurements, which foot should move, the world **Y** target for that foot, a `zoom` factor, and a `progress` value. The moving foot interpolates to the target Y, the torso keeps a zoom-scaled distance above the average of both feet, limbs straighten as zoom increases, and torso facing flips to `"back"` when the moving foot rises (positive Y delta) or `"front"` when it lowers. Its API mirrors `singleStepProfile` so you can swap helpers easily.
 
 ## Construction Overview
 
@@ -59,4 +59,4 @@ type SteperManZoomResult = {
 
 - The returned `graphics`/`overlays`/`skeleton` match `stickman.static`.
 - `sequenceState` echoes the resolved anchor/measurements so you can feed the pose into the next animation step.
-- `step` describes the current zoom stride, keeping the API parallel to `steperManProfile` for easy swapping.
+- `step` describes the current zoom stride, keeping the API parallel to `singleStepProfile` for easy swapping.

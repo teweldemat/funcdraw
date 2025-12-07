@@ -1,13 +1,5 @@
 'use strict';
 
-function isPlainObject(value) {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-}
-
 function clamp(number, min, max, fallback) {
   if (typeof number !== 'number' || Number.isNaN(number)) {
     return fallback ?? min;
@@ -38,7 +30,7 @@ function toArray(iterable) {
 }
 
 function omitKeys(source, keys) {
-  if (!isPlainObject(source)) {
+  if (!source || typeof source !== 'object') {
     return {};
   }
   const set = new Set(keys || []);
@@ -52,7 +44,6 @@ function omitKeys(source, keys) {
 }
 
 module.exports = {
-  isPlainObject,
   clamp,
   toArray,
   omitKeys

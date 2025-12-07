@@ -1,7 +1,5 @@
 'use strict';
 
-const { isPlainObject } = require('./utils');
-
 function createValueConverter(funcscript, options = {}) {
   const { typeOf, valueOf, FSDataType } = funcscript;
   const logger = options.logger || null;
@@ -181,11 +179,7 @@ function createValueConverter(funcscript, options = {}) {
       case FSDataType.Function:
         return valueOf(typed);
       case FSDataType.Error: {
-        const errorValue = valueOf(typed);
-        if (errorValue && isPlainObject(errorValue)) {
-          return { ...errorValue };
-        }
-        return errorValue;
+        return valueOf(typed);
       }
       default:
         return valueOf(typed);

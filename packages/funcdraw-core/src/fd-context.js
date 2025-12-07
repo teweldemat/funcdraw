@@ -1,7 +1,5 @@
 'use strict';
 
-const { isPlainObject } = require('./utils');
-
 function createFdContext(options = {}) {
   if (typeof options.measureText !== 'function') {
     throw new Error('FuncDraw requires a measureText helper');
@@ -10,7 +8,7 @@ function createFdContext(options = {}) {
     measureText: options.measureText
   };
 
-  if (isPlainObject(options.expose)) {
+  if (options.expose && typeof options.expose === 'object') {
     Object.assign(context, options.expose);
   }
 

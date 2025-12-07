@@ -1,6 +1,6 @@
 'use strict';
 
-const { isPlainObject, toArray } = require('../utils');
+const { toArray } = require('../utils');
 
 const DEFAULT_VIEW_SIZE = [1920, 1080];
 
@@ -25,7 +25,7 @@ function getViewSize(view) {
   if (Array.isArray(view) && view.length >= 2) {
     return [Number(view[0]) || DEFAULT_VIEW_SIZE[0], Number(view[1]) || DEFAULT_VIEW_SIZE[1]];
   }
-  if (isPlainObject(view) && Array.isArray(view.size)) {
+  if (view && typeof view === 'object' && Array.isArray(view.size)) {
     const size = view.size;
     return [Number(size[0]) || DEFAULT_VIEW_SIZE[0], Number(size[1]) || DEFAULT_VIEW_SIZE[1]];
   }
@@ -40,7 +40,7 @@ function renderNode(node, context) {
     const inner = node.map((child) => renderNode(child, context)).join('');
     return `<g data-layer="${context.layer || 0}">${inner}</g>`;
   }
-  if (!isPlainObject(node)) {
+  if (!node || typeof node !== 'object') {
     return '';
   }
   const type = typeof node.type === 'string' ? node.type.toLowerCase() : '';
@@ -152,7 +152,7 @@ function renderPath(node) {
 }
 
 function renderCustom(node, context) {
-  const props = node.props && isPlainObject(node.props) ? node.props : {};
+  const props = node.props && typeof node.props === 'object' ? node.props : {};
   const attributes = Object.entries(props)
     .map(([key, value]) => ` data-${encodeAttribute(key)}="${encodeAttribute(value)}"`)
     .join('');

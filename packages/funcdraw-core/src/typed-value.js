@@ -1,6 +1,6 @@
 'use strict';
 
-const { toArray, isPlainObject } = require('./utils');
+const { isPlainObject } = require('./utils');
 
 function createValueConverter(funcscript, options = {}) {
   const { typeOf, valueOf, FSDataType } = funcscript;
@@ -139,8 +139,14 @@ function createValueConverter(funcscript, options = {}) {
       case FSDataType.ByteArray:
         return valueOf(typed);
       case FSDataType.List: {
-        const items = toArray(valueOf(typed));
-        return items.map((item, index) => toPlain(item, path.concat(index)));
+        const items = valueOf(typed);
+        const result = [];
+        let index = 0;
+        for (const item of items) {
+          result.push(toPlain(item, path.concat(index)));
+          index += 1;
+        }
+        return result;
       }
       case FSDataType.KeyValueCollection: {
         const collection = valueOf(typed);
@@ -169,8 +175,29 @@ function createValueConverter(funcscript, options = {}) {
     }
   }
 
+  function logAccess(path, key, typedValue) {
+    if (!logger) {
+      return;
+    }
+    let kind = 'atomic';
+    let preview = typedValue;
+    try {
+      const typed = funcscript.assertTyped ? funcscript.assertTyped(typedValue) : typedValue;
+      kind = classifyTyped(typed);
+      if (kind === 'atomic') {
+        preview = toPlain(typed, path.concat(key));
+      } else {
+        preview = null;
+      }
+    } catch {
+      // ignore log failures
+    }
+    logKey(path, key, kind, preview);
+  }
+
   return {
-    toPlain
+    toPlain,
+    logAccess
   };
 }
 

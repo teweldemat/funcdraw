@@ -57,9 +57,8 @@ function loadGraphics(resolver, options = {}) {
   const traceHook = traceCollector ? traceCollector.hook : null;
   const traceEntryHook = traceCollector ? traceCollector.entryHook : null;
   const typedRoot = engine.loadPackage(resolver, provider, traceHook, traceEntryHook);
-  const plainRoot = converter.toPlain(typedRoot);
   const interpretation = interpretGraphics({
-    plainRoot,
+    typedRoot,
     engine,
     providerFactory,
     converter

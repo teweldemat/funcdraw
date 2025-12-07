@@ -8,28 +8,60 @@ function renderSvg(scene, options) {
   if (!scene || !Array.isArray(scene.graphics)) {
     return '';
   }
-  const [width, height] = getViewSize(scene.view);
+  const viewBox = resolveViewBox(scene.view);
   const layers = toArray(scene.graphics);
-  const parts = [];
-  layers.forEach((node, index) => {
-    parts.push(renderNode(node, { ...options, layer: index, depth: 0 }));
-  });
+  const parts = layers
+    .map((node, index) => renderNode(node, { ...options, layer: index, depth: 0 }))
+    .join('');
+  const transform = formatRootTransform(viewBox);
+  const body = transform ? `<g transform="${transform}">${parts}</g>` : parts;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none">`,
-    parts.join(''),
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${viewBox.width}" height="${viewBox.height}" viewBox="0 0 ${viewBox.width} ${viewBox.height}" fill="none">`,
+    body,
     '</svg>'
   ].join('');
 }
 
-function getViewSize(view) {
+function resolveViewBox(view) {
   if (Array.isArray(view) && view.length >= 2) {
-    return [Number(view[0]) || DEFAULT_VIEW_SIZE[0], Number(view[1]) || DEFAULT_VIEW_SIZE[1]];
+    const width = Number(view[0]) || DEFAULT_VIEW_SIZE[0];
+    const height = Number(view[1]) || DEFAULT_VIEW_SIZE[1];
+    return {
+      left: 0,
+      bottom: 0,
+      right: width,
+      top: height,
+      width,
+      height
+    };
   }
-  if (view && typeof view === 'object' && Array.isArray(view.size)) {
-    const size = view.size;
-    return [Number(size[0]) || DEFAULT_VIEW_SIZE[0], Number(size[1]) || DEFAULT_VIEW_SIZE[1]];
+  if (view && typeof view === 'object') {
+    const left = Number(view.left);
+    const bottom = Number(view.bottom);
+    const right = Number(view.right);
+    const top = Number(view.top);
+    if ([left, bottom, right, top].every(Number.isFinite)) {
+      const width = right - left;
+      const height = top - bottom;
+      if (width > 0 && height > 0) {
+        return { left, bottom, right, top, width, height };
+      }
+    }
   }
-  return DEFAULT_VIEW_SIZE.slice();
+  const width = DEFAULT_VIEW_SIZE[0];
+  const height = DEFAULT_VIEW_SIZE[1];
+  return {
+    left: 0,
+    bottom: 0,
+    right: width,
+    top: height,
+    width,
+    height
+  };
+}
+
+function formatRootTransform(viewBox) {
+  return `translate(0 ${viewBox.height}) scale(1 -1) translate(${-viewBox.left} ${-viewBox.bottom})`;
 }
 
 function renderNode(node, context) {

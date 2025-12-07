@@ -2,7 +2,7 @@
 
 ## Overview
 
-`hand.fs` draws an arm from the shoulder attachment to the wrist effector using two straight segments. The shoulder→elbow segment represents the upper arm, while the elbow→wrist segment represents the forearm. Call `hand(options?)` with the solved joints from `skeleton.build(...)` so it can render the limb without recomputing inverse kinematics.
+`hand.fs` draws an arm from the shoulder attachment to the wrist effector using two straight segments. The shoulder→elbow segment represents the upper arm, while the elbow→wrist segment represents the forearm. Call `hand(options?)` with the solved joints from `skeleton.build(...)` so it can render the limb without recomputing inverse kinematics. The two segments are wrapped in a custom primitive named `testlib/cartoon/stickman/hand` so dump payloads can be searched per limb.
 
 ## Construction Overview
 
@@ -36,8 +36,14 @@ Always pass `joints` from the skeleton; the model no longer solves IK on its own
 ## Outputs
 
 ```ts
+type HandPrimitive = {
+  type: "testlib/cartoon/stickman/hand"; // custom wrapper for dump/debug filtering
+  name: "testlib/cartoon/stickman/hand";
+  graphics: Graphic[]; // upper arm + forearm segments
+};
+
 type HandResult = {
-  graphics: Graphic[]; // two line segments (upper arm + forearm)
+  graphics: HandPrimitive[]; // single custom wrapper around the two segments
 };
 ```
 

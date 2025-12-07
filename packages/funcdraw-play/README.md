@@ -58,7 +58,7 @@ Use `--exp <expression>` to evaluate a FuncScript snippet without editing `art/e
 
 FuncDraw Play automatically injects a `t` value hook into every scene. If your FuncScript references `t`, the browser HUD exposes play/pause and reset controls that stream incremental `t` values back to the server so your model can animate over time. When the scene never touches `t`, the UI hides the controls and FuncDraw evaluates your expression once, just like before.
 
-When running in `--dump` mode you can seed the hooks manually: pass `--t 2.5` to set the initial time and `--canvas 800 600` to mimic a particular viewport. Add `--svg` if you still want SVG output in the dump payload.
+When running in `--dump` mode you can seed the hooks manually: pass `--t 2.5` to set the initial time and `--canvas 800 600` to mimic a particular viewport. Add `--svg` if you still want SVG output in the dump payload, or `--svg output.svg` to write the SVG to disk.
 
 ## Canvas size hook
 

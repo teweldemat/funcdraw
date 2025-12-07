@@ -374,23 +374,35 @@
     forwardSign:resolveForwardSign(context.torsoDirection);
     depthScale:resolveLegDepthScale(legOffsets);
     averageY:resolveAverageY(legOffsets);
+    phaseSignal:math.cos(math.pi * clamp01(context.progress) + swing.phase);
+    phaseWeight:0.9;
+    legWeight:0.45;
+    verticalPhaseWeight:0.3;
+    verticalLegWeight:0.05;
+    shoulderOffsets:context.shoulderOffsets;
+    reachBySide:context.reachBySide;
 
     applySide:(side)=> {
       fallback:if side = "left" then defaultHandOffsetsBySide.left else defaultHandOffsetsBySide.right;
       baseEffector:if baseHands[side]?.effectorCoordinate = null then fallback else baseHands[side].effectorCoordinate;
       mirroredLeg:if side = "left" then legOffsets?.right else legOffsets?.left;
+      shoulderOffset:if side = "left" then shoulderOffsets.left else shoulderOffsets.right;
+      targetLength:if reachBySide = null then null else if side = "left" then reachBySide.left else reachBySide.right;
 
       eval if mirroredLeg = null then (baseHands[side] ?? {}) + { effectorCoordinate:baseEffector } else {
         radius:math.max(0.000001, distanceBetweenPoints([0,0], baseEffector));
         normalizedHorizontal:clampSymmetric(mirroredLeg[0] / depthScale, 1);
         normalizedVertical:clampSymmetric((mirroredLeg[1] - averageY) / depthScale, 1);
-        horizontalSwing:normalizedHorizontal * swing.amplitude * forwardSign + swing.forwardOffset * forwardSign;
-        verticalSwing:normalizedVertical * swing.lift;
+        signedPhase:if side = context.movingSide then -phaseSignal else phaseSignal;
+        horizontalInfluence:signedPhase * (phaseWeight + math.abs(normalizedHorizontal) * legWeight);
+        verticalInfluence:signedPhase * verticalPhaseWeight + normalizedVertical * verticalLegWeight;
+        horizontalSwing:horizontalInfluence * swing.amplitude * forwardSign + swing.forwardOffset * forwardSign;
+        verticalSwing:verticalInfluence * swing.lift;
         candidateX:baseEffector[0] + horizontalSwing;
         candidateY:baseEffector[1] + verticalSwing;
-        candidateLen:math.sqrt(candidateX * candidateX + candidateY * candidateY);
-        scale:radius / candidateLen;
-        eval (baseHands[side] ?? {}) + { effectorCoordinate:[candidateX * scale, candidateY * scale] };
+        targetRadius:if targetLength = null then radius else targetLength;
+        targetEffector:scaleVectorToLength([candidateX, candidateY], shoulderOffset, targetRadius);
+        eval (baseHands[side] ?? {}) + { effectorCoordinate:targetEffector };
       };
     };
 

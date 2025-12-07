@@ -5,7 +5,7 @@
 
   anchor:consts.shared.anchor;
   view:consts.zoomedInView;
-  stride:8;
+  stride:20;
 
   leftOffset:consts.shared.legs.profileOffsets.left;
   rightOffset:consts.shared.legs.profileOffsets.right;
@@ -14,7 +14,7 @@
     anchor[1] + rightOffset[1]
   ];
 
-  progressRaw:if t = null then 0 else t;
+  progressRaw:if t = null then 1 else t;
   progress:math.max(0, math.min(1, progressRaw));
 
   baseMeasurements:{
@@ -36,7 +36,13 @@
     movingFeetTargetPoint:targetFoot;
     progress:progress;
     measurements:baseMeasurements;
-    handSwing:{ enabled:false };
+    handSwing:{
+      enabled:true;
+      mode:"mirror";
+      amplitude:14;
+      lift:1.8;
+      forwardOffset:0;
+    };
   });
 
   

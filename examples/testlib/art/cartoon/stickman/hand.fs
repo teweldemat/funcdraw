@@ -12,7 +12,7 @@
     stroke:style.stroke ?? defaults.stroke;
     width:style.width ?? defaults.width;
 
-    graphics:[
+    lines:[
       {
         type:"line";
         from:joints.attachment;
@@ -29,7 +29,13 @@
       }
     ];
 
-    eval { graphics:graphics };
+    eval {
+      graphics:[{
+        type:"testlib/cartoon/stickman/hand";
+        name:"testlib/cartoon/stickman/hand";
+        graphics:lines;
+      }];
+    };
   };
 
   extractJointPoints:(config)=> {

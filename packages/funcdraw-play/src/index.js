@@ -42,9 +42,8 @@ async function startPlayer(cwd, argvInput) {
       describe: 'Run FuncScript package tests and exit (no server)'
     })
     .option('svg', {
-      type: 'boolean',
-      describe: 'Include SVG output when running in dump mode',
-      default: false
+      type: 'string',
+      describe: 'Include SVG output when running in dump mode; optionally pass a file path to write it'
     })
     .option('t', {
       type: 'number',
@@ -73,6 +72,7 @@ async function startPlayer(cwd, argvInput) {
   const traceOptions = normalizeTraceOption(argv.trace);
   const traceFile = typeof argv['trace-file'] === 'string' ? argv['trace-file'] : null;
   const traceOutputPath = traceFile ? path.resolve(cwd, traceFile) : null;
+  const svgOption = normalizeSvgOption(argv.svg, cwd);
   const traceRequested = Boolean(traceOptions && traceOptions.enabled) || Boolean(traceOutputPath);
   const dumpMode = Boolean(argv.dump);
   const traceOnlyMode = traceRequested && !dumpMode;
@@ -198,7 +198,13 @@ async function startPlayer(cwd, argvInput) {
   if (argv.dump) {
     console.log(picocolors.cyan('FuncDraw Play dump mode'));
     try {
-      const dumpResult = await evaluateScene({ includeSvg: Boolean(argv.svg), requestId: 'dump-mode' });
+      const dumpResult = await evaluateScene({
+        includeSvg: svgOption.enabled,
+        requestId: 'dump-mode'
+      });
+      if (svgOption.outputPath) {
+        writeSvgToFile(dumpResult.svg, svgOption.outputPath, cwd);
+      }
       if (traceEnabled) {
         printTraceEntries(dumpResult && dumpResult.trace);
       }
@@ -339,6 +345,14 @@ function pathsEqual(a, b) {
 module.exports = {
   startPlayer
 };
+
+function normalizeSvgOption(raw, cwd) {
+  if (raw === undefined || raw === null) {
+    return { enabled: false, outputPath: null };
+  }
+  const outputPath = raw === '' ? null : path.resolve(cwd, String(raw));
+  return { enabled: true, outputPath };
+}
 
 async function runPackageTests(config) {
   if (!config || !config.resolver) {
@@ -493,6 +507,17 @@ function indentMultiline(text, spaces = 2) {
     .split('\n')
     .map((line) => padding + line)
     .join('\n');
+}
+
+function writeSvgToFile(svg, targetPath, cwd) {
+  if (typeof svg !== 'string') {
+    throw new Error('expected SVG output when --svg is provided');
+  }
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, svg, 'utf8');
+  const relative = path.relative(cwd, targetPath);
+  const displayPath = relative && relative !== '' ? relative : targetPath;
+  console.log(picocolors.gray(`[funcdraw-play] SVG written to ${displayPath}`));
 }
 
 function writeTraceToFile(entries, targetPath, cwd) {

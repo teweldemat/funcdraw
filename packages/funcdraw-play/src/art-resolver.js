@@ -3,6 +3,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const dirEntriesCache = new Map();
+const statCache = new Map();
+const expressionCache = new Map();
+const resolvedFileCache = new Map();
+
 function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
   const artRoot = path.resolve(rootDir, artFolderName);
   if (!fs.existsSync(artRoot) || !fs.statSync(artRoot).isDirectory()) {
@@ -18,6 +23,9 @@ function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
       if (!dirPath) {
         return [];
       }
+      if (dirEntriesCache.has(dirPath)) {
+        return dirEntriesCache.get(dirPath);
+      }
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
       const names = [];
       for (const entry of entries) {
@@ -30,6 +38,7 @@ function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
           }
         }
       }
+      dirEntriesCache.set(dirPath, names);
       return names;
     },
     getExpression(pathSegments = []) {
@@ -62,32 +71,64 @@ function createArtResolver(rootDir, artFolderName = 'art', options = {}) {
 
 function resolveDirectory(root, segments) {
   const target = path.join(root, ...segments);
+  const cached = statCache.get(target);
+  if (cached) {
+    return cached.isDir ? target : null;
+  }
   if (!fs.existsSync(target)) {
+    statCache.set(target, { isDir: false, isFile: false });
     return null;
   }
   const stat = fs.statSync(target);
-  return stat.isDirectory() ? target : null;
+  const entry = { isDir: stat.isDirectory(), isFile: stat.isFile() };
+  statCache.set(target, entry);
+  return entry.isDir ? target : null;
 }
 
 function resolveFile(root, segments) {
   if (!Array.isArray(segments) || segments.length === 0) {
     return null;
   }
+  const cacheKey = `${root}::${segments.join('/')}`;
+  if (resolvedFileCache.has(cacheKey)) {
+    return resolvedFileCache.get(cacheKey);
+  }
   const dirSegments = segments.slice(0, -1);
   const baseName = segments[segments.length - 1];
   const dirPath = path.join(root, ...dirSegments);
-  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+  if (!resolveDirectory(root, dirSegments)) {
+    resolvedFileCache.set(cacheKey, null);
     return null;
   }
   const fsPath = path.join(dirPath, `${baseName}.fs`);
-  if (fs.existsSync(fsPath) && fs.statSync(fsPath).isFile()) {
-    return { fullPath: fsPath, ext: '.fs' };
+  if (isFile(fsPath)) {
+    const resolved = { fullPath: fsPath, ext: '.fs' };
+    resolvedFileCache.set(cacheKey, resolved);
+    return resolved;
   }
   const jsPath = path.join(dirPath, `${baseName}.js`);
-  if (fs.existsSync(jsPath) && fs.statSync(jsPath).isFile()) {
-    return { fullPath: jsPath, ext: '.js' };
+  if (isFile(jsPath)) {
+    const resolved = { fullPath: jsPath, ext: '.js' };
+    resolvedFileCache.set(cacheKey, resolved);
+    return resolved;
   }
+  resolvedFileCache.set(cacheKey, null);
   return null;
+}
+
+function isFile(target) {
+  const cached = statCache.get(target);
+  if (cached) {
+    return cached.isFile;
+  }
+  if (!fs.existsSync(target)) {
+    statCache.set(target, { isDir: false, isFile: false });
+    return false;
+  }
+  const stat = fs.statSync(target);
+  const entry = { isDir: stat.isDirectory(), isFile: stat.isFile() };
+  statCache.set(target, entry);
+  return entry.isFile;
 }
 
 function stripExtension(name) {
@@ -95,11 +136,17 @@ function stripExtension(name) {
 }
 
 function loadTextExpression(filePath, language) {
+  const cached = expressionCache.get(filePath);
+  if (cached) {
+    return cached;
+  }
   const text = fs.readFileSync(filePath, 'utf8');
-  return {
+  const payload = {
     expression: text,
     language
   };
+  expressionCache.set(filePath, payload);
+  return payload;
 }
 
 module.exports = {

@@ -2,10 +2,124 @@
 
 const { toArray, isPlainObject } = require('./utils');
 
-function createValueConverter(funcscript) {
+function createValueConverter(funcscript, options = {}) {
   const { typeOf, valueOf, FSDataType } = funcscript;
+  const logger = options.logger || null;
 
-  function toPlain(value) {
+  const logLine = (text) => {
+    if (!text) {
+      return;
+    }
+    if (typeof logger === 'function') {
+      logger(text);
+      return;
+    }
+    if (logger && typeof logger.log === 'function') {
+      logger.log(text);
+    }
+  };
+
+  function safeStringify(value) {
+    try {
+      return JSON.stringify(
+        value,
+        (_key, val) => {
+          if (typeof val === 'bigint') {
+            return val.toString();
+          }
+          if (typeof val === 'function') {
+            return '<function>';
+          }
+          if (val === undefined) {
+            return null;
+          }
+          return val;
+        },
+        0
+      );
+    } catch {
+      return String(value);
+    }
+  }
+
+  function formatPreview(value) {
+    if (value === null) {
+      return 'null';
+    }
+    if (value === undefined) {
+      return 'undefined';
+    }
+    const type = typeof value;
+    if (type === 'function') {
+      return '<function>';
+    }
+    if (type === 'object') {
+      return safeStringify(value);
+    }
+    return String(value);
+  }
+
+  function formatPath(path) {
+    if (!Array.isArray(path) || path.length === 0) {
+      return '';
+    }
+    let label = '';
+    for (const segment of path) {
+      if (typeof segment === 'number') {
+        label += `[${segment}]`;
+      } else {
+        label += (label ? '.' : '') + segment;
+      }
+    }
+    return label;
+  }
+
+  function logKey(path, key, kind, value) {
+    if (!logger) {
+      return;
+    }
+    const base = formatPath(path);
+    const prefix = base ? `${base}.` : '';
+    const placeholders = {
+      list: '[list]',
+      kvc: '[kvc]',
+      function: '[function]',
+      error: '[error]',
+      object: '[object]'
+    };
+    const rendered =
+      kind === 'atomic'
+        ? formatPreview(value)
+        : placeholders[kind] || `[${kind}]`;
+    logLine(`-[${prefix}${key}]: ${rendered}`);
+  }
+
+  function logKvc(path, value) {
+    if (!logger) {
+      return;
+    }
+    const base = formatPath(path);
+    const prefix = base ? `${base}: ` : '';
+    logLine(`${prefix}${safeStringify(value)}`);
+  }
+
+  function classifyTyped(typed) {
+    const t = typeOf(typed);
+    switch (t) {
+      case FSDataType.List:
+        return 'list';
+      case FSDataType.KeyValueCollection:
+        return 'kvc';
+      case FSDataType.Function:
+        return 'function';
+      case FSDataType.Error:
+        return 'error';
+      default:
+        return 'atomic';
+    }
+  }
+
+  function toPlain(value, path = []) {
     if (!value) {
       return null;
     }
@@ -26,15 +140,19 @@ function createValueConverter(funcscript) {
         return valueOf(typed);
       case FSDataType.List: {
         const items = toArray(valueOf(typed));
-        return items.map((item) => toPlain(item));
+        return items.map((item, index) => toPlain(item, path.concat(index)));
       }
       case FSDataType.KeyValueCollection: {
         const collection = valueOf(typed);
         const result = {};
         const entries = typeof collection.getAll === 'function' ? collection.getAll() : [];
         for (const [key, entryValue] of entries) {
-          result[key] = toPlain(entryValue);
+          const entryKind = classifyTyped(entryValue);
+          const converted = toPlain(entryValue, path.concat(key));
+          logKey(path, key, entryKind, converted);
+          result[key] = converted;
         }
+        logKvc(path, result);
         return result;
       }
       case FSDataType.Function:

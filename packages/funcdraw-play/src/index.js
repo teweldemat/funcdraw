@@ -62,15 +62,22 @@ async function startPlayer(cwd, argvInput) {
       type: 'array',
       describe: 'Emit FuncScript package trace info; optionally pass "step-into" and an optional filter'
     })
+    .option('trace-file', {
+      type: 'string',
+      describe: 'Optional file path to write FuncScript trace output (JSON)'
+    })
     .help()
     .alias('help', 'h')
     .parseSync();
 
   const traceOptions = normalizeTraceOption(argv.trace);
-  const traceRequested = Boolean(traceOptions && traceOptions.enabled);
+  const traceFile = typeof argv['trace-file'] === 'string' ? argv['trace-file'] : null;
+  const traceOutputPath = traceFile ? path.resolve(cwd, traceFile) : null;
+  const traceRequested = Boolean(traceOptions && traceOptions.enabled) || Boolean(traceOutputPath);
   const dumpMode = Boolean(argv.dump);
   const traceOnlyMode = traceRequested && !dumpMode;
   const debugEnabled = !traceOnlyMode && Boolean(argv.debug || dumpMode);
+  const dumpLoggingEnabled = dumpMode;
   const traceEnabled = traceRequested;
   const expressionOverride = typeof argv.exp === 'string' ? argv.exp : null;
   let config = await loadUserConfig(cwd, { expression: expressionOverride });
@@ -148,9 +155,11 @@ async function startPlayer(cwd, argvInput) {
     const start = Date.now();
     console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel})`));
     try {
+      const dumpLogger = dumpLoggingEnabled ? createDumpLogger(evalId) : null;
       const result = await currentExpression.evaluate({
         output: outputs,
         trace: traceOptions || traceEnabled,
+        dumpLogger,
         valueHooks: {
           t: () => timelineState.value,
           canvas: () => ({
@@ -172,11 +181,13 @@ async function startPlayer(cwd, argvInput) {
         )
       );
       if (debugEnabled) {
-        console.log(picocolors.yellow(`[funcdraw-play] [${evalId}] Scene payload:`));
-        console.dir(result, { depth: null, colors: true });
+        printSceneSummary(result, evalId);
       }
       result.timeline = { t: timelineState.value };
       result.canvas = { ...canvasState };
+      if (traceEnabled && traceOutputPath) {
+        writeTraceToFile(result && result.trace, traceOutputPath, cwd);
+      }
       return result;
     } catch (error) {
       console.error(picocolors.red(`[funcdraw-play] [${evalId}] Evaluation failed:`), error);
@@ -484,26 +495,58 @@ function indentMultiline(text, spaces = 2) {
     .join('\n');
 }
 
+function writeTraceToFile(entries, targetPath, cwd) {
+  const payload = JSON.stringify(entries || [], null, 2);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, payload, 'utf8');
+  const relative = path.relative(cwd, targetPath);
+  const displayPath = relative && relative !== '' ? relative : targetPath;
+  console.log(picocolors.gray(`[funcdraw-play] Trace written to ${displayPath}`));
+}
+
 function printTraceEntries(entries) {
   if (!entries || entries.length === 0) {
     console.log(picocolors.gray('[funcdraw-play] No FuncScript trace entries recorded.'));
     return;
   }
+  const nodeCount = countTraceNodes(entries);
   console.log(
     picocolors.cyan(
-      `[funcdraw-play] FuncScript trace (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`
+      `[funcdraw-play] FuncScript trace (${nodeCount} entr${nodeCount === 1 ? 'y' : 'ies'})`
     )
   );
   for (const entry of entries) {
-    const pathText = entry && entry.path ? entry.path : '(root)';
-    const location = formatTraceLocation(entry);
-    const snippet = cleanSnippet(entry && entry.snippet);
-    const resultText = formatTraceResult(entry);
-    console.log(picocolors.gray(`- ${pathText}${location ? ` ${location}` : ''}${snippet ? ` ${snippet}` : ''}`));
-    if (resultText) {
-      console.log(picocolors.gray(`  value: ${resultText}`));
+    printTraceNode(entry, 0);
+  }
+}
+
+function printTraceNode(entry, depth) {
+  if (!entry) {
+    return;
+  }
+  const indent = '  '.repeat(depth);
+  const pathText = entry.path ? entry.path : '(root)';
+  const location = formatTraceLocation(entry);
+  const snippet = cleanSnippet(entry.snippet);
+  const resultText = formatTraceResult(entry);
+  console.log(picocolors.gray(`${indent}- ${pathText}${location ? ` ${location}` : ''}${snippet ? ` ${snippet}` : ''}`));
+  if (resultText) {
+    console.log(picocolors.gray(`${indent}  value: ${resultText}`));
+  }
+  if (Array.isArray(entry.children)) {
+    entry.children.forEach((child) => printTraceNode(child, depth + 1));
+  }
+}
+
+function countTraceNodes(entries) {
+  let count = 0;
+  for (const entry of entries || []) {
+    count += 1;
+    if (Array.isArray(entry.children)) {
+      count += countTraceNodes(entry.children);
     }
   }
+  return count;
 }
 
 function formatTraceLocation(entry) {
@@ -536,33 +579,30 @@ function cleanSnippet(snippet) {
 }
 
 function formatTraceResult(entry) {
-  if (!entry) {
+  if (!entry || !entry.resultKind) {
     return '';
   }
   if (entry.resultKind === 'atomic') {
-    return entry.resultPreview || '';
+    return entry.resultPreview || '(atomic)';
   }
-  if (entry.resultKind === 'error') {
-    return entry.resultPreview || entry.resultJson || '';
-  }
-  if (entry.resultKind === 'function') {
-    return entry.resultPreview || '[function]';
-  }
-  if (entry.resultKind === 'list') {
-    return entry.resultPreview || '[list]';
-  }
-  if (entry.resultKind === 'kvc') {
-    return entry.resultPreview || '[kvc]';
-  }
-  if (entry.resultJson) {
-    const trimmed = String(entry.resultJson).trim();
-    const max = 240;
-    return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
-  }
-  if (entry.resultPreview) {
-    return entry.resultPreview;
-  }
-  return '';
+  const placeholders = {
+    function: '<function>',
+    list: '<list>',
+    kvc: '<kvc>',
+    object: '<object>',
+    error: '<error>'
+  };
+  return placeholders[entry.resultKind] || `<${entry.resultKind}>`;
+}
+
+function createDumpLogger(evalId) {
+  const prefix = `[funcdraw-play] [${evalId}] dump`;
+  return (message) => {
+    if (!message) {
+      return;
+    }
+    console.log(picocolors.gray(`${prefix} ${message}`));
+  };
 }
 
 function normalizeTraceOption(raw) {
@@ -601,4 +641,40 @@ function normalizeTraceOption(raw) {
     };
   }
   return { enabled: true, stepInto: false, filter: null };
+}
+
+function printSceneSummary(result, evalId) {
+  console.log(picocolors.yellow(`[funcdraw-play] [${evalId}] Scene payload (graphics summary):`));
+  const raw = result && result.raw;
+  if (!raw || !raw.graphics) {
+    console.log(picocolors.gray('  (no graphics payload)'));
+    return;
+  }
+  const logLine = (depth, text) => {
+    console.log(picocolors.gray(`${'  '.repeat(depth)}${text}`));
+  };
+  logLine(0, '[kvc]');
+  logLine(1, 'graphics');
+  printGraphicsNodes(raw.graphics, logLine, 2);
+}
+
+function printGraphicsNodes(nodes, logLine, depth) {
+  if (Array.isArray(nodes)) {
+    nodes.forEach((node, index) => {
+      logLine(depth, `graphics[${index}]`);
+      printGraphicsNodes(node, logLine, depth + 1);
+    });
+    return;
+  }
+  if (nodes && typeof nodes === 'object') {
+    if (nodes.type) {
+      const label = nodes.name ? `${nodes.type}:${nodes.name}` : nodes.type;
+      logLine(depth, `-${label}`);
+      if (nodes.graphics) {
+        printGraphicsNodes(nodes.graphics, logLine, depth + 1);
+      }
+      return;
+    }
+  }
+  logLine(depth, String(nodes));
 }

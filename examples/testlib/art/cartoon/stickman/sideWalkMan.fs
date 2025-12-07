@@ -6,9 +6,10 @@
   anchorBase:if input.initialPosition = null then defaults.position else input.initialPosition;
   measurementsInput:input.initialMeasurements ?? {};
   displacement:if input.displacement = null then 0 else input.displacement;
-  progress:clamp01(if input.progress = null then 0 else input.progress);
+  progress:clamp01(if input.progress = null then 0 else input.progress + 0);
   direction:normalizeDirection(input.direction, "right");
   strideDirection:if displacement >= 0 then 1 else -1;
+  debugEnabled:input.debug = true;
 
   defaultOffsets:{ left:defaults.leftOffset; right:defaults.rightOffset };
   initialLegs:measurementsInput.legs ?? {};
@@ -42,12 +43,14 @@
     leftFoot:initialLeftFoot;
     rightFoot:initialRightFoot;
     remainingDistance:math.abs(displacement);
+    history:if debugEnabled then [] else null;
   };
   finalState:simulateWalk(0, initialState);
 
   eval {
     measurements:{} + finalState.measurements;
     position:if finalState.anchor = null then defaults.position else finalState.anchor;
+    debug:if debugEnabled then finalState else null;
   };
 
   simulateWalk:(index, state)=> {
@@ -55,7 +58,8 @@
       stepFixedSide:if index % 2 = 0 then fixedSide else movingSide;
       stepMovingSide:if stepFixedSide = "left" then "right" else "left";
       isActive:index = activeStepIndex;
-      stepProgress:if index < activeStepIndex then 1 else if isActive then activeStepPhase else 0;
+      stepProgressRaw:if index < activeStepIndex then 1 else if isActive then activeStepPhase else 0;
+      stepProgress:stepProgressRaw + 0;
       remainingSteps:math.max(1, stepCount - index);
       fixedX:if stepFixedSide = "left" then state.leftFoot[0] else state.rightFoot[0];
 
@@ -65,11 +69,11 @@
         eval math.min(allowed, state.remainingDistance);
       };
 
-      targetX:fixedX + strideMagnitude * strideDirection;
       movingStart:if stepMovingSide = "left" then state.leftFoot else state.rightFoot;
+      targetX:movingStart[0] + strideMagnitude * strideDirection;
       movingTarget:[targetX, movingStart[1]];
 
-      measurementsWithOffsets:applyLegOffsets(state.measurements, state.anchor, state.leftFoot, state.rightFoot, defaultOffsets);
+      measurementsWithOffsets:applyLegOffsets(mergedMeasurements, state.anchor, state.leftFoot, state.rightFoot, defaultOffsets);
       stepperResult:steperManProfile({
         position:state.anchor;
         measurements:measurementsWithOffsets;
@@ -87,16 +91,47 @@
       updatedLeftFoot:helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.left, defaultOffsets.left));
       updatedRightFoot:helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.right, defaultOffsets.right));
       updatedRemaining:math.max(0, state.remainingDistance - strideMagnitude);
+      debugStep:if debugEnabled then {
+        index:index;
+        activeStepIndex:activeStepIndex;
+        stepProgress:stepProgress;
+        stepProgressRaw:stepProgressRaw;
+        stepFixedSide:stepFixedSide;
+        stepMovingSide:stepMovingSide;
+        strideMagnitude:strideMagnitude;
+        movingStart:movingStart;
+        movingTarget:movingTarget;
+        incomingAnchor:state.anchor;
+        incomingLeftFoot:state.leftFoot;
+        incomingRightFoot:state.rightFoot;
+        incomingMeasurements:state.measurements;
+        measurementsWithOffsets:measurementsWithOffsets;
+        stepperResult:stepperResult;
+        updatedAnchor:updatedAnchor;
+        updatedMeasurements:updatedMeasurements;
+        updatedLeftFoot:updatedLeftFoot;
+        updatedRightFoot:updatedRightFoot;
+      } else null;
+      updatedHistory:if debugEnabled then (state.history ?? []) + [{
+        index:index;
+        anchor:updatedAnchor;
+        leftFoot:updatedLeftFoot;
+        rightFoot:updatedRightFoot;
+        measurements:updatedMeasurements;
+        stepProgress:stepProgress;
+      }] else state.history;
       updatedState:{
         anchor:updatedAnchor;
         measurements:updatedMeasurements;
         leftFoot:updatedLeftFoot;
         rightFoot:updatedRightFoot;
         remainingDistance:updatedRemaining;
-      };
-
-      eval if isActive then updatedState else simulateWalk(index + 1, updatedState);
+        debugStep:debugStep;
+        history:updatedHistory;
     };
+
+    eval if isActive then updatedState else simulateWalk(index + 1, updatedState);
+  };
   };
 
   resolveLegOffset:(measurement, fallback)=> {

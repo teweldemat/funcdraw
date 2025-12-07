@@ -50,12 +50,13 @@ function loadGraphics(resolver, options = {}) {
   });
   const typedFd = createFdValue(engine, fdContext);
   const valueHookEntries = createValueHookEntries(options.valueHooks);
-  const converter = createValueConverter(engine);
+  const converter = createValueConverter(engine, { logger: options.dumpLogger || null });
   const traceCollector = createTraceCollector(options.trace, converter, engine);
   const providerFactory = createProviderFactory(engine, typedFd, valueHookEntries);
   const provider = providerFactory();
   const traceHook = traceCollector ? traceCollector.hook : null;
-  const typedRoot = engine.loadPackage(resolver, provider, traceHook);
+  const traceEntryHook = traceCollector ? traceCollector.entryHook : null;
+  const typedRoot = engine.loadPackage(resolver, provider, traceHook, traceEntryHook);
   const plainRoot = converter.toPlain(typedRoot);
   const interpretation = interpretGraphics({
     plainRoot,
@@ -226,12 +227,19 @@ function createTraceCollector(option, converter, engine) {
     return null;
   }
 
-  const entries = [];
-  const summaries = new Map();
   const filter = createTraceFilter(normalized.filter);
   const formatResult = createTraceResultFormatter(engine, converter);
+  const root = createTraceNode('(root)', null, formatResult);
+  const stack = [root];
 
-  const hook = (path, info) => {
+  const entryHook = (path, info) => {
+    const node = createTraceNode(path, info, formatResult);
+    stack.push(node);
+    return node;
+  };
+  entryHook.__fsStepInto = normalized.stepInto;
+
+  const hook = (path, info, entryState) => {
     if (normalized.userHook) {
       try {
         normalized.userHook(path, info);
@@ -240,19 +248,14 @@ function createTraceCollector(option, converter, engine) {
       }
     }
     try {
-      const entry = normalizeTraceEntry(path, info, formatResult);
-      if (!entry) {
-        return;
+      if (entryState) {
+        stack.pop();
       }
-      if (filter && !filter(entry)) {
-        return;
-      }
-      if (normalized.stepInto) {
-        entries.push(entry);
-      } else {
-        const key = entry.path || '';
-        summaries.set(key, entry);
-      }
+      const node = entryState || stack.pop() || createTraceNode(path, info, formatResult);
+      applyTraceInfo(node, info, formatResult);
+      const parent = stack[stack.length - 1];
+      parent.children.push(node);
+      return node;
     } catch {
       // ignore trace serialization errors
     }
@@ -261,14 +264,79 @@ function createTraceCollector(option, converter, engine) {
 
   return {
     hook,
+    entryHook,
     stepInto: normalized.stepInto,
     export() {
-      if (!normalized.stepInto && summaries.size > 0) {
-        return Array.from(summaries.values());
-      }
-      return entries;
+      const exported = root.children.map(cloneTraceNode);
+      return filter ? filterTraceNodes(exported, filter) : exported;
     }
   };
+}
+
+function createTraceNode(path, info, formatResult) {
+  const node = {
+    path: formatTracePath(path),
+    children: []
+  };
+  if (info) {
+    applyTraceInfo(node, info, formatResult);
+  }
+  return node;
+}
+
+function applyTraceInfo(target, info, formatResult) {
+  if (!info || typeof info !== 'object') {
+    return;
+  }
+
+  const setIfFinite = (key, value) => {
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      target[key] = num;
+    }
+  };
+
+  setIfFinite('startLine', info.startLine);
+  setIfFinite('startColumn', info.startColumn);
+  setIfFinite('endLine', info.endLine);
+  setIfFinite('endColumn', info.endColumn);
+  setIfFinite('startIndex', info.startIndex);
+  setIfFinite('endIndex', info.endIndex);
+
+  if (info.snippet != null) {
+    target.snippet = String(info.snippet);
+  }
+  if (Object.prototype.hasOwnProperty.call(info, 'result')) {
+    const formatted = formatResult ? formatResult(info.result) : null;
+    if (formatted) {
+      target.resultKind = formatted.kind;
+      delete target.resultPreview;
+      if (formatted.preview != null) {
+        target.resultPreview = formatted.preview;
+      }
+    }
+  }
+}
+
+function cloneTraceNode(node) {
+  return {
+    ...node,
+    children: Array.isArray(node.children) ? node.children.map(cloneTraceNode) : []
+  };
+}
+
+function filterTraceNodes(nodes, filter) {
+  const result = [];
+  for (const node of nodes) {
+    const filteredChildren = filterTraceNodes(node.children || [], filter);
+    if (filter(node) || filteredChildren.length > 0) {
+      result.push({
+        ...node,
+        children: filteredChildren
+      });
+    }
+  }
+  return result;
 }
 
 function normalizeTraceOption(option) {
@@ -316,67 +384,14 @@ function createTraceFilter(filter) {
 }
 
 function createTraceResultFormatter(engine, converter) {
-  const formatToJson =
-    engine && typeof engine.FormatToJson === 'function'
-      ? (val) => safeFormat(() => engine.FormatToJson(val))
-      : null;
   return (value) => {
     const kind = detectResultKind(value, engine);
-    const base = { kind };
-
-    if (kind === 'atomic') {
-      base.preview = formatAtomicValue(value);
-      return base;
+    if (kind !== 'atomic') {
+      // Only expose result details for atomic values to avoid expensive serialization.
+      return { kind };
     }
-    if (kind === 'error') {
-      base.preview = formatFsError(value);
-      base.json = formatToJson ? formatToJson(value) : safeFormatJson(value, converter);
-      return base;
-    }
-    base.json = formatToJson ? formatToJson(value) : safeFormatJson(value, converter);
-    return base;
+    return { kind, preview: formatAtomicValue(value) };
   };
-}
-
-function normalizeTraceEntry(path, info, formatResult) {
-  const entry = {
-    path: formatTracePath(path)
-  };
-  if (!info || typeof info !== 'object') {
-    return entry;
-  }
-
-  const setIfFinite = (key, value) => {
-    const num = Number(value);
-    if (Number.isFinite(num)) {
-      entry[key] = num;
-    }
-  };
-
-  setIfFinite('startLine', info.startLine);
-  setIfFinite('startColumn', info.startColumn);
-  setIfFinite('endLine', info.endLine);
-  setIfFinite('endColumn', info.endColumn);
-  setIfFinite('startIndex', info.startIndex);
-  setIfFinite('endIndex', info.endIndex);
-
-  if (info.snippet != null) {
-    entry.snippet = String(info.snippet);
-  }
-  if (Object.prototype.hasOwnProperty.call(info, 'result')) {
-    const formatted = formatResult ? formatResult(info.result) : null;
-    if (formatted) {
-      entry.resultKind = formatted.kind;
-      if (formatted.preview != null) {
-        entry.resultPreview = formatted.preview;
-      }
-      if (formatted.json != null) {
-        entry.resultJson = formatted.json;
-      }
-    }
-  }
-
-  return entry;
 }
 
 function formatTracePath(path) {
@@ -476,48 +491,6 @@ function formatAtomicValue(value) {
     return trimmed.length > max ? `${trimmed.slice(0, max)}...` : trimmed;
   }
   return String(value);
-}
-
-function formatFsError(value) {
-  const err = value && value.fsError && typeof value.fsError === 'object' ? value.fsError : value;
-  const type = err && err.errorType ? err.errorType : 'Error';
-  const message = err && err.errorMessage ? err.errorMessage : '';
-  if (err && err.errorData !== undefined) {
-    const data = safeStringify(err.errorData);
-    return `${type}: ${message || 'FuncScript error'} (data: ${data})`;
-  }
-  if (message) {
-    return `${type}: ${message}`;
-  }
-  return type;
-}
-
-function safeFormat(fn) {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
-}
-
-function safeFormatJson(value, converter) {
-  try {
-    const plain = converter ? converter.toPlain(value) : value;
-    return JSON.stringify(plain);
-  } catch {
-    return safeStringify(value);
-  }
-}
-
-function safeStringify(value) {
-  try {
-    if (typeof value === 'string') {
-      return value;
-    }
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
 }
 
 module.exports = {

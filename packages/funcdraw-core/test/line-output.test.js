@@ -50,6 +50,32 @@ function expectSingleGlyph(svgOutput) {
   assert.match(svgOutput, /fill="#e2e8f0"/);
 }
 
+function collectTracePaths(nodes) {
+  const paths = [];
+  for (const node of nodes || []) {
+    paths.push(node.path);
+    if (Array.isArray(node.children)) {
+      paths.push(...collectTracePaths(node.children));
+    }
+  }
+  return paths;
+}
+
+function findTraceNode(nodes, targetPath) {
+  for (const node of nodes || []) {
+    if (node.path === targetPath) {
+      return node;
+    }
+    if (Array.isArray(node.children)) {
+      const match = findTraceNode(node.children, targetPath);
+      if (match) {
+        return match;
+      }
+    }
+  }
+  return null;
+}
+
 test('line primitive produces expected raw data and svg', () => {
   const resolver = createResolver(`
   {
@@ -192,11 +218,16 @@ test('trace output collects package evaluation', () => {
   const result = expression.evaluate({ trace: true });
 
   assert.ok(Array.isArray(result.trace));
-  assert.ok(result.trace.length >= 2);
-  const paths = result.trace.map((entry) => entry.path);
+  assert.ok(result.trace.length >= 1);
+  const paths = collectTracePaths(result.trace);
   assert.ok(paths.includes('eval'));
   assert.ok(paths.includes('value'));
-  const valueTrace = result.trace.find((entry) => entry.path === 'value');
+  const evalTrace = findTraceNode(result.trace, 'eval');
+  assert.ok(evalTrace);
+  assert.ok(Array.isArray(evalTrace.children));
+  assert.ok(evalTrace.children.some((entry) => entry.path === 'value'));
+  const valueTrace = findTraceNode(result.trace, 'value');
+  assert.ok(valueTrace);
   assert.equal(valueTrace.resultPreview, '2');
   assert.ok(typeof valueTrace.snippet === 'string' && valueTrace.snippet.includes('2'));
 });

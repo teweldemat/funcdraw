@@ -22,7 +22,7 @@
     anchor:[0, 18.6];
     strideLength:12;
     stepCount:10;
-    speed:0.02;
+    speed:0.2;
     legLengths:{ upper:12.4; lower:11.6 };
     leftOffset:[-4, -18.6];
     rightOffset:[4, -18.6];

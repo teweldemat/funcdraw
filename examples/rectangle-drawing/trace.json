@@ -1,0 +1,27 @@
+[
+  {
+    "path": "eval",
+    "children": [
+      {
+        "path": "scene",
+        "children": [],
+        "startLine": 1,
+        "startColumn": 1,
+        "endLine": 18,
+        "endColumn": 2,
+        "startIndex": 0,
+        "endIndex": 223,
+        "snippet": "{\n  view:{\n    left:0;\n    bottom:0;\n    right:40;\n    top:30;\n  };\n  graphics:[\n    {\n      type:\"rect\";\n      position:[5,5];\n      size:[30,20];\n      fill:\"white\";\n      stroke:\"#0f172a\";\n      wi…",
+        "resultKind": "kvc"
+      }
+    ],
+    "startLine": 1,
+    "startColumn": 1,
+    "endLine": 1,
+    "endColumn": 5,
+    "startIndex": 0,
+    "endIndex": 5,
+    "snippet": "scene",
+    "resultKind": "kvc"
+  }
+]

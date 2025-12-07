@@ -28,7 +28,6 @@ function interpretGraphics({ plainRoot, engine, providerFactory, converter }) {
     graphics,
     step,
     warnings,
-    raw: plainRoot,
     view: view ?? null
   };
 }

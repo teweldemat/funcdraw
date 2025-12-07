@@ -149,6 +149,9 @@
       finalMeasurements:sequenceState.measurements;
       sequenceState:sequenceState;
       step:step;
+      progressInput:options.progress;
+      progressValue:progress;
+      anchorCandidates:{ a:anchorCandidateA; b:anchorCandidateB };
     };
   };
 

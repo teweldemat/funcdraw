@@ -20,7 +20,7 @@
     skeletonContext:skeleton.build(optionsInput ?? {});
     skeletonPose:skeletonContext.skeleton;
     normalizedOptions:skeletonContext.normalizedOptions ?? {};
-    paletteOverrides:normalizedOptions.palette ?? {};
+    paletteOverrides:{};
     palette:defaultPalette + paletteOverrides;
     skinStroke:if normalizedOptions.palette?.skinStroke != null then normalizedOptions.palette.skinStroke
       else if palette.skinStroke != null then palette.skinStroke

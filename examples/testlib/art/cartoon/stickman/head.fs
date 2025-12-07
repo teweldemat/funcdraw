@@ -255,8 +255,8 @@
   };
 
   mixEyesConfig:(rawConfig, base)=> {
-    config:rawConfig ?? {};
     baseConfig:base ?? {};
+    config:baseConfig + (rawConfig ?? {});
 
     separationRatio:helpers.clamp(if config.separationRatio = null then baseConfig.separationRatio ?? 0.38 else config.separationRatio, 0.1, 0.8);
     offsetRatio:helpers.clamp(if config.offsetRatio = null then baseConfig.offsetRatio ?? 0.2 else config.offsetRatio, -0.2, 0.6);

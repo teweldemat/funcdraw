@@ -1,7 +1,7 @@
-# sideWalkMan Example (profile walk measurer)
+# multiStepProfile Example (profile walk measurer)
 
 ## Overview
-`stickman/sideWalkMan.fs` uses `singleStepProfile` to generate the stickman measurements for a sideways (profile) walk across multiple steps. Given an initial torso anchor and measurements, a horizontal displacement (positive or negative), and a progress value between 0 and 1, it walks the character across as many steps as needed and returns the measurements/anchor at that progress so callers can render or chain poses without world-point math.
+`stickman/multiStepProfile.fs` uses `singleStepProfile` to generate the stickman measurements for a sideways (profile) walk across multiple steps. Given an initial torso anchor and measurements, a horizontal displacement (positive or negative), and a progress value between 0 and 1, it walks the character across as many steps as needed and returns the measurements/anchor at that progress so callers can render or chain poses without world-point math.
 
 ## Construction Overview
 
@@ -15,7 +15,7 @@
 Shared types (`Direction`, `Side`, `PointInput`, `StickmanMeasurements`) live in `schema.md` and `staticMan.doc.md`.
 
 ```ts
-type SideWalkOptions = {
+type MultiStepProfileOptions = {
   initialPosition?: PointInput;        // torso anchor for the start of the step (defaults to [0, 10])
   initialMeasurements?: StickmanMeasurements; // baseline measurements; defaults mirror static stickman
   displacement?: number;               // total horizontal delta for the walk (positive => right, negative => left)
@@ -29,7 +29,7 @@ type SideWalkOptions = {
 ## Outputs
 
 ```ts
-type SideWalkResult = {
+type MultiStepProfileResult = {
   measurements: StickmanMeasurements;  // resolved measurements at the given progress
   position: [number, number];          // recentered torso anchor for this frame
 };

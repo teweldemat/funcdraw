@@ -12,7 +12,7 @@
   debugEnabled:input.debug = true;
 
   defaultOffsets:{ left:defaults.leftOffset; right:defaults.rightOffset };
-  initialLegs:measurementsInput.legs ?? {};
+  initialLegs:cloneLegs(measurementsInput.legs);
   initialLeftFoot:helpers.addOffset(anchorBase, resolveLegOffset(initialLegs.left, defaultOffsets.left));
   initialRightFoot:helpers.addOffset(anchorBase, resolveLegOffset(initialLegs.right, defaultOffsets.right));
 
@@ -36,12 +36,12 @@
   activeStepIndex:math.min(stepCount - 1, math.floor(totalProgress));
   activeStepPhase:totalProgress - activeStepIndex;
 
-  mergedMeasurements:mergeFacing(measurementsInput, direction);
+  mergedMeasurements:cloneMeasurements(mergeFacing(measurementsInput, direction));
   initialState:{
-    anchor:anchorBase;
-    measurements:mergedMeasurements;
-    leftFoot:initialLeftFoot;
-    rightFoot:initialRightFoot;
+    anchor:clonePoint(anchorBase);
+    measurements:cloneMeasurements(mergedMeasurements);
+    leftFoot:clonePoint(initialLeftFoot);
+    rightFoot:clonePoint(initialRightFoot);
     remainingDistance:math.abs(displacement);
     history:if debugEnabled then [] else null;
   };
@@ -73,24 +73,27 @@
       targetX:movingStart[0] + strideMagnitude * strideDirection;
       movingTarget:[targetX, movingStart[1]];
 
-      measurementsWithOffsets:applyLegOffsets(mergedMeasurements, state.anchor, state.leftFoot, state.rightFoot, defaultOffsets);
+      measurementsBase:cloneMeasurements(state.measurements ?? mergedMeasurements);
+      measurementsWithOffsets:applyLegOffsets(measurementsBase, state.anchor, state.leftFoot, state.rightFoot, defaultOffsets);
       stepperHelper:if singleStepProfile = null then steperManProfile else singleStepProfile;
       stepperResult:stepperHelper({
-        position:state.anchor;
+        position:clonePoint(state.anchor);
         measurements:measurementsWithOffsets;
         handSwing:input.handSwing;
         movingSide:stepMovingSide;
-        movingFeetTargetPoint:movingTarget;
+        movingFeetTargetPoint:clonePoint(movingTarget);
         progress:stepProgress;
         disableStatic:true;
       });
 
       normalizedResult:if stepperResult = null then {} else stepperResult;
-      updatedMeasurements:if normalizedResult.measurements = null then measurementsWithOffsets else normalizedResult.measurements;
-      updatedAnchor:if normalizedResult.position = null then state.anchor else normalizedResult.position;
+      updatedMeasurements:cloneMeasurements(
+        if normalizedResult.measurements = null then measurementsWithOffsets else normalizedResult.measurements
+      );
+      updatedAnchor:clonePoint(if normalizedResult.position = null then state.anchor else normalizedResult.position);
       updatedLegs:updatedMeasurements.legs ?? {};
-      updatedLeftFoot:helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.left, defaultOffsets.left));
-      updatedRightFoot:helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.right, defaultOffsets.right));
+      updatedLeftFoot:clonePoint(helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.left, defaultOffsets.left)));
+      updatedRightFoot:clonePoint(helpers.addOffset(updatedAnchor, resolveLegOffset(updatedLegs.right, defaultOffsets.right)));
       updatedRemaining:math.max(0, state.remainingDistance - strideMagnitude);
       debugStep:if debugEnabled then {
         index:index;
@@ -115,9 +118,9 @@
       } else null;
       updatedHistory:if debugEnabled then (state.history ?? []) + [{
         index:index;
-        anchor:updatedAnchor;
-        leftFoot:updatedLeftFoot;
-        rightFoot:updatedRightFoot;
+        anchor:clonePoint(updatedAnchor);
+        leftFoot:clonePoint(updatedLeftFoot);
+        rightFoot:clonePoint(updatedRightFoot);
         measurements:updatedMeasurements;
         stepProgress:stepProgress;
       }] else state.history;
@@ -165,8 +168,8 @@
   };
 
   applyLegOffsets:(measurements, anchor, leftFoot, rightFoot, defaults)=> {
-    base:measurements ?? {};
-    legs:base.legs ?? {};
+    base:{} + (measurements ?? {});
+    legInput:{} + (base.legs ?? {});
     anchorPoint:if anchor = null then [0,0] else anchor;
     leftPoint:if leftFoot = null then helpers.addOffset(anchorPoint, defaults.left) else leftFoot;
     rightPoint:if rightFoot = null then helpers.addOffset(anchorPoint, defaults.right) else rightFoot;
@@ -174,8 +177,8 @@
     rightOffset:subtractPoints(rightPoint, anchorPoint);
     eval base + {
       legs:{
-        left:(legs.left ?? {}) + { effectorCoordinate:leftOffset };
-        right:(legs.right ?? {}) + { effectorCoordinate:rightOffset };
+        left:(legInput.left ?? {}) + { effectorCoordinate:leftOffset };
+        right:(legInput.right ?? {}) + { effectorCoordinate:rightOffset };
       }
     };
   };
@@ -190,6 +193,42 @@
     num:if value = null then 0 else value;
     eval if num < 0 then 0 else if num > 1 then 1 else num;
   };
+
+  cloneMeasurements:(value)=> {
+    base:value ?? {};
+    eval base + {
+      torso:if base.torso = null then null else {} + base.torso;
+      head:if base.head = null then null else {} + base.head;
+      hands:cloneHands(base.hands);
+      legs:cloneLegs(base.legs);
+    };
+  };
+
+  cloneHands:(value)=> {
+    base:value ?? {};
+    eval {
+      left:cloneHand(base.left);
+      right:cloneHand(base.right);
+    };
+  };
+
+  cloneHand:(hand)=> {
+    eval if hand = null then null else hand + { effectorCoordinate:clonePoint(hand.effectorCoordinate) };
+  };
+
+  cloneLegs:(value)=> {
+    base:value ?? {};
+    eval {
+      left:cloneLeg(base.left);
+      right:cloneLeg(base.right);
+    };
+  };
+
+  cloneLeg:(leg)=> {
+    eval if leg = null then null else leg + { effectorCoordinate:clonePoint(leg.effectorCoordinate) };
+  };
+
+  clonePoint:(value)=> if value = null then null else [value[0], value[1]];
 
   subtractPoints:(a, b)=> {
     aSafe:if a = null then [0,0] else a;

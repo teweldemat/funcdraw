@@ -6,6 +6,7 @@ const picocolors = require('picocolors');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const funcscript = require('@tewelde/funcscript');
+const { FuncScriptParser, DefaultFsDataProvider } = funcscript;
 const { createExpression: createFuncDrawExpression } = require('@funcdraw/core');
 const { loadUserConfig } = require('./config');
 const { startServer } = require('./server');
@@ -363,6 +364,21 @@ async function runPackageTests(config) {
   console.log(picocolors.cyan('FuncDraw Play test mode'));
   const start = Date.now();
   try {
+    const preflight = runPreflightParseChecks(config.resolver);
+    if (preflight.failures.length > 0) {
+      console.error(
+        picocolors.red(
+          `Failed to parse ${preflight.failures.length} expression(s) before running tests:`
+        )
+      );
+      preflight.failures.forEach((failure) => {
+        console.error(
+          picocolors.yellow(`  ${failure.kind} ${failure.path}: ${failure.message}`)
+        );
+      });
+      return 1;
+    }
+
     const result = funcscript.testPackage(config.resolver);
     const summary = normalizeTestSummary(result && result.summary);
     const failures = collectTestFailures(result && result.tests);
@@ -403,6 +419,9 @@ async function runPackageTests(config) {
     return 1;
   } catch (error) {
     console.error(picocolors.red('Failed to run FuncScript package tests:'), error.message || error);
+    if (error && error.stack) {
+      console.error(picocolors.gray(indentMultiline(error.stack, 2)));
+    }
     return 1;
   }
 }
@@ -418,6 +437,124 @@ function normalizeTestSummary(summary) {
     passed: Number(summary.passed) || 0,
     failed: Number(summary.failed) || 0
   };
+}
+
+function runPreflightParseChecks(resolver) {
+  const failures = [];
+  const pairs = collectTestPairs(resolver);
+  for (const pair of pairs) {
+    const scriptPath = formatResolverPath(pair.folderPath.concat([pair.scriptName]));
+    const testPath = formatResolverPath(pair.folderPath.concat([pair.testName]));
+    const scriptParse = tryParseRawExpression(resolver, pair.folderPath, pair.scriptName);
+    if (!scriptParse.ok) {
+      failures.push({
+        kind: 'expression',
+        path: scriptPath,
+        message: scriptParse.message
+      });
+    }
+    const testParse = tryParseRawExpression(resolver, pair.folderPath, pair.testName);
+    if (!testParse.ok) {
+      failures.push({
+        kind: 'test',
+        path: testPath,
+        message: testParse.message
+      });
+    }
+  }
+  return { failures };
+}
+
+function tryParseRawExpression(resolver, folderPath, name) {
+  try {
+    const expressionNode = resolver.getExpression(folderPath.concat([name]));
+    if (!expressionNode || typeof expressionNode.expression !== 'string') {
+      return { ok: false, message: 'Expression not found in resolver' };
+    }
+    if (
+      expressionNode.language &&
+      expressionNode.language !== 'funcscript' &&
+      expressionNode.language !== 'fs' &&
+      expressionNode.language !== 'fsx'
+    ) {
+      return { ok: true };
+    }
+    const expr = expressionNode.expression;
+    const provider = new DefaultFsDataProvider();
+    const errors = [];
+    FuncScriptParser.parse(provider, expr, errors);
+    if (errors.length > 0) {
+      const first = errors[0];
+      const loc = typeof first.Loc === 'number' ? ` at ${first.Loc}` : '';
+      return { ok: false, message: `${first.Message || 'Parse error'}${loc}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error && error.message ? error.message : String(error) };
+  }
+}
+
+function collectTestPairs(resolver, pathSegments = [], accumulator = []) {
+  const children = resolver.listChildren(pathSegments) || [];
+  if (!Array.isArray(children) || children.length === 0) {
+    return accumulator;
+  }
+  const nameMap = new Map();
+  for (const entry of children) {
+    const name = extractResolverName(entry);
+    if (!name) {
+      continue;
+    }
+    const lower = name.toLowerCase();
+    if (!nameMap.has(lower)) {
+      nameMap.set(lower, name);
+    }
+  }
+
+  for (const [lower, actual] of nameMap.entries()) {
+    if (!lower.endsWith('.test')) {
+      continue;
+    }
+    const base = lower.slice(0, -5);
+    if (nameMap.has(base)) {
+      accumulator.push({
+        folderPath: pathSegments.slice(),
+        scriptName: nameMap.get(base),
+        testName: actual
+      });
+    }
+  }
+
+  for (const actual of nameMap.values()) {
+    const childPath = pathSegments.concat([actual]);
+    const childEntries = resolver.listChildren(childPath) || [];
+    if (Array.isArray(childEntries) && childEntries.length > 0) {
+      collectTestPairs(resolver, childPath, accumulator);
+    }
+  }
+  return accumulator;
+}
+
+function extractResolverName(entry) {
+  if (entry == null) {
+    return null;
+  }
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof entry === 'object' && typeof entry.name === 'string') {
+    const trimmed = entry.name.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
+function formatResolverPath(segments = []) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return '<root>';
+  }
+  return segments.join('/');
 }
 
 function collectTestFailures(tests) {

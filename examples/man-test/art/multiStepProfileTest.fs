@@ -1,7 +1,7 @@
 {
   cartoon:package("@funcdraw/testlib").cartoon;
   stickman:cartoon.stickman;
-  walkBuilder:stickman.sideWalkMan;
+  walkBuilder:stickman.multiStepProfile;
   staticBuilder:stickman.static;
 
   view:constants.zoomedInView;
@@ -18,11 +18,11 @@
   totalDisplacement:strideLength * stepCount;
 
   baseMeasurements:{
-    torso:{ direction:"right"; height:constants.shared.torso.height; width:constants.shared.torso.width };
-    head:{ direction:"right"; verticalExtent:constants.shared.head.verticalExtent };
+    torso:{ direction:"right"; height:20; width:2 };
+    head:{ direction:"right"; verticalExtent:5 };
     hands:{
-      left:{ effectorCoordinate:constants.shared.hands.left };
-      right:{ effectorCoordinate:constants.shared.hands.right };
+      left:{ effectorCoordinate:constants.shared.hands.left,upperLength:8,lowerLength:8 };
+      right:{ effectorCoordinate:constants.shared.hands.right,upperLength:8,lowerLength:8  };
     };
     legs:{
       left:{ upperLength:legLengths.upper; lowerLength:legLengths.lower; effectorCoordinate:leftOffset };
@@ -37,12 +37,14 @@
     progress:walkProgress;
     direction:"right";
     strideLength:strideLength;
-    handSwing:{ enabled:true };
+    handSwing:{ enabled:true; mode:"mirror"; amplitude:14; lift:1.8; forwardOffset:0 };
+    debug:true;
   });
 
   poseAnchor:walkPose.position;
   poseMeasurements:walkPose.measurements;
   posed:staticBuilder({ position:poseAnchor; measurements:poseMeasurements });
+  debugText:null;
 
   leftFoot:addPoints(poseAnchor, poseMeasurements.legs.left.effectorCoordinate);
   rightFoot:addPoints(poseAnchor, poseMeasurements.legs.right.effectorCoordinate);

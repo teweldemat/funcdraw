@@ -2,7 +2,7 @@ function scene2(sceneTime = 0, previousScene = null) {
   const cartoonLibrary = package('@funcdraw/testlib')?.cartoon ?? {};
   const stickmanModule = cartoonLibrary?.stickman ?? {};
   const staticBuilder = typeof stickmanModule?.static === 'function' ? stickmanModule.static : null;
-  const walkBuilder = typeof stickmanModule?.sideWalkMan === 'function' ? stickmanModule.sideWalkMan : null;
+  const walkBuilder = typeof stickmanModule?.multiStepProfile === 'function' ? stickmanModule.multiStepProfile : null;
   const houseBuilder = typeof cartoonLibrary?.house === 'function' ? cartoonLibrary.house : null;
   const consts = typeof constants === 'object' && constants ? constants : {};
   const legBend = resolveLegBend(consts);
@@ -20,7 +20,7 @@ function scene2(sceneTime = 0, previousScene = null) {
       graphics: [
         {
           type: 'text',
-          text: 'cartoon stickman walkers unavailable (static/sideWalkMan missing)',
+          text: 'cartoon stickman walkers unavailable (static/multiStepProfile missing)',
           position: [0, 12],
           fill: '#ef4444',
           fontSize: 12,

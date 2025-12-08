@@ -3,6 +3,6 @@
   singleStepProfile: singleStepProfile;
   steperManProfile: singleStepProfile;
   steperManZoom: steperManZoom;
-  sideWalkMan: sideWalkMan;
+  multiStepProfile: multiStepProfile;
   zoomWalkMan: zoomWalkMan;
 }

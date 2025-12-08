@@ -7,7 +7,7 @@
     anchor:[0, 20];
     torso:{ height:22; width:12 };
     head:{ verticalExtent:9 };
-    hands:{ left:[-7.8, 4.7]; right:[7.8, 4.7] };
+    hands:{ left:[-7.8, 4.7]; right:[7.8, 4.7];lengths:{ upper:12.4; lower:11.6 }; };
     legs:{
       sideWalkOffsets:{ left:[0, -20]; right:[-8, -20] };
       profileOffsets:{ left:[-4, -18.6]; right:[4, -18.6] };

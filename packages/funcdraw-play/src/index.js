@@ -80,7 +80,7 @@ async function startPlayer(cwd, argvInput) {
   const debugEnabled = !traceOnlyMode && Boolean(argv.debug || dumpMode);
   const dumpLoggingEnabled = dumpMode;
   const traceEnabled = traceRequested;
-  const expressionOverride = typeof argv.exp === 'string' ? argv.exp : null;
+  const expressionOverride = resolveExpressionOverride(argv);
   let config = await loadUserConfig(cwd, { expression: expressionOverride });
   if (config.configPath) {
     console.log(
@@ -284,6 +284,22 @@ function parseFloatValue(value) {
   }
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function resolveExpressionOverride(argv) {
+  if (typeof argv.exp === 'string' && argv.exp.trim().length > 0) {
+    return argv.exp.trim();
+  }
+  if (Array.isArray(argv._) && argv._.length > 0) {
+    const candidate = argv._[0];
+    if (typeof candidate === 'string') {
+      const text = candidate.trim();
+      if (text.length > 0) {
+        return text;
+      }
+    }
+  }
+  return null;
 }
 
 function watchPaths(paths, onChange) {

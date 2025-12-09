@@ -40,6 +40,7 @@
       leftFoot:initialLeftFoot;
       rightFoot:initialRightFoot;
       remainingDistance:math.abs(displacement);
+      history:if input.debug = true then [] else null;
     };
 
     finalState:simulateWalk(0, initialState);
@@ -83,12 +84,59 @@
         updatedAnchor:stepResult.position;
         updatedLeftFoot:addPoints(updatedAnchor, updatedMeasurements.legs.left.effectorCoordinate);
         updatedRightFoot:addPoints(updatedAnchor, updatedMeasurements.legs.right.effectorCoordinate);
+        activeDebug:{
+          stepIndex:index;
+          stepProgress:stepProgress;
+          movingSide:stepMovingSide;
+          fixedSide:stepFixedSide;
+          strideMagnitude:strideMagnitude;
+          movingStart:movingStart;
+          movingTarget:movingTarget;
+          anchorBefore:state.anchor;
+          anchorAfter:updatedAnchor;
+          measurementsBefore:state.measurements;
+          measurementsAfter:updatedMeasurements;
+        };
         updatedState:{
           anchor:updatedAnchor;
           measurements:updatedMeasurements;
           leftFoot:updatedLeftFoot;
           rightFoot:updatedRightFoot;
           remainingDistance:math.max(0, state.remainingDistance - strideMagnitude);
+          debugStep:if isActive then activeDebug else state.debugStep;
+          history:if input.debug = true then (state.history ?? []) + [{
+            index:index;
+            anchorBefore:state.anchor;
+            anchor:updatedAnchor;
+            left:updatedLeftFoot;
+            right:updatedRightFoot;
+            movingSide:stepMovingSide;
+            fixedSide:stepFixedSide;
+            movingStart:movingStart;
+            movingTarget:movingTarget;
+            stride:strideMagnitude;
+            progress:stepProgress;
+            legOffsetsBefore:{
+              left:measurementsWithOffsets.legs.left.effectorCoordinate;
+              right:measurementsWithOffsets.legs.right.effectorCoordinate;
+            };
+            legOffsetsAfter:{
+              left:updatedMeasurements.legs.left.effectorCoordinate;
+              right:updatedMeasurements.legs.right.effectorCoordinate;
+            };
+            anchorCandidates:stepResult.anchorCandidates;
+            step:stepResult.step;
+            stepInput:{
+              position:state.anchor;
+              movingSide:stepMovingSide;
+              movingFeetTargetPoint:movingTarget;
+              progress:stepProgress;
+              legs:measurementsWithOffsets.legs;
+              torso:measurementsWithOffsets.torso;
+              head:measurementsWithOffsets.head;
+              hands:measurementsWithOffsets.hands;
+            };
+          }] else state.history;
         };
 
         eval if isActive then updatedState else simulateWalk(index + 1, updatedState);

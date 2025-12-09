@@ -43,12 +43,54 @@
 
   poseAnchor:walkPose.position;
   poseMeasurements:walkPose.measurements;
-  posed:staticBuilder({ position:poseAnchor; measurements:poseMeasurements });
+  posed:staticBuilder({
+    position:[poseAnchor[0] + 0, poseAnchor[1] + 0];
+    measurements:{} + poseMeasurements;
+  });
   debugText:null;
 
   leftFoot:addPoints(poseAnchor, poseMeasurements.legs.left.effectorCoordinate);
   rightFoot:addPoints(poseAnchor, poseMeasurements.legs.right.effectorCoordinate);
   targetAnchor:[anchorBase[0] + totalDisplacement, anchorBase[1]];
+  debugStep:if walkPose.debug = null then null else walkPose.debug.debugStep;
+  debugHistory:if walkPose.debug = null then null else walkPose.debug.history;
+  debugGraphics:if debugStep = null then [] else [
+    {
+      type:"text";
+      position:[view.left + 2, view.top - 4];
+      text:format(["step", debugStep.stepIndex, "p", debugStep.stepProgress]);
+      fontSize:3.2;
+      color:"#0f172a";
+    },
+    {
+      type:"text";
+      position:[view.left + 2, view.top - 8];
+      text:format(["anchor", debugStep.anchorAfter]);
+      fontSize:3.2;
+      color:"#0f172a";
+    },
+    {
+      type:"text";
+      position:[view.left + 2, view.top - 12];
+      text:format(["start", debugStep.movingStart, "target", debugStep.movingTarget]);
+      fontSize:3.2;
+      color:"#0f172a";
+    },
+    {
+      type:"text";
+      position:[view.left + 2, view.top - 16];
+      text:format(["anchorBefore", debugStep.anchorBefore, "stride", debugStep.strideMagnitude]);
+      fontSize:3.2;
+      color:"#0f172a";
+    },
+    {
+      type:"text";
+      position:[view.left + 2, view.top - 20];
+      text:format(debugHistory);
+      fontSize:3.2;
+      color:"#0f172a";
+    }
+  ];
 
   eval {
     view:view;
@@ -57,7 +99,9 @@
       createMarker(leftFoot, "#10b981") +
       createMarker(rightFoot, "#94a3b8") +
       createMarker(targetAnchor, "#facc15") +
-      createMarker(poseAnchor, "#fb923c");
+      createMarker(poseAnchor, "#fb923c") +
+      debugGraphics;
+    debug:walkPose;
   };
 
   createGroundLine:(minX, maxX)=> [

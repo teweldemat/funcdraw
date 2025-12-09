@@ -24,3 +24,5 @@ Thumbs.db
 fd-player/.npm-cache
 artifacts
 .vercel
+FuncDraw.Net/bin/Debug
+FuncDraw.Net/obj

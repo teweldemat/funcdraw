@@ -1,5 +1,6 @@
 (optionsInput)=>
 {
+  helpers:cartoon.helpers;
   defaults:{ position:[0,10]; depthDelta:-12; zoom:1; direction:"front" };
   fallbackOffsets:{ left:[-2,-11]; right:[2,-11] };
 

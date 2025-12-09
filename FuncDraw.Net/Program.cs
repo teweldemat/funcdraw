@@ -9,6 +9,11 @@ using FuncDraw.Net;
 
 var options = CliParser.Parse(args);
 var root = Path.GetFullPath(options.Root ?? Environment.CurrentDirectory);
+if (options.Test)
+{
+    Environment.ExitCode = PackageTestCli.Run(root);
+    return;
+}
 var service = new SceneService(root, options.ExpressionOverride);
 
 var traceRequested = (options.Trace != null && options.Trace.Enabled) || !string.IsNullOrWhiteSpace(options.TraceFile);
@@ -252,6 +257,7 @@ internal sealed record CliOptions(
     int Port,
     bool Dump,
     bool IncludeSvg,
+    bool Test,
     string Root,
     TraceOptions? Trace,
     string? TraceFile,
@@ -265,6 +271,7 @@ internal static class CliParser
         var port = 5177;
         var dump = false;
         var includeSvg = false;
+        var test = false;
         var root = Environment.CurrentDirectory;
         TraceOptions? trace = null;
         string? traceFile = null;
@@ -291,6 +298,9 @@ internal static class CliParser
                 case "--svg":
                     includeSvg = true;
                     break;
+                case "--test":
+                    test = true;
+                    break;
                 case "--root":
                     root = RequireNext(args, ref i, "--root");
                     break;
@@ -313,7 +323,7 @@ internal static class CliParser
             }
         }
 
-        return new CliOptions(host, port, dump, includeSvg, root, trace, traceFile, expressionOverride);
+        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride);
     }
 
     private static string RequireNext(string[] args, ref int index, string option)
@@ -373,13 +383,14 @@ internal static class CliParser
         Console.WriteLine("FuncDraw.Net");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  funcdraw.net [--host <host>] [--port <port>] [--root <path>] [--dump] [--svg] [--trace [step-into [filter]]] [--trace-file <path>]");
+        Console.WriteLine("  funcdraw.net [--host <host>] [--port <port>] [--root <path>] [--dump] [--test] [--svg] [--trace [step-into [filter]]] [--trace-file <path>]");
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --host     Host interface to bind (default 127.0.0.1)");
         Console.WriteLine("  --port     Port for the web server (default 5177)");
         Console.WriteLine("  --root     Project root containing art/ (default current directory)");
         Console.WriteLine("  --dump     Evaluate once and print the payload to stdout");
+        Console.WriteLine("  --test     Run FuncScript package tests and exit (no server)");
         Console.WriteLine("  --svg      Include SVG output when dumping");
         Console.WriteLine("  --trace    Emit FuncScript trace output; optionally pass 'step-into' and a substring filter");
         Console.WriteLine("  --trace-file  Write FuncScript trace output to the given JSON file");

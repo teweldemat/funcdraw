@@ -1,5 +1,6 @@
 (attachmentPointInput, configInput)=>
 {
+  helpers:cartoon.helpers;
   defaults:defaults;
 
   rawConfig:configInput ?? {};

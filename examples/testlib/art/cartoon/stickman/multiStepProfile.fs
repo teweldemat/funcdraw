@@ -1,5 +1,6 @@
 (optionsInput)=>
 {
+  helpers:cartoon.helpers;
   defaults:{ position:[0,10]; leftOffset:[-2,-11]; rightOffset:[2,-11] };
 
   input:optionsInput ?? {};

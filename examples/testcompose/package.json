@@ -1,11 +1,14 @@
 {
-  "name": "@funcdraw/testlib",
+  "name": "@funcdraw/testcompose",
   "version": "0.1.0",
   "private": true,
-  "description": "Small FuncDraw helper library used by the sample compositions in this repo.",
+  "description": "Sample FuncDraw composition that consumes @funcdraw/testlib.",
   "scripts": {
     "play": "funcdraw-play",
     "nplay": "dotnet run --project ../../FuncDraw.Net -- --root ."
+  },
+  "dependencies": {
+    "@funcdraw/testlib": "file:../testlib"
   },
   "devDependencies": {
     "@funcdraw/play": "file:../../packages/funcdraw-play"

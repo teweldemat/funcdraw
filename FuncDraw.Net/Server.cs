@@ -35,7 +35,7 @@ internal sealed class SceneService
     {
         _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
         _resolver = new ArtResolver(_projectRoot);
-        _expressionOverride = NormalizeExpressionOverride(_resolver, expressionOverride);
+        _expressionOverride = NormalizeExpressionOverride(expressionOverride);
         _timeline = 0;
         _canvasWidth = 40;
         _canvasHeight = 30;
@@ -103,7 +103,7 @@ internal sealed class SceneService
         return new SimpleKeyValueCollection(null, canvasEntries);
     }
 
-    private static string? NormalizeExpressionOverride(IFsPackageResolver resolver, string? expression)
+    private static string? NormalizeExpressionOverride(string? expression)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
@@ -111,14 +111,9 @@ internal sealed class SceneService
         }
 
         var trimmed = expression.Trim();
-        if (string.Equals(trimmed, "art", StringComparison.OrdinalIgnoreCase))
-        {
-            // Treat as default evaluation of the art package (same as no override).
-            return null;
-        }
-
-        return trimmed;
+        return trimmed.Length > 0 ? trimmed : null;
     }
+
 }
 
 internal sealed class ScenePayload

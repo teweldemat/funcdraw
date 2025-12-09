@@ -3,7 +3,16 @@
 ## Terminology
 **expression** FuncScript code under the `art` folder (`.fs`/`.fx`). Name files without spaces, dots, or dashes.
 **collection** folder containing one or more expressions or folders. If no child is named `eval`, every child expression is directly addressable via dot navigation.
-**module** folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns.
+**module** folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns. It very importan to know that items within a module can't be accessed.  They can only be accessed indirectly if eval expression include them in the final out verbatim.
+eval.fs
+{
+    //internal implementation detail
+    eval
+    {
+        //other keys
+        someExpressionExternalName:SomeExpressionInternalName
+    }
+}
 **package** the entire `art` tree for a project. Packages are Node-style (they live alongside `package.json`) and can be consumed from other FuncDraw packages with `package("<name>")`.
 **model** an expression/module intended to render a graphical object. Anything that returns graphics (e.g., `cartoon/stickman/head.fs`) is a model.
 **component** an expression/module used as a building block for larger models.
@@ -85,3 +94,10 @@ Use `--trace` when you need to inspect how FuncScript resolves and evaluates you
 
 ## Using JavaScript (optional)
 FuncScript is the default, but JavaScript bindings remain available when needed. Keep JS files stateless, end them with a `return` of the value you want to export, and refer to siblings the same way you would from FuncScript (they are injected into scope). Avoid `require`/`module.exports`; just use `package("<name>")` for external packages and direct identifiers for local helpers. Use JS sparingly—prefer `.fs`/`.fx` for new work.
+
+## Latest lessons (keep for next session)
+- FuncDraw.Net must mirror the JS loader: default action is `interpret(loadPackage())`; when `--exp` is provided use `art:loadPackage()` then `interpret(evaluate(<expression>))`, allowing the expression to reference `art`.
+- Package loading is lazy: the .NET `PackageLoader` now evaluates expressions on demand through a `KeyValueCollection` instead of concatenating a giant expression. Folders with an `eval` child are treated as modules and evaluated when accessed; nested eval modules now work (this was the bug that broke the .NET player).
+- The package test runner also follows the JS build-expression path so `eval`/`eval.test` pairs execute correctly. Tests must return `eval [ { name, test, cases? } ]`—missing `test` will fail the run.
+- Character sample: `art/cartoon/character/eval.fs` takes `(anchor, measurements, palette)`, merges `measurements` with `defaultMeasurements` (kept local to the folder), and returns body + two hands + two legs. Palette has `body` and `limb`. `examples/testcompose/art/characterTest.fs` calls `package("@funcdraw/testlib").cartoon.character([0,0], {}, palette)`.
+- Useful comparisons when debugging: `npm run play -- --exp art.characterTest --dump --trace step-into` (JS) vs. `npm run nplay -- --exp art.characterTest --dump --trace step-into` (dotnet).

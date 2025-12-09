@@ -13,9 +13,167 @@ namespace FuncDraw.Net.Tests;
     public class FuncDrawRuntimeTests
     {
         [Test]
-        public void PackageMemberAccessOnPackageResolverReturnsFunctionResult()
-        {
+    public void ModuleWithEvalChildIsEvaluatedWhenAccessedAsPackageMember()
+    {
         var libResolver = new MockResolver();
+        libResolver.AddExpression(new[] { "cartoon", "character", "eval" }, @"
+(anchor, height) =>
+{
+  type: ""line"";
+  from: anchor;
+  to: [anchor[0], anchor[1] + height];
+  stroke: ""#38bdf8"";
+  width: 0.35;
+}");
+
+            var rootResolver = new MockResolver();
+            rootResolver.AddExpression(new[] { "scene" }, @"
+{
+  view:{ left:-5; bottom:-5; right:15; top:20; };
+  character: package(""lib"").cartoon.character([0,0], 10);
+  graphics: character;
+}");
+            rootResolver.AddExpression(new[] { "eval" }, "scene");
+            rootResolver.AddPackage("lib", libResolver);
+
+            var result = FuncDrawRuntime.LoadGraphics(
+                rootResolver,
+                new FuncDrawOptions
+                {
+                    IncludeSvg = false
+                });
+
+            Assert.That(result.Warnings, Is.Empty, "Expected nested module with eval to evaluate, not error");
+            Assert.That(result.Graphics, Has.Count.EqualTo(1));
+            var line = (IDictionary<string, object>)result.Graphics[0];
+            CollectionAssert.AreEqual(new[] { 0d, 0d }, ExtractNumbers(line["from"]));
+            CollectionAssert.AreEqual(new[] { 0d, 10d }, ExtractNumbers(line["to"]));
+            Assert.That(line["type"], Is.EqualTo("line"));
+        Assert.That(line["stroke"], Is.EqualTo("#38bdf8"));
+    }
+
+    [Test]
+    public void CharacterMergesDefaultMeasurementsAndAppliesPalette()
+    {
+        var libResolver = new MockResolver();
+        libResolver.AddExpression(new[] { "cartoon", "character", "defaultMeasurements" }, @"
+{
+  height: 10;
+  leftHand: [-4, 0];
+  rightHand: [4, 0];
+  leftLeg: [-2, -4];
+  rightLeg: [2, -4];
+}");
+        libResolver.AddExpression(new[] { "cartoon", "character", "eval" }, @"
+(anchor, measurements, palette) =>
+{
+  defaults: defaultMeasurements;
+  m:
+  {
+    height: measurements.height ?? defaults.height;
+    leftHand: measurements.leftHand ?? defaults.leftHand;
+    rightHand: measurements.rightHand ?? defaults.rightHand;
+    leftLeg: measurements.leftLeg ?? defaults.leftLeg;
+    rightLeg: measurements.rightLeg ?? defaults.rightLeg;
+  };
+
+  line:
+  {
+    type: ""line"";
+    from: anchor;
+    to: [anchor[0], anchor[1] + m.height];
+    stroke: palette.body;
+    width: 0.35;
+  };
+
+  leftHand:
+  {
+    type: ""line"";
+    from: [anchor[0], anchor[1] + m.height];
+    to: [anchor[0] + m.leftHand[0], anchor[1] + m.height + m.leftHand[1]];
+    stroke: palette.limb;
+    width: 0.25;
+  };
+
+  rightHand:
+  {
+    type: ""line"";
+    from: [anchor[0], anchor[1] + m.height];
+    to: [anchor[0] + m.rightHand[0], anchor[1] + m.height + m.rightHand[1]];
+    stroke: palette.limb;
+    width: 0.25;
+  };
+
+  leftLeg:
+  {
+    type: ""line"";
+    from: anchor;
+    to: [anchor[0] + m.leftLeg[0], anchor[1] + m.leftLeg[1]];
+    stroke: palette.limb;
+    width: 0.25;
+  };
+
+  rightLeg:
+  {
+    type: ""line"";
+    from: anchor;
+    to: [anchor[0] + m.rightLeg[0], anchor[1] + m.rightLeg[1]];
+    stroke: palette.limb;
+    width: 0.25;
+  };
+
+  eval [line, leftHand, rightHand, leftLeg, rightLeg];
+}");
+
+        var rootResolver = new MockResolver();
+        rootResolver.AddExpression(new[] { "eval" }, @"
+{
+  palette: { body: ""#111111""; limb: ""#222222""; };
+  character: package(""lib"").cartoon.character([0,0], { height: 8; rightHand: [3,1]; }, palette);
+  eval { view: { left:0; bottom:0; right:10; top:12; }; graphics: character; };
+}");
+        rootResolver.AddPackage("lib", libResolver);
+
+        var result = FuncDrawRuntime.LoadGraphics(
+            rootResolver,
+            new FuncDrawOptions
+            {
+                IncludeSvg = false
+            });
+
+        Assert.That(result.Warnings, Is.Empty, "Expected character to render without warnings");
+        Assert.That(result.Graphics, Has.Count.EqualTo(5), "Character should emit body plus four limbs");
+
+        var body = (IDictionary<string, object>)result.Graphics[0];
+        var leftHand = (IDictionary<string, object>)result.Graphics[1];
+        var rightHand = (IDictionary<string, object>)result.Graphics[2];
+        var leftLeg = (IDictionary<string, object>)result.Graphics[3];
+        var rightLeg = (IDictionary<string, object>)result.Graphics[4];
+
+        CollectionAssert.AreEqual(new[] { 0d, 0d }, ExtractNumbers(body["from"]));
+        CollectionAssert.AreEqual(new[] { 0d, 8d }, ExtractNumbers(body["to"]));
+        Assert.That(body["stroke"], Is.EqualTo("#111111"));
+
+        CollectionAssert.AreEqual(new[] { 0d, 8d }, ExtractNumbers(leftHand["from"]));
+        CollectionAssert.AreEqual(new[] { -4d, 8d }, ExtractNumbers(leftHand["to"]));
+        CollectionAssert.AreEqual(new[] { 0d, 8d }, ExtractNumbers(rightHand["from"]));
+        CollectionAssert.AreEqual(new[] { 3d, 9d }, ExtractNumbers(rightHand["to"]));
+
+        CollectionAssert.AreEqual(new[] { 0d, 0d }, ExtractNumbers(leftLeg["from"]));
+        CollectionAssert.AreEqual(new[] { -2d, -4d }, ExtractNumbers(leftLeg["to"]));
+        CollectionAssert.AreEqual(new[] { 0d, 0d }, ExtractNumbers(rightLeg["from"]));
+        CollectionAssert.AreEqual(new[] { 2d, -4d }, ExtractNumbers(rightLeg["to"]));
+
+        Assert.That(leftHand["stroke"], Is.EqualTo("#222222"));
+        Assert.That(rightHand["stroke"], Is.EqualTo("#222222"));
+        Assert.That(leftLeg["stroke"], Is.EqualTo("#222222"));
+        Assert.That(rightLeg["stroke"], Is.EqualTo("#222222"));
+    }
+
+    [Test]
+    public void PackageMemberAccessOnPackageResolverReturnsFunctionResult()
+    {
+    var libResolver = new MockResolver();
         libResolver.AddExpression(new[] { "square" }, @"
 (center, sideLength, style)=>
 {

@@ -11,6 +11,8 @@ This repository contains the core framework for FuncDraw.
 - **examples/** — Art projects and supporting libraries used to stress-test capabilities. A curated set will be included in releases.
 
 ## Quick Start Reading List
+- **FuncDraw manual:**  
+  `docs/funcdraw-manual.md`
 - **FuncScript references:**  
   `funcscript/docs/index.md`,  
   `funcscript/docs/examples.md`,  
@@ -18,8 +20,6 @@ This repository contains the core framework for FuncDraw.
 - **FuncScript developer guides:**  
   `funcscript/docs/developers/test-framework.md`,  
   `funcscript/docs/developers/fs-package.md`
-- **FuncDraw manual:**  
-  `docs/funcdraw-manual.md`
 
 ## No Defensive Code in This Round
 During this phase of framework development, do **not** write defensive code. We want quirks and bugs to surface.  

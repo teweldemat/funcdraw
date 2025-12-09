@@ -40,24 +40,24 @@ internal sealed class ArtResolver : IFsPackageResolver
             return Array.Empty<PackageNodeDescriptor>();
         }
 
-        return Directory.EnumerateFileSystemEntries(targetDir)
-            .Select(entry => new FileInfo(entry))
-            .Where(info => info.Exists)
-            .SelectMany(info =>
+        var names = new List<string>();
+        foreach (var entry in Directory.EnumerateFileSystemEntries(targetDir))
+        {
+            var attributes = File.GetAttributes(entry);
+            if (attributes.HasFlag(FileAttributes.Directory))
             {
-                if (info.Attributes.HasFlag(FileAttributes.Directory))
-                {
-                    return new[] { info.Name };
-                }
+                names.Add(Path.GetFileName(entry));
+                continue;
+            }
 
-                var extension = info.Extension.ToLowerInvariant();
-                if (SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-                {
-                    return new[] { Path.GetFileNameWithoutExtension(info.Name) };
-                }
+            var extension = Path.GetExtension(entry).ToLowerInvariant();
+            if (SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(Path.GetFileNameWithoutExtension(entry));
+            }
+        }
 
-                return Array.Empty<string>();
-            })
+        return names
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(name => new PackageNodeDescriptor(name));
     }

@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using FuncScript.Package;
+using FuncScript.Model;
+using global::FuncScript;
+using System.Text.Json;
 
 namespace FuncDraw.Net;
 
@@ -21,6 +25,8 @@ internal static class PackageTestCli
             var resolver = new ArtResolver(projectRoot);
             var result = PackageTestRunner.TestPackage(resolver);
             var summary = result.Summary;
+
+            DumpDebug(result, resolver);
 
             if (summary.Scripts == 0)
             {
@@ -161,6 +167,129 @@ internal static class PackageTestCli
     {
         var padding = new string(' ', spaces);
         return string.Join(Environment.NewLine, text.Split('\n').Select(line => padding + line.TrimEnd('\r')));
+    }
+
+    private static void DumpDebug(PackageTestRunner.PackageTestResult result, ArtResolver resolver)
+    {
+        var interesting = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "cartoon/stickman/multiStepProfile",
+            "cartoon/stickman/skeleton/build"
+        };
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+        KeyValueCollection? runProvider = null;
+        try
+        {
+            var baseProvider = PackageLoader.CreatePackageProvider(resolver);
+            var packageRoot = PackageLoader.LoadPackage(resolver, baseProvider);
+            var bindings = new SimpleKeyValueCollection(baseProvider, new[]
+            {
+                KeyValuePair.Create("__fs_package", Engine.NormalizeDataType(packageRoot))
+            });
+            runProvider = new KvcProvider(bindings, baseProvider);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[debug] Failed to build debug provider: {ex.Message}");
+        }
+
+        foreach (var entry in result.Tests)
+        {
+            if (!interesting.Contains(entry.Path))
+            {
+                continue;
+            }
+
+            Console.WriteLine($"[debug] {entry.Path} ({entry.TestPath})");
+            foreach (var suite in entry.Result.Suites)
+            {
+                foreach (var caseResult in suite.Cases)
+                {
+                    Console.WriteLine($"  suite \"{suite.Name}\" case {caseResult.Index} passed={caseResult.Passed}");
+                    if (caseResult.Error != null)
+                    {
+                        Console.WriteLine($"    error: {FormatCaseErrorMessage(caseResult.Error)}");
+                    }
+
+                    Console.WriteLine($"    expr: {JsonSerializer.Serialize(caseResult.ExpressionResult, options)}");
+                    Console.WriteLine($"    assert: {JsonSerializer.Serialize(caseResult.AssertionResult, options)}");
+                }
+
+                if (runProvider != null)
+                {
+                    if (string.Equals(entry.Path, "cartoon/stickman/skeleton/build", StringComparison.OrdinalIgnoreCase))
+                    {
+                        PrintDebugEvaluation(runProvider, DebugExpressions.SkeletonBuild, "skeleton build");
+                    }
+                    else if (string.Equals(entry.Path, "cartoon/stickman/multiStepProfile", StringComparison.OrdinalIgnoreCase))
+                    {
+                        PrintDebugEvaluation(runProvider, DebugExpressions.MultiStepProfile, "multiStepProfile");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void PrintDebugEvaluation(KeyValueCollection provider, string expression, string label)
+    {
+        try
+        {
+            var value = Engine.Evaluate(provider, expression);
+            var buffer = new StringBuilder();
+            Engine.Format(buffer, value);
+            Console.WriteLine($"    eval {label}: {buffer}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"    eval {label} failed: {ex.Message}");
+        }
+    }
+
+    private static class DebugExpressions
+    {
+        public const string SkeletonBuild = @"
+{
+  normalizeFn:__fs_package[""cartoon""][""stickman""][""skeleton""][""normalize""];
+  buildFn:__fs_package[""cartoon""][""stickman""][""skeleton""][""build""];
+  normalized:normalizeFn({});
+  result:buildFn(normalized);
+  eval { normalized:normalized; result:result };
+}";
+
+        public const string MultiStepProfile = @"
+{
+  builder:__fs_package[""cartoon""][""stickman""][""multiStepProfile""];
+  args:{
+    initialPosition:[0, 18.6];
+    initialMeasurements:{
+      torso:{ direction:""right""; height:20; width:2 };
+      head:{ direction:""right""; verticalExtent:5 };
+      hands:{
+        left:{ effectorCoordinate:[-7.8, 4.7]; upperLength:8; lowerLength:8 };
+        right:{ effectorCoordinate:[7.8, 4.7]; upperLength:8; lowerLength:8 };
+      };
+      legs:{
+        left:{ upperLength:12.4; lowerLength:11.6; effectorCoordinate:[-4, -18.6] };
+        right:{ upperLength:12.4; lowerLength:11.6; effectorCoordinate:[4, -18.6] };
+      };
+    };
+    displacement:30;
+    progress:0.4;
+    strideLength:12;
+    handSwing:{ enabled:true; mode:""mirror""; amplitude:14; lift:1.8; forwardOffset:0 };
+    direction:""right"";
+  };
+
+  first:builder(args);
+  second:builder(args);
+
+  eval { args:args; first:first; second:second };
+}";
     }
 
     private sealed record TestFailure(

@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FuncScript</name>
+    </assembly>
+    <members>
+        <member name="M:FuncScript.Engine.NormalizeDataType(System.Object)">
+            <summary>
+            Converts a .net value into type that is compatible with FuncScript
+            </summary>
+            <param name="value">value to convert</param>
+            <returns></returns>
+        </member>
+        <member name="M:FuncScript.Engine.Format(System.Text.StringBuilder,System.Object,System.String,System.Boolean,System.Boolean)">
+            <summary>
+            Formats a value into string
+            </summary>
+            <param name="sb">A string builder object</param>
+            <param name="val">Value to format</param>
+            <param name="format">Optional formatting parameter </param>
+            <param name="asFuncScriptLiteral">Format as FuncScript literal</param>
+            <param name="asJsonLiteral">Format as JSON literal</param>
+        </member>
+        <member name="M:FuncScript.Engine.GetFsDataType(System.Object)">
+            <summary>
+            Gets the data type of a value as FSDataType
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+            <exception cref="T:FuncScript.Error.UnsupportedUnderlyingType"></exception>
+        </member>
+        <member name="T:FuncScript.FSDataType">
+            <summary>
+            FuncScript data types
+            </summary>
+        </member>
+    </members>
+</doc>

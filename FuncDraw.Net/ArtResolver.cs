@@ -29,6 +29,11 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     public IEnumerable<PackageNodeDescriptor> ListChildren(IReadOnlyList<string> path)
     {
+        if (path != null && path.Any(segment => segment == "."))
+        {
+            return Array.Empty<PackageNodeDescriptor>();
+        }
+
         var targetDir = ResolveDirectory(path);
         if (targetDir == null)
         {
@@ -59,6 +64,11 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     public PackageExpressionDescriptor? GetExpression(IReadOnlyList<string> path)
     {
+        if (path != null && path.Any(segment => segment == "."))
+        {
+            return null;
+        }
+
         if (path == null || path.Count == 0)
         {
             return null;
@@ -113,6 +123,11 @@ internal sealed class ArtResolver : IFsPackageResolver
         }
         var baseName = normalized[^1];
 
+        if (baseName == ".")
+        {
+            return new ResolvedFile(null, null);
+        }
+
         var fsPath = Path.Combine(directory, baseName + ".fs");
         if (File.Exists(fsPath))
         {
@@ -125,7 +140,7 @@ internal sealed class ArtResolver : IFsPackageResolver
             return new ResolvedFile(jsPath, ".js");
         }
 
-        throw new InvalidOperationException($"Expression '{string.Join('/', normalized)}' was not found under art.");
+        return new ResolvedFile(null, null);
     }
 
     private readonly record struct ResolvedFile(string? FullPath, string? Extension);
@@ -179,7 +194,7 @@ internal sealed class NodeModuleFinder
             }
 
             var candidate = Path.Combine(new[] { resolvedNodeModules }.Concat(packagePathSegments).ToArray());
-            if (Directory.Exists(candidate))
+            if (Directory.Exists(candidate) && HasArtFolder(candidate))
             {
                 return candidate;
             }
@@ -191,6 +206,32 @@ internal sealed class NodeModuleFinder
             }
         }
 
+        var ancestor = _projectRoot;
+        while (!string.IsNullOrEmpty(ancestor))
+        {
+            var candidate = Path.Combine(new[] { ancestor }.Concat(packagePathSegments).ToArray());
+            if (Directory.Exists(candidate) && HasArtFolder(candidate))
+            {
+                return candidate;
+            }
+
+            if (packagePathSegments.Length == 2 && packagePathSegments[0].StartsWith("@", StringComparison.Ordinal))
+            {
+                var unscoped = Path.Combine(ancestor, packagePathSegments[1]);
+                if (Directory.Exists(unscoped) && HasArtFolder(unscoped))
+                {
+                    return unscoped;
+                }
+            }
+
+            ancestor = Directory.GetParent(ancestor)?.FullName;
+        }
+
         return null;
+    }
+
+    private static bool HasArtFolder(string packageRoot)
+    {
+        return Directory.Exists(Path.Combine(packageRoot, "art"));
     }
 }

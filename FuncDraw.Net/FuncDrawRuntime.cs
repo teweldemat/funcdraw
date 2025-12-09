@@ -4,8 +4,10 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using FuncScript;
+using FuncScript.Error;
 using FuncScript.Model;
 using FuncScript.Package;
+using FuncScript.Core;
 
 namespace FuncDraw.Net;
 
@@ -14,6 +16,30 @@ internal sealed class FuncDrawOptions
     public bool IncludeSvg { get; init; }
     public IDictionary<string, Func<object>>? ValueHooks { get; init; }
     public Func<string, double, Metrics>? MeasureText { get; init; }
+    public TraceOptions? Trace { get; init; }
+    public string? ExpressionOverride { get; init; }
+}
+
+internal sealed class TraceOptions
+{
+    public bool Enabled { get; init; } = true;
+    public bool StepInto { get; init; }
+    public string? Filter { get; init; }
+}
+
+internal sealed class TraceEntry
+{
+    public string? Path { get; set; }
+    public int? StartLine { get; set; }
+    public int? StartColumn { get; set; }
+    public int? EndLine { get; set; }
+    public int? EndColumn { get; set; }
+    public int? StartIndex { get; set; }
+    public int? EndIndex { get; set; }
+    public string? Snippet { get; set; }
+    public string? ResultKind { get; set; }
+    public string? ResultPreview { get; set; }
+    public List<TraceEntry> Children { get; set; } = new();
 }
 
 internal sealed class SceneResult
@@ -24,7 +50,8 @@ internal sealed class SceneResult
         List<string> warnings,
         SceneInterpretation raw,
         Dictionary<string, HookUsage>? valueHooks,
-        string? svg)
+        string? svg,
+        List<TraceEntry>? trace)
     {
         Graphics = graphics;
         View = view;
@@ -32,6 +59,7 @@ internal sealed class SceneResult
         Raw = raw;
         ValueHooks = valueHooks;
         Svg = svg;
+        Trace = trace;
     }
 
     public List<object> Graphics { get; }
@@ -40,6 +68,7 @@ internal sealed class SceneResult
     public SceneInterpretation Raw { get; }
     public Dictionary<string, HookUsage>? ValueHooks { get; }
     public string? Svg { get; }
+    public List<TraceEntry>? Trace { get; }
 }
 
 internal sealed class HookUsage
@@ -60,8 +89,24 @@ internal static class FuncDrawRuntime
         var fdContext = FdContext.Create(options.MeasureText);
         var baseProvider = new DefaultFsDataProvider();
         var provider = new FuncDrawProvider(fdContext, hooks, baseProvider);
-        var typedRoot = PackageLoader.LoadPackage(resolver, provider);
         var converter = new ValueConverter();
+        var traceCollector = TraceCollector.Create(options.Trace, converter);
+        var baseRoot = traceCollector != null
+            ? PackageLoader.LoadPackage(resolver, provider, traceCollector.ExitHook, traceCollector.EntryHook)
+            : PackageLoader.LoadPackage(resolver, provider);
+        var typedRoot = baseRoot;
+
+        if (!string.IsNullOrWhiteSpace(options.ExpressionOverride))
+        {
+            var bindings = new SimpleKeyValueCollection(null, new[]
+            {
+                KeyValuePair.Create("art", Engine.NormalizeDataType(baseRoot))
+            });
+            var overrideProvider = new KvcProvider(bindings, provider);
+            var overrideResult = Engine.Evaluate(overrideProvider, options.ExpressionOverride);
+            typedRoot = overrideResult ?? new FsError(FsError.ERROR_TYPE_MISMATCH, "Expression override returned null");
+        }
+
         var interpretation = GraphicsInterpreter.Interpret(typedRoot, converter);
         var svg = options.IncludeSvg ? SvgRenderer.Render(interpretation) : null;
         return new SceneResult(
@@ -70,7 +115,8 @@ internal static class FuncDrawRuntime
             interpretation.Warnings,
             interpretation,
             hooks?.Summarize(),
-            svg);
+            svg,
+            traceCollector?.Export());
     }
 }
 
@@ -416,6 +462,266 @@ internal sealed class ValueConverter
 
         return payload;
     }
+}
+
+internal sealed class TraceCollector
+{
+    private readonly TraceOptions _options;
+    private readonly ValueConverter _converter;
+    private readonly TraceEntry _root;
+    private readonly Stack<TraceEntry> _stack;
+    private readonly string? _filter;
+
+    private TraceCollector(TraceOptions options, ValueConverter converter)
+    {
+        _options = options;
+        _converter = converter;
+        _root = new TraceEntry { Path = string.Empty };
+        _stack = new Stack<TraceEntry>();
+        _stack.Push(_root);
+        _filter = NormalizeFilter(options.Filter);
+    }
+
+    public static TraceCollector? Create(TraceOptions? options, ValueConverter converter)
+    {
+        if (options == null || !options.Enabled)
+        {
+            return null;
+        }
+
+        return new TraceCollector(options, converter);
+    }
+
+    public object? EntryHook(string path, Engine.TraceInfo info)
+    {
+        if (!_options.StepInto && _stack.Count > 1)
+        {
+            return null;
+        }
+
+        var node = CreateNode(path, info);
+        _stack.Push(node);
+        return node;
+    }
+
+    public void ExitHook(string path, Engine.TraceInfo info, object entryState)
+    {
+        if (entryState is not TraceEntry node)
+        {
+            return;
+        }
+
+        ApplyInfo(node, info);
+        _stack.Pop();
+        var parent = _stack.Peek();
+        parent.Children.Add(node);
+    }
+
+    public List<TraceEntry> Export()
+    {
+        var cloned = CloneNodes(_root.Children);
+        if (_filter == null)
+        {
+            return cloned;
+        }
+
+        return FilterNodes(cloned, _filter);
+    }
+
+    private TraceEntry CreateNode(string path, Engine.TraceInfo info)
+    {
+        var node = new TraceEntry
+        {
+            Path = path ?? string.Empty
+        };
+        ApplyInfo(node, info);
+        return node;
+    }
+
+    private void ApplyInfo(TraceEntry target, Engine.TraceInfo info)
+    {
+        target.StartIndex = info.StartIndex;
+        target.StartLine = info.StartLine;
+        target.StartColumn = info.StartColumn;
+        target.EndIndex = info.EndIndex;
+        target.EndLine = info.EndLine;
+        target.EndColumn = info.EndColumn;
+        target.Snippet = info.Snippet;
+
+        var formatted = FormatResult(info.Result);
+        target.ResultKind = formatted.Kind;
+        if (formatted.Preview != null)
+        {
+            target.ResultPreview = formatted.Preview;
+        }
+    }
+
+    private TraceResult FormatResult(object value)
+    {
+        if (value is FsError error)
+        {
+            return new TraceResult("error", FormatError(error));
+        }
+
+        var kind = DetectResultKind(value);
+        if (kind == "error")
+        {
+            return new TraceResult(kind, FormatError(value));
+        }
+
+        if (kind == "atomic")
+        {
+            return new TraceResult(kind, FormatAtomic(value));
+        }
+
+        return new TraceResult(kind, null);
+    }
+
+    private static string DetectResultKind(object value)
+    {
+        if (value == null)
+        {
+            return "atomic";
+        }
+
+        var dataType = Engine.GetFsDataType(value);
+        return dataType switch
+        {
+            FSDataType.Boolean => "atomic",
+            FSDataType.Integer => "atomic",
+            FSDataType.Float => "atomic",
+            FSDataType.BigInteger => "atomic",
+            FSDataType.Guid => "atomic",
+            FSDataType.String => "atomic",
+            FSDataType.ByteArray => "atomic",
+            FSDataType.List => "list",
+            FSDataType.KeyValueCollection => "kvc",
+            FSDataType.Function => "function",
+            FSDataType.Error => "error",
+            _ => "object"
+        };
+    }
+
+    private string FormatError(object value)
+    {
+        if (value is FsError error)
+        {
+            var dataPreview = error.ErrorData != null
+                ? FormatAtomic(_converter.ToPlain(error.ErrorData) ?? error.ErrorData)
+                : null;
+            if (!string.IsNullOrEmpty(error.ErrorMessage) && dataPreview != null)
+            {
+                return $"{error.ErrorType}: {error.ErrorMessage} (data: {dataPreview})";
+            }
+
+            if (!string.IsNullOrEmpty(error.ErrorMessage))
+            {
+                return $"{error.ErrorType}: {error.ErrorMessage}";
+            }
+
+            if (dataPreview != null)
+            {
+                return $"{error.ErrorType} (data: {dataPreview})";
+            }
+
+            return error.ErrorType ?? "error";
+        }
+
+        return FormatAtomic(value);
+    }
+
+    private static string FormatAtomic(object value)
+    {
+        if (value == null)
+        {
+            return "null";
+        }
+
+        if (value is string text)
+        {
+            var trimmed = text.Trim();
+            return trimmed.Length > 120 ? $"{trimmed[..117]}..." : trimmed;
+        }
+
+        if (value is byte[] bytes)
+        {
+            return Convert.ToBase64String(bytes);
+        }
+
+        return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+    }
+
+    private static List<TraceEntry> CloneNodes(IEnumerable<TraceEntry> nodes)
+    {
+        var list = new List<TraceEntry>();
+        foreach (var node in nodes)
+        {
+            var clone = new TraceEntry
+            {
+                Path = node.Path,
+                StartLine = node.StartLine,
+                StartColumn = node.StartColumn,
+                EndLine = node.EndLine,
+                EndColumn = node.EndColumn,
+                StartIndex = node.StartIndex,
+                EndIndex = node.EndIndex,
+                Snippet = node.Snippet,
+                ResultKind = node.ResultKind,
+                ResultPreview = node.ResultPreview,
+                Children = CloneNodes(node.Children)
+            };
+            list.Add(clone);
+        }
+
+        return list;
+    }
+
+    private static List<TraceEntry> FilterNodes(IEnumerable<TraceEntry> nodes, string filter)
+    {
+        var list = new List<TraceEntry>();
+        foreach (var node in nodes)
+        {
+            var filteredChildren = FilterNodes(node.Children, filter);
+            if (Matches(node, filter) || filteredChildren.Count > 0)
+            {
+                var clone = new TraceEntry
+                {
+                    Path = node.Path,
+                    StartLine = node.StartLine,
+                    StartColumn = node.StartColumn,
+                    EndLine = node.EndLine,
+                    EndColumn = node.EndColumn,
+                    StartIndex = node.StartIndex,
+                    EndIndex = node.EndIndex,
+                    Snippet = node.Snippet,
+                    ResultKind = node.ResultKind,
+                    ResultPreview = node.ResultPreview,
+                    Children = filteredChildren
+                };
+                list.Add(clone);
+            }
+        }
+
+        return list;
+    }
+
+    private static bool Matches(TraceEntry entry, string filter)
+    {
+        var haystack = $"{entry.Path ?? string.Empty} {entry.Snippet ?? string.Empty}".ToLowerInvariant();
+        return haystack.Contains(filter);
+    }
+
+    private static string? NormalizeFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return null;
+        }
+
+        return filter.Trim().ToLowerInvariant();
+    }
+
+    private sealed record TraceResult(string Kind, string? Preview);
 }
 
 internal sealed class SceneInterpretation

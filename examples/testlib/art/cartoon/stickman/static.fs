@@ -1,4 +1,6 @@
 {
+  skeleton:package("@funcdraw/testlib").cartoon.stickman.skeleton["eval"];
+
   defaultPalette:{
     torsoFill:"#1f2937";
     torsoStroke:"#cbd5f5";
@@ -31,6 +33,8 @@
     legStroke:if normalizedOptions.palette?.legStroke != null then normalizedOptions.palette.legStroke else skinStroke;
     footStyle:{ stroke:palette.footStroke; width:palette.footStrokeWidth };
 
+    headModule:package("@funcdraw/testlib").cartoon.stickman.head["eval"];
+
     torsoResult:torso({
       centerBottomPoint:skeletonPose.torso.centerBottomPoint;
       width:skeletonPose.torso.width;
@@ -45,7 +49,7 @@
       strokeWidth:palette.torsoStrokeWidth;
     });
 
-    headResult:head(skeletonPose.head.attachmentPoint, {
+    headResult:headModule.evaluate(skeletonPose.head.attachmentPoint, {
       verticalExtent:skeletonPose.head.verticalExtent;
       angle:skeletonPose.head.angle;
       direction:skeletonPose.head.direction;

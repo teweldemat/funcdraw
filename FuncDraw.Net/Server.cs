@@ -6,26 +6,36 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using FuncScript.Model;
+using FuncScript.Package;
 
 namespace FuncDraw.Net;
 
-internal sealed record EvaluationRequest(double? Time, double? CanvasWidth, double? CanvasHeight, bool IncludeSvg);
+internal sealed record EvaluationRequest(
+    double? Time,
+    double? CanvasWidth,
+    double? CanvasHeight,
+    bool IncludeSvg,
+    TraceOptions? Trace,
+    string? ExpressionOverride = null);
 
 internal sealed class SceneService
 {
     private readonly string _projectRoot;
     private ArtResolver _resolver;
+    private readonly string? _expressionOverride;
     private double _timeline;
     private double _canvasWidth;
     private double _canvasHeight;
 
-    public SceneService(string projectRoot)
+    public SceneService(string projectRoot, string? expressionOverride = null)
     {
         _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
         _resolver = new ArtResolver(_projectRoot);
+        _expressionOverride = NormalizeExpressionOverride(_resolver, expressionOverride);
         _timeline = 0;
         _canvasWidth = 40;
         _canvasHeight = 30;
@@ -61,7 +71,11 @@ internal sealed class SceneService
             new FuncDrawOptions
             {
                 IncludeSvg = request.IncludeSvg,
-                ValueHooks = hooks
+                ValueHooks = hooks,
+                Trace = request.Trace,
+                ExpressionOverride = string.IsNullOrWhiteSpace(request.ExpressionOverride)
+                    ? _expressionOverride
+                    : request.ExpressionOverride
             });
 
         return new ScenePayload(result, _timeline, _canvasWidth, _canvasHeight, request.IncludeSvg);
@@ -88,6 +102,23 @@ internal sealed class SceneService
 
         return new SimpleKeyValueCollection(null, canvasEntries);
     }
+
+    private static string? NormalizeExpressionOverride(IFsPackageResolver resolver, string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        var trimmed = expression.Trim();
+        if (string.Equals(trimmed, "art", StringComparison.OrdinalIgnoreCase))
+        {
+            // Treat as default evaluation of the art package (same as no override).
+            return null;
+        }
+
+        return trimmed;
+    }
 }
 
 internal sealed class ScenePayload
@@ -106,6 +137,7 @@ internal sealed class ScenePayload
             ["width"] = canvasWidth,
             ["height"] = canvasHeight
         };
+        Trace = result.Trace;
     }
 
     public List<object> Graphics { get; }
@@ -116,6 +148,8 @@ internal sealed class ScenePayload
     public string? Svg { get; }
     public Dictionary<string, object> Timeline { get; }
     public Dictionary<string, object> Canvas { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<TraceEntry>? Trace { get; }
 }
 
 internal sealed class FuncDrawServer : IDisposable
@@ -297,7 +331,8 @@ internal sealed class FuncDrawServer : IDisposable
             ParseDouble(query["time"]),
             ParseDouble(query["canvasWidth"]),
             ParseDouble(query["canvasHeight"]),
-            includeSvg);
+            includeSvg,
+            null);
 
         var payload = _service.Evaluate(request);
         await WriteJsonAsync(context.Response, payload);

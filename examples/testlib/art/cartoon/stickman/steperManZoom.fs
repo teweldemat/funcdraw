@@ -1,4 +1,6 @@
 {
+  skeleton:package("@funcdraw/testlib").cartoon.stickman.skeleton["eval"];
+
   defaults:{
     position:[0, 10];
     leftLegOffset:[-2, -11];
@@ -244,7 +246,7 @@
   };
 
   readEffectorOffset:(measurement, fallback)=> {
-    raw:if measurement = null then null else measurement.effectorCoordinate;
+    raw:measurement?.effectorCoordinate;
     fallbackPoint:if fallback = null then [0,0] else fallback;
     numeric:if raw = null then null else raw;
     eval if numeric != null then [fallbackPoint[0], numeric] else if raw = null then fallbackPoint else raw;

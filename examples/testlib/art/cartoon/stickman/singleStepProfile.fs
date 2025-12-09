@@ -1,4 +1,8 @@
 {
+  helpers:package("@funcdraw/testlib").cartoon.helpers;
+  skeleton:package("@funcdraw/testlib").cartoon.stickman.skeleton;
+  vector:helpers.vector;
+
   defaults:{
     position:[0,10];
     leftOffset:[-2,-11];
@@ -7,16 +11,20 @@
     handDrop:2.35;
   };
 
-  num:(value, fallback)=> if value = null then fallback else value;
-
   defaultHandOffsets:{
     left:[-defaults.handForward, defaults.handDrop];
     right:[defaults.handForward, defaults.handDrop];
   };
 
   baseStaticBuilder:staticMan;
-  distanceHelper:if helpers = null then null else helpers.distance ?? null;
-  skeletonContext:if skeleton = null or skeleton.build = null then { skeleton:{} } else skeleton.build({});
+  distanceHelper:helpers.distance;
+  clampHelper:helpers.clamp;
+  addPoints:vector.add;
+  subtractPoints:vector.subtract;
+  averagePoints:vector.average;
+  clampSymmetric:vector.clampSymmetric;
+  scaleVectorToLength:vector.scaleToLength;
+  skeletonContext:skeleton.build({});
   baseSkeleton:skeletonContext.skeleton ?? {};
   skeletonPosition:if baseSkeleton.position = null then defaults.position else baseSkeleton.position;
 
@@ -36,9 +44,9 @@
 
   baseTorsoDirection:normalizeDirectionValue(baseSkeleton.torso?.direction, "front");
   baseTorsoMeasurements:baseSkeleton.torso ?? {};
-  defaultTorsoWidth:num(baseTorsoMeasurements.width, 6);
-  defaultTorsoHeight:num(baseTorsoMeasurements.height, 11);
-  defaultShoulderExtension:math.max(num(baseTorsoMeasurements.shoulderExtension, defaultTorsoWidth * 0.15), 0);
+  defaultTorsoWidth:baseTorsoMeasurements.width?? 6;
+  defaultTorsoHeight:baseTorsoMeasurements.height??11;
+  defaultShoulderExtension:math.max(baseTorsoMeasurements.shoulderExtension?? defaultTorsoWidth * 0.15, 0);
   defaultShoulderOffsets:resolveShoulderOffsets({
     width:defaultTorsoWidth;
     height:defaultTorsoHeight;
@@ -80,7 +88,7 @@
       else if options.targetFeetPoint != null then options.targetFeetPoint
       else if options.targetFootPoint != null then options.targetFootPoint
       else movingStartWorld;
-    arcHeightRaw:num(options.arcHeight, null);
+    arcHeightRaw:options.arcHeight;
     arcHeight:if arcHeightRaw != null then arcHeightRaw else resolveArcHeight(movingStartWorld, movingTargetWorld);
     movingWorld:computeArcPoint(movingStartWorld, movingTargetWorld, progress, arcHeight);
 
@@ -199,29 +207,8 @@
   ];
 
   clamp01:(value)=> {
-    v:num(value, 0);
+    v:value ?? 0;
     eval if v < 0 then 0 else if v > 1 then 1 else v;
-  };
-
-  addPoints:(a, b)=> {
-    pa:if a = null then [0,0] else a;
-    pb:if b = null then [0,0] else b;
-    eval [pa[0] + pb[0], pa[1] + pb[1]];
-  };
-
-  subtractPoints:(a, b)=> {
-    pa:if a = null then [0,0] else a;
-    pb:if b = null then [0,0] else b;
-    eval [pa[0] - pb[0], pa[1] - pb[1]];
-  };
-
-  averagePoints:(a, b)=> {
-    hasA:a != null;
-    hasB:b != null;
-    count:(if hasA then 1 else 0) + (if hasB then 1 else 0);
-    sumX:(if hasA then a[0] else 0) + (if hasB then b[0] else 0);
-    sumY:(if hasA then a[1] else 0) + (if hasB then b[1] else 0);
-    eval if count = 0 then null else [sumX / count, sumY / count];
   };
 
   clampAnchorVerticalDrift:(candidate, baseline)=> {
@@ -229,17 +216,17 @@
     safeCandidate:if candidate = null then reference else candidate;
     minY:reference[1] - maxVerticalAnchorDelta;
     maxY:reference[1] + maxVerticalAnchorDelta;
-    clampedY:helpers.clamp(safeCandidate[1], minY, maxY);
+    clampedY:clampHelper(safeCandidate[1], minY, maxY);
     eval [safeCandidate[0], clampedY];
   };
 
   resolveHandSwingOptions:(value)=> {
     options:value ?? {};
     enabled:if options.enabled = false then false else true;
-    amplitude:math.max(0, num(options.amplitude, 1.4));
-    lift:math.max(0, num(options.lift, 0.35));
-    forwardOffset:num(options.forwardOffset, 0);
-    phase:num(options.phase, 0);
+    amplitude:math.max(0, options.amplitude ?? 1.4);
+    lift:math.max(0, options.lift ?? 0.35);
+    forwardOffset:options.forwardOffset ?? 0;
+    phase:options.phase ?? 0;
     mode:normalizeSwingMode(options.mode);
     eval { enabled:enabled; amplitude:amplitude; lift:lift; forwardOffset:forwardOffset; phase:phase; mode:mode };
   };
@@ -251,10 +238,10 @@
 
   resolveShoulderOffsetsFromContext:(context)=> {
     torso:context.torsoMeasurements ?? {};
-    width:num(torso.width, defaultTorsoWidth);
-    height:num(torso.height, defaultTorsoHeight);
+    width:torso.width ?? defaultTorsoWidth;
+    height:torso.height ?? defaultTorsoHeight;
     shoulderExtension:math.max(
-      num(torso.shoulderExtension, if defaultShoulderExtension != null then defaultShoulderExtension else width * 0.15),
+      torso.shoulderExtension ?? (if defaultShoulderExtension != null then defaultShoulderExtension else width * 0.15),
       0
     );
     direction:normalizeDirectionValue(torso.direction, context.torsoDirection);
@@ -266,9 +253,9 @@
   };
 
   resolveShoulderOffsets:(torsoMeasurements)=> {
-    width:num(torsoMeasurements.width, defaultTorsoWidth);
-    height:num(torsoMeasurements.height, defaultTorsoHeight);
-    shoulderExtension:math.max(num(torsoMeasurements.shoulderExtension, width * 0.15), 0);
+    width:torsoMeasurements.width ?? defaultTorsoWidth;
+    height:torsoMeasurements.height ?? defaultTorsoHeight;
+    shoulderExtension:math.max(torsoMeasurements.shoulderExtension ?? width * 0.15, 0);
     direction:normalizeDirectionValue(torsoMeasurements.direction, baseTorsoDirection);
     halfWidth:width / 2;
     handsY:height * 0.85;
@@ -286,11 +273,11 @@
   resolveDefaultHandReach:(side, shoulderOffsets)=> {
     baseHands:baseSkeleton.hands;
     sideHands:if side = "left" then baseHands?.left else baseHands?.right;
-    attachment:if sideHands = null then null else sideHands.attachmentPoint;
-    target:if sideHands = null then null else sideHands.targetPoint;
+    attachment:sideHands?.attachmentPoint;
+    target:sideHands?.targetPoint;
     lengths:if sideHands = null or sideHands.lengths = null then {} else sideHands.lengths;
-    upper:num(lengths.upper, null);
-    lower:num(lengths.lower, null);
+    upper:lengths.upper ?? null;
+    lower:lengths.lower ?? null;
     eval if attachment != null and target != null then distanceBetweenPoints(attachment, target)
     else if upper != null and lower != null then math.max(upper + lower, 0)
     else {
@@ -306,8 +293,8 @@
   resolveHandReachLength:(side, shoulderOffsets, handMeasurements)=> {
     baseReach:if side = "left" then defaultHandReach.left else defaultHandReach.right;
     sideMeasurements:if handMeasurements = null or handMeasurements[side] = null then {} else handMeasurements[side];
-    upper:num(sideMeasurements.upperLength, null);
-    lower:num(sideMeasurements.lowerLength, null);
+    upper:sideMeasurements.upperLength ?? null;
+    lower:sideMeasurements.lowerLength ?? null;
     eval if upper != null and lower != null then {
       measured:math.max(upper + lower, 0);
       eval if measured > 0 then measured else baseReach;
@@ -351,7 +338,7 @@
       fallback:if side = "left" then defaultHandOffsetsBySide.left else defaultHandOffsetsBySide.right;
       baseEffector:if baseHands[side]?.effectorCoordinate = null then fallback else baseHands[side].effectorCoordinate;
       shoulderOffset:if shoulderOffsets = null then fallback else if side = "left" then shoulderOffsets.left ?? fallback else shoulderOffsets.right ?? fallback;
-      reachValue:if reachBySide = null then null else if side = "left" then reachBySide.left else reachBySide.right;
+      reachValue:reachBySide?! (if side = "left" then reachBySide.left else reachBySide.right);
       defaultReach:if side = "left" then defaultHandReach.left else defaultHandReach.right;
       reach:if reachValue != null then reachValue else if defaultReach != null then defaultReach else distanceBetweenPoints(baseEffector, shoulderOffset);
       isMoving:side = context.movingSide;
@@ -387,7 +374,7 @@
       baseEffector:if baseHands[side]?.effectorCoordinate = null then fallback else baseHands[side].effectorCoordinate;
       mirroredLeg:if side = "left" then legOffsets?.right else legOffsets?.left;
       shoulderOffset:if side = "left" then shoulderOffsets.left else shoulderOffsets.right;
-      targetLength:if reachBySide = null then null else if side = "left" then reachBySide.left else reachBySide.right;
+      targetLength:reachBySide?! (if side = "left" then reachBySide.left else reachBySide.right);
 
       eval if mirroredLeg = null then (baseHands[side] ?? {}) + { effectorCoordinate:baseEffector } else {
         radius:math.max(0.000001, distanceBetweenPoints([0,0], baseEffector));
@@ -413,41 +400,22 @@
   };
 
   resolveLegDepthScale:(legOffsets)=> {
-    left:if legOffsets = null then null else legOffsets.left;
-    right:if legOffsets = null then null else legOffsets.right;
-    leftDepth:if left = null then 0 else math.abs(left[1]);
-    rightDepth:if right = null then 0 else math.abs(right[1]);
+    left:legOffsets?.left;
+    right:legOffsets?.right;
+    leftDepth:math.abs(left?!left[1] ?? 0);
+    rightDepth:math.abs(right?!right[1] ?? 0);
     eval math.max(1, leftDepth, rightDepth);
   };
 
   resolveAverageY:(legOffsets)=> {
-    left:if legOffsets = null then null else legOffsets.left;
-    right:if legOffsets = null then null else legOffsets.right;
-    sum:(if left = null then 0 else left[1]) + (if right = null then 0 else right[1]);
+    left:legOffsets?.left;
+    right:legOffsets?.right;
+    sum:(left?!left[1] ?? 0) + (right?!right[1] ?? 0);
     count:(if left = null then 0 else 1) + (if right = null then 0 else 1);
     eval if count = 0 then 0 else sum / count;
   };
 
-  clampSymmetric:(value, limit)=> {
-    maxValue:num(limit, 1);
-    v:num(value, null);
-    eval if v = null then 0 else if v > maxValue then maxValue else if v < -maxValue then -maxValue else v;
-  };
-
   resolveForwardSign:(direction)=> if direction = "left" then -1 else 1;
-
-  scaleVectorToLength:(point, origin, length)=> {
-    ox:num(if origin = null then null else origin[0], 0);
-    oy:num(if origin = null then null else origin[1], 0);
-    dx:num(if point = null then null else point[0], 0) - ox;
-    dy:num(if point = null then null else point[1], 0) - oy;
-    distance:math.sqrt(dx * dx + dy * dy);
-    target:math.max(num(length, 0), 0);
-    eval if distance < 0.000001 then [ox, oy - target] else {
-      scale:if distance = 0 then 0 else target / distance;
-      eval [ox + dx * scale, oy + dy * scale];
-    };
-  };
 
   eval singleStepProfile;
 }

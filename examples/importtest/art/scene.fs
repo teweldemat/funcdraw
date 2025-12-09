@@ -41,8 +41,9 @@
     width:0.5;
   };
 
+
   graphics:[
-    background+man.graphics,
+    background,
     squareLib.square([10,30], 8, aquaStyle),
     squareLib.square([30,30], 8, magentaStyle),
     squareFn([10,10], 12, goldStyle),

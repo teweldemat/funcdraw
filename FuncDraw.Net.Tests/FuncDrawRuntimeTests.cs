@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FuncDraw.Net;
+using FuncScript;
 using FuncScript.Core;
 using FuncScript.Model;
 using FuncScript.Package;
 using NUnit.Framework;
+using System.Text;
 
 namespace FuncDraw.Net.Tests;
 
@@ -340,6 +342,69 @@ namespace FuncDraw.Net.Tests;
         var result = PackageLoader.LoadPackage(rootResolver);
 
         Assert.That(result, Is.Null, "Expected hidden intermediate member to be null");
+    }
+
+    [Test]
+    public void MultiplyUsesAllOperandsWhenMixingNumericTypes()
+    {
+        var result = Engine.Evaluate(new DefaultFsDataProvider(), "-5 * 0 * 0.5");
+        Assert.That(Convert.ToDouble(result), Is.EqualTo(0d));
+    }
+
+    [Test]
+    public void SkeletonMergeKeepsHandLengths()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", ".."));
+        var defaultMeasurements = File.ReadAllText(Path.Combine(repoRoot, "examples", "testlib", "art", "cartoon", "character", "defaultMeasurements.fs"));
+        var skeletonEval = File.ReadAllText(Path.Combine(repoRoot, "examples", "testlib", "art", "cartoon", "character", "skeleton", "eval.fs"));
+
+        var libResolver = new MockResolver();
+        libResolver.AddExpression(new[] { "cartoon", "character", "defaultMeasurements" }, defaultMeasurements);
+        libResolver.AddExpression(new[] { "cartoon", "character", "skeleton", "eval" }, skeletonEval);
+
+        var rootResolver = new MockResolver();
+        rootResolver.AddExpression(new[] { "eval" }, @"
+{
+  dm: package(""lib"").cartoon.character.defaultMeasurements;
+  anchor: [-3, 0];
+  base:
+  {
+    leftLeg: { end: [-3, -14]; };
+    rightLeg: { end: [3, -14]; };
+  };
+
+  baseProfile: dm + base;
+  sideProfile: baseProfile + { leftLeg: baseProfile.leftLeg + { sign: 1; }; rightLeg: baseProfile.rightLeg + { sign: 1; }; };
+  animated: sideProfile +
+  {
+    leftHand: { end: dm.leftHand.end; upper: dm.leftHand.upper; lower: dm.leftHand.lower; sign: dm.leftHand.sign; };
+    rightHand: { end: dm.rightHand.end; upper: dm.rightHand.upper; lower: dm.rightHand.lower; sign: dm.rightHand.sign; };
+  };
+
+  geometry: package(""lib"").cartoon.character.skeleton.build(anchor, animated);
+
+  distance: (from, to) =>
+  {
+    dx: to[0] - from[0];
+    dy: to[1] - from[1];
+    eval math.Sqrt(dx * dx + dy * dy);
+  };
+
+  upper: distance(geometry.leftHand.from, geometry.leftHand.joint);
+  lower: distance(geometry.leftHand.joint, geometry.leftHand.to);
+
+  eval { upper; lower; };
+}");
+        rootResolver.AddPackage("lib", libResolver);
+
+        var result = PackageLoader.LoadPackage(rootResolver);
+        Assert.That(result, Is.AssignableTo<KeyValueCollection>(), "Expected package load to succeed");
+        var root = (KeyValueCollection)result;
+
+        var upper = Convert.ToDouble(root.Get("upper"));
+        var lower = Convert.ToDouble(root.Get("lower"));
+        Assert.That(upper, Is.EqualTo(8d).Within(1e-4));
+        Assert.That(lower, Is.EqualTo(8d).Within(1e-4));
     }
 
     private static double[] ExtractNumbers(object value)

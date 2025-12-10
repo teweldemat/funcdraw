@@ -5,7 +5,7 @@
     limb: "#bd8c31ff";
   };
 
-  character: package("@funcdraw/testlib").cartoon.character([0, 0], {}, palette);
+  character: package("@funcdraw/testlib").cartoon.character.static([0, 0], {}, palette);
 
   eval
   {

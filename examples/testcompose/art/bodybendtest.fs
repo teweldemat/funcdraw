@@ -7,7 +7,7 @@
 
   bodyAngle: math.Pi / 2 + math.Sin(t) * 0.6;
 
-  character: package("@funcdraw/testlib").cartoon.character([0, 0], { bodyAngle: bodyAngle; }, palette);
+  character: package("@funcdraw/testlib").cartoon.character.static([0, 0], { bodyAngle: bodyAngle; }, palette);
 
   eval
   {

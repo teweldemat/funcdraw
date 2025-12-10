@@ -140,6 +140,24 @@ test('line defaults stroke color when omitted', () => {
   assert.match(result.svg, /stroke="#38bdf8"/);
 });
 
+test('primitives preserve tag metadata in raw output', () => {
+  const resolver = createResolver(`
+  {
+    graphics:[
+      {
+        type:"line";
+        from:[0,0];
+        to:[1,1];
+        tag:"pose-1";
+      }
+    ];
+  }
+  `);
+  const expression = createExpression(resolver);
+  const result = expression.evaluate({ output: ['raw'] });
+  assert.equal(result.raw.graphics[0].tag, 'pose-1');
+});
+
 test('value hooks inject dynamic values into the scene', () => {
   const resolver = createResolver(`
   {

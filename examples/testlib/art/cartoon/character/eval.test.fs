@@ -1,8 +1,22 @@
 {
+  distance: (from, to) =>
+  {
+    dx: to[0] - from[0];
+    dy: to[1] - from[1];
+    eval math.Sqrt(dx * dx + dy * dy);
+  };
+
+  cross: (origin, target, joint) =>
+  {
+    toTarget: [target[0] - origin[0], target[1] - origin[1]];
+    toJoint: [joint[0] - origin[0], joint[1] - origin[1]];
+    eval toTarget[0] * toJoint[1] - toTarget[1] * toJoint[0];
+  };
+
   eval [
     {
       name: "merges default measurements and palette";
-      test: (fn) =>
+      test: (mod) =>
       {
         palette:
         {
@@ -10,60 +24,54 @@
           limb: "#222222";
         };
         anchor: [1, 2];
-        measurements: { rightHand: [3, 1]; height: 8; };
+        measurements: { rightHand: { end: [3, 1]; }; height: 8; };
+        impl: mod.static;
         geometry: skeleton.build(anchor, measurements);
         headCenter:
         [
           geometry.neck.to[0] + geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),
           geometry.neck.to[1] + geometry.measurements.headRadius * math.Sin(geometry.measurements.neckAngle)
         ];
-        result: fn(anchor, measurements, palette);
+        result: impl(anchor, measurements, palette);
         eval
         [
           assert.equal(result[0].type, "line"),
           assert.equal(result[0].to[0], geometry.body.to[0]),
           assert.equal(result[0].to[1], geometry.body.to[1]),
+          assert.equal(result[0].tag[0], anchor[0]),
+          assert.equal(result[0].tag[1], anchor[1]),
           assert.equal(result[0].stroke, palette.body),
-          assert.equal(result[0].width, 0.35),
           assert.equal(geometry.measurements.bodyAngle, defaultMeasurements.bodyAngle),
           assert.equal(geometry.measurements.neckAngle, defaultMeasurements.neckAngle),
 
           assert.equal(result[1].from[0], geometry.neck.from[0]),
           assert.equal(result[1].to[1], geometry.neck.to[1]),
-          assert.equal(result[1].stroke, palette.body),
-          assert.equal(result[1].width, 0.25),
 
           assert.equal(result[2].center[0], headCenter[0]),
           assert.equal(result[2].center[1], headCenter[1]),
           assert.equal(result[2].radius, geometry.measurements.headRadius),
           assert.equal(result[2].stroke, palette.body),
-          assert.equal(result[2].width, 0.25),
 
-          assert.equal(result[3].from[0], geometry.leftHand.from[0]),
-          assert.equal(result[3].from[1], geometry.leftHand.from[1]),
-          assert.equal(result[3].to[0], geometry.leftHand.to[0]),
-          assert.equal(result[3].to[1], geometry.leftHand.to[1]),
-          assert.equal(result[3].stroke, palette.limb),
+          assert.equal(geometry.measurements.rightHand.end[0], measurements.rightHand.end[0]),
+          assert.equal(geometry.measurements.rightHand.upper, defaultMeasurements.rightHand.upper),
+          assert.equal(geometry.measurements.leftHand.sign, defaultMeasurements.leftHand.sign),
+          assert.equal(result[3].to[0], geometry.leftHand.joint[0]),
+          assert.equal(result[3].to[1], geometry.leftHand.joint[1]),
+          assert.equal(result[4].to[0], geometry.leftHand.to[0]),
+          assert.equal(result[4].to[1], geometry.leftHand.to[1]),
+          assert.equal(result[5].to[0], geometry.rightHand.joint[0]),
+          assert.equal(result[6].to[1], geometry.rightHand.to[1]),
 
-          assert.equal(result[4].from[0], geometry.rightHand.from[0]),
-          assert.equal(result[4].from[1], geometry.rightHand.from[1]),
-          assert.equal(result[4].to[0], geometry.rightHand.to[0]),
-          assert.equal(result[4].to[1], geometry.rightHand.to[1]),
-          assert.equal(result[4].stroke, palette.limb),
-
-          assert.equal(result[5].to[0], geometry.leftLeg.to[0]),
-          assert.equal(result[5].to[1], geometry.leftLeg.to[1]),
-          assert.equal(result[5].stroke, palette.limb),
-
-          assert.equal(result[6].to[0], geometry.rightLeg.to[0]),
-          assert.equal(result[6].to[1], geometry.rightLeg.to[1]),
-          assert.equal(result[6].stroke, palette.limb)
+          assert.equal(result[7].to[0], geometry.leftLeg.joint[0]),
+          assert.equal(result[8].to[1], geometry.leftLeg.to[1]),
+          assert.equal(result[9].to[0], geometry.rightLeg.joint[0]),
+          assert.equal(result[10].to[1], geometry.rightLeg.to[1])
         ];
       };
     },
     {
-      name: "exposes skeleton geometry used for rendering";
-      test: (fn) =>
+      name: "uses limb lengths to solve joint positions";
+      test: (mod) =>
       {
         palette:
         {
@@ -74,35 +82,34 @@
         measurements:
         {
           height: 12;
-          leftLeg: [-3, -6];
+          leftLeg: { end: [-3, -6]; upper: 5; lower: 7; sign: -1; };
+          rightHand: { end: [6, -4]; upper: 9; lower: 4; sign: -1; };
         };
+        impl: mod.static;
         geometry: skeleton.build(anchor, measurements);
-        headCenter:
-        [
-          geometry.neck.to[0] + geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),
-          geometry.neck.to[1] + geometry.measurements.headRadius * math.Sin(geometry.measurements.neckAngle)
-        ];
-        primitives: fn(anchor, measurements, palette);
-
+        primitives: impl(anchor, measurements, palette);
+        leftUpper: distance(geometry.leftLeg.from, geometry.leftLeg.joint);
+        leftLower: distance(geometry.leftLeg.joint, geometry.leftLeg.to);
+        rightUpper: distance(geometry.rightHand.from, geometry.rightHand.joint);
+        rightLower: distance(geometry.rightHand.joint, geometry.rightHand.to);
         eval
         [
-          assert.equal(geometry.measurements.rightHand[0], defaultMeasurements.rightHand[0]),
-          assert.equal(geometry.body.to[1], geometry.measurements.height),
-          assert.equal(geometry.neck.to[1], geometry.body.to[1] + geometry.measurements.neckLength),
-          assert.equal(geometry.leftHand.from[0], geometry.body.to[0]),
-          assert.equal(geometry.leftLeg.to[0], anchor[0] + geometry.measurements.leftLeg[0]),
-
-          assert.equal(primitives[0].width, 0.35),
-          assert.equal(primitives[1].to[1], geometry.neck.to[1]),
-          assert.equal(primitives[2].center[1], headCenter[1]),
-          assert.equal(primitives[3].to[1], geometry.leftHand.to[1]),
-          assert.equal(primitives[6].to[0], geometry.rightLeg.to[0])
+          assert.approx(leftUpper, geometry.measurements.leftLeg.upper, 0.0001),
+          assert.approx(leftLower, geometry.measurements.leftLeg.lower, 0.0001),
+          assert.approx(rightUpper, geometry.measurements.rightHand.upper, 0.0001),
+          assert.approx(rightLower, geometry.measurements.rightHand.lower, 0.0001),
+          assert.less(cross(geometry.leftLeg.from, geometry.leftLeg.to, geometry.leftLeg.joint), 0),
+          assert.less(cross(geometry.rightHand.from, geometry.rightHand.to, geometry.rightHand.joint), 0),
+          assert.equal(primitives[3].from[0], geometry.leftHand.from[0]),
+          assert.equal(primitives[4].to[0], geometry.leftHand.to[0]),
+          assert.equal(primitives[6].to[1], geometry.rightHand.to[1]),
+          assert.equal(primitives[9].to[0], geometry.rightLeg.joint[0])
         ];
       };
     },
     {
       name: "fills all missing measurements from defaults";
-      test: (fn) =>
+      test: (mod) =>
       {
         palette:
         {
@@ -110,41 +117,40 @@
           limb: "#222222";
         };
         anchor: [2, 3];
+        impl: mod.static;
         geometry: skeleton.build(anchor, {});
-        primitives: fn(anchor, {}, palette);
+        primitives: impl(anchor, {}, palette);
 
         eval
         [
           assert.equal(geometry.measurements.height, defaultMeasurements.height),
-          assert.equal(geometry.measurements.leftHand[0], defaultMeasurements.leftHand[0]),
-          assert.equal(geometry.measurements.rightHand[1], defaultMeasurements.rightHand[1]),
-          assert.equal(geometry.measurements.leftLeg[0], defaultMeasurements.leftLeg[0]),
-          assert.equal(geometry.measurements.rightLeg[1], defaultMeasurements.rightLeg[1]),
+          assert.equal(geometry.measurements.leftHand.end[0], defaultMeasurements.leftHand.end[0]),
+          assert.equal(geometry.measurements.rightHand.end[1], defaultMeasurements.rightHand.end[1]),
+          assert.equal(geometry.measurements.leftLeg.upper, defaultMeasurements.leftLeg.upper),
+          assert.equal(geometry.measurements.rightLeg.lower, defaultMeasurements.rightLeg.lower),
           assert.equal(geometry.measurements.neckLength, defaultMeasurements.neckLength),
           assert.equal(geometry.measurements.headRadius, defaultMeasurements.headRadius),
           assert.equal(geometry.measurements.bodyAngle, defaultMeasurements.bodyAngle),
           assert.equal(geometry.measurements.neckAngle, defaultMeasurements.neckAngle),
 
           assert.equal(primitives[0].to[0], geometry.body.to[0]),
-          assert.equal(primitives[0].to[1], geometry.body.to[1]),
-          assert.equal(primitives[1].to[0], geometry.neck.to[0]),
           assert.equal(primitives[1].to[1], geometry.neck.to[1]),
           assert.equal(primitives[2].center[0], geometry.neck.to[0] + defaultMeasurements.headRadius * math.Cos(defaultMeasurements.neckAngle)),
           assert.equal(primitives[2].center[1], geometry.neck.to[1] + defaultMeasurements.headRadius * math.Sin(defaultMeasurements.neckAngle)),
-          assert.equal(primitives[3].to[0], geometry.leftHand.to[0]),
-          assert.equal(primitives[3].to[1], geometry.leftHand.to[1]),
-          assert.equal(primitives[4].to[0], geometry.rightHand.to[0]),
-          assert.equal(primitives[4].to[1], geometry.rightHand.to[1]),
-          assert.equal(primitives[5].to[0], geometry.leftLeg.to[0]),
-          assert.equal(primitives[5].to[1], geometry.leftLeg.to[1]),
-          assert.equal(primitives[6].to[0], geometry.rightLeg.to[0]),
-          assert.equal(primitives[6].to[1], geometry.rightLeg.to[1])
+          assert.equal(primitives[3].to[0], geometry.leftHand.joint[0]),
+          assert.equal(primitives[4].to[0], geometry.leftHand.to[0]),
+          assert.equal(primitives[5].to[0], geometry.rightHand.joint[0]),
+          assert.equal(primitives[6].to[0], geometry.rightHand.to[0]),
+          assert.equal(primitives[7].to[1], geometry.leftLeg.joint[1]),
+          assert.equal(primitives[8].to[1], geometry.leftLeg.to[1]),
+          assert.equal(primitives[9].to[1], geometry.rightLeg.joint[1]),
+          assert.equal(primitives[10].to[1], geometry.rightLeg.to[1])
         ];
       };
     },
     {
       name: "applies partial overrides without clobbering other limbs";
-      test: (fn) =>
+      test: (mod) =>
       {
         palette:
         {
@@ -155,32 +161,33 @@
         measurements:
         {
           height: 14;
-          leftHand: [-6, 2];
-          rightLeg: [4, -7];
+          leftHand: { end: [-6, 2]; upper: 9; };
+          rightLeg: { end: [4, -7]; sign: -1; };
         };
+        impl: mod.static;
         geometry: skeleton.build(anchor, measurements);
-        primitives: fn(anchor, measurements, palette);
+        primitives: impl(anchor, measurements, palette);
 
         eval
         [
           assert.equal(geometry.measurements.height, measurements.height),
-          assert.equal(geometry.measurements.leftHand[0], measurements.leftHand[0]),
-          assert.equal(geometry.measurements.rightHand[0], defaultMeasurements.rightHand[0]),
-          assert.equal(geometry.measurements.leftLeg[1], defaultMeasurements.leftLeg[1]),
-          assert.equal(geometry.measurements.rightLeg[1], measurements.rightLeg[1]),
+          assert.equal(geometry.measurements.leftHand.upper, measurements.leftHand.upper),
+          assert.equal(geometry.measurements.leftHand.lower, defaultMeasurements.leftHand.lower),
+          assert.equal(geometry.measurements.rightHand.sign, defaultMeasurements.rightHand.sign),
+          assert.equal(geometry.measurements.rightLeg.sign, measurements.rightLeg.sign),
           assert.equal(geometry.measurements.neckLength, defaultMeasurements.neckLength),
           assert.equal(geometry.measurements.headRadius, defaultMeasurements.headRadius),
           assert.equal(geometry.measurements.bodyAngle, defaultMeasurements.bodyAngle),
           assert.equal(geometry.measurements.neckAngle, defaultMeasurements.neckAngle),
 
-          assert.equal(primitives[3].to[0], geometry.leftHand.to[0]),
-          assert.equal(primitives[3].to[1], geometry.leftHand.to[1]),
-          assert.equal(primitives[4].to[0], geometry.rightHand.to[0]),
-          assert.equal(primitives[4].to[1], geometry.rightHand.to[1]),
-          assert.equal(primitives[5].to[0], geometry.leftLeg.to[0]),
-          assert.equal(primitives[5].to[1], geometry.leftLeg.to[1]),
-          assert.equal(primitives[6].to[0], geometry.rightLeg.to[0]),
-          assert.equal(primitives[6].to[1], geometry.rightLeg.to[1])
+          assert.equal(primitives[3].to[0], geometry.leftHand.joint[0]),
+          assert.equal(primitives[4].to[0], geometry.leftHand.to[0]),
+          assert.equal(primitives[5].to[0], geometry.rightHand.joint[0]),
+          assert.equal(primitives[6].to[0], geometry.rightHand.to[0]),
+          assert.equal(primitives[7].to[1], geometry.leftLeg.joint[1]),
+          assert.equal(primitives[8].to[1], geometry.leftLeg.to[1]),
+          assert.equal(primitives[9].to[0], geometry.rightLeg.joint[0]),
+          assert.equal(primitives[10].to[0], geometry.rightLeg.to[0])
         ];
       };
     }

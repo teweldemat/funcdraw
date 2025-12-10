@@ -1,9 +1,9 @@
 {
   height: 16;
-  leftHand: [-7, -12];
-  rightHand: [7, -12];
-  leftLeg: [-3, -14];
-  rightLeg: [3, -14];
+  leftHand: { end: [-7, -12]; upper: 8; lower: 8; sign: -1; };
+  rightHand: { end: [7, -12]; upper: 8; lower: 8; sign: 1; };
+  leftLeg: { end: [-3, -14]; upper: 8; lower: 8; sign: -1; };
+  rightLeg: { end: [3, -14]; upper: 8; lower: 8; sign: 1; };
   neckLength: 1.5;
   headRadius: 2.5;
   bodyAngle: math.Pi / 2;

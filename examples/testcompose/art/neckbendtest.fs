@@ -13,15 +13,15 @@
   baseRightLeg: [3, -14];
   bend: math.Sin(t) * 0.6;
   bodyAngle: baseBodyAngle + bend;
-  character: package("@funcdraw/testlib").cartoon.character(
+  character: package("@funcdraw/testlib").cartoon.character.static(
     [0, 0],
     {
       bodyAngle: bodyAngle;
       neckAngle: baseNeckAngle + bend * 0.5;
-      leftHand: baseLeftHand;
-      rightHand: baseRightHand;
-      leftLeg: baseLeftLeg;
-      rightLeg: baseRightLeg;
+      leftHand: { end: baseLeftHand; };
+      rightHand: { end: baseRightHand; };
+      leftLeg: { end: baseLeftLeg; };
+      rightLeg: { end: baseRightLeg; };
     },
     palette);
 

@@ -851,7 +851,14 @@ function printGraphicsNodes(nodes, logLine, depth) {
   }
   if (nodes && typeof nodes === 'object') {
     if (nodes.type) {
-      const label = nodes.name ? `${nodes.type}:${nodes.name}` : nodes.type;
+      const labelParts = [nodes.type];
+      if (nodes.name) {
+        labelParts.push(nodes.name);
+      }
+      if (nodes.tag) {
+        labelParts.push(`tag:${nodes.tag}`);
+      }
+      const label = labelParts.join(':');
       logLine(depth, `-${label}`);
       if (nodes.graphics) {
         printGraphicsNodes(nodes.graphics, logLine, depth + 1);

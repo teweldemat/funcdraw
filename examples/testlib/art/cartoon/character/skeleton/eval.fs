@@ -1,30 +1,48 @@
 {
   defaults: defaultMeasurements;
 
-  rotate: (vector, angle) =>
+  solveLimb: (attach, limb) =>
   {
-    x: vector[0];
-    y: vector[1];
-    cosA: math.Cos(angle);
-    sinA: math.Sin(angle);
-    eval [x * cosA - y * sinA, x * sinA + y * cosA];
+    dx: limb.end[0];
+    dy: limb.end[1];
+    distance: math.Sqrt(dx * dx + dy * dy);
+    direction: if distance == 0 then [1, 0] else [dx / distance, dy / distance];
+    minReach: math.Abs(limb.upper - limb.lower);
+    maxReach: limb.upper + limb.lower;
+    clampedDistance: if distance > maxReach then maxReach else if distance < minReach then minReach else distance;
+    perpendicular: [-direction[1], direction[0]];
+    along: (limb.upper * limb.upper - limb.lower * limb.lower + clampedDistance * clampedDistance) / (2 * clampedDistance);
+    height: math.Sqrt(math.Max(limb.upper * limb.upper - along * along, 0));
+    targetDelta: [direction[0] * clampedDistance, direction[1] * clampedDistance];
+    joint:
+    [
+      attach[0] + direction[0] * along + perpendicular[0] * height * limb.sign,
+      attach[1] + direction[1] * along + perpendicular[1] * height * limb.sign
+    ];
+    to: [attach[0] + targetDelta[0], attach[1] + targetDelta[1]];
+
+    eval { from: attach; joint: joint; to: to; };
   };
 
   build: (anchor, measurements) =>
   {
-    m: defaults + measurements;
+    base: defaults + measurements;
+    merged:
+    {
+      leftHand: defaults.leftHand + base.leftHand;
+      rightHand: defaults.rightHand + base.rightHand;
+      leftLeg: defaults.leftLeg + base.leftLeg;
+      rightLeg: defaults.rightLeg + base.rightLeg;
+    };
+    m: base + merged;
     bodyDelta: [m.height * math.Cos(m.bodyAngle), m.height * math.Sin(m.bodyAngle)];
     neckDelta: [m.neckLength * math.Cos(m.neckAngle), m.neckLength * math.Sin(m.neckAngle)];
 
     bodyTo: [anchor[0] + bodyDelta[0], anchor[1] + bodyDelta[1]];
-    leftHandOffset: m.leftHand;
-    rightHandOffset: m.rightHand;
-    leftLegOffset: m.leftLeg;
-    rightLegOffset: m.rightLeg;
-    leftHandTo: [bodyTo[0] + leftHandOffset[0], bodyTo[1] + leftHandOffset[1]];
-    rightHandTo: [bodyTo[0] + rightHandOffset[0], bodyTo[1] + rightHandOffset[1]];
-    leftLegTo: [anchor[0] + leftLegOffset[0], anchor[1] + leftLegOffset[1]];
-    rightLegTo: [anchor[0] + rightLegOffset[0], anchor[1] + rightLegOffset[1]];
+    leftHandGeometry: solveLimb(bodyTo, m.leftHand);
+    rightHandGeometry: solveLimb(bodyTo, m.rightHand);
+    leftLegGeometry: solveLimb(anchor, m.leftLeg);
+    rightLegGeometry: solveLimb(anchor, m.rightLeg);
     neckTo: [bodyTo[0] + neckDelta[0], bodyTo[1] + neckDelta[1]];
 
     eval
@@ -43,23 +61,27 @@
       };
       leftHand:
       {
-        from: bodyTo;
-        to: leftHandTo;
+        from: leftHandGeometry.from;
+        joint: leftHandGeometry.joint;
+        to: leftHandGeometry.to;
       };
       rightHand:
       {
-        from: bodyTo;
-        to: rightHandTo;
+        from: rightHandGeometry.from;
+        joint: rightHandGeometry.joint;
+        to: rightHandGeometry.to;
       };
       leftLeg:
       {
-        from: anchor;
-        to: leftLegTo;
+        from: leftLegGeometry.from;
+        joint: leftLegGeometry.joint;
+        to: leftLegGeometry.to;
       };
       rightLeg:
       {
-        from: anchor;
-        to: rightLegTo;
+        from: rightLegGeometry.from;
+        joint: rightLegGeometry.joint;
+        to: rightLegGeometry.to;
       };
     };
   };

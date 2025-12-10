@@ -11,10 +11,10 @@
   {
     view:
     {
-      left: -5;
-      bottom: -5;
+      left: -12;
+      bottom: -16;
       right: 15;
-      top: 20;
+      top: 22;
     };
     graphics: character;
   };

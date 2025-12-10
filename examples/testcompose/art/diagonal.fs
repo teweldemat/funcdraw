@@ -7,9 +7,7 @@
     top: 12;
   };
 
-  eval
-  {
-    view: view;
+  
     graphics:
     {
       type: "line";
@@ -18,5 +16,4 @@
       stroke: "#38bdf8";
       width: 0.4;
     };
-  };
 }

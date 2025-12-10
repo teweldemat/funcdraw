@@ -93,7 +93,7 @@ internal static class FuncDrawRuntime
         var traceCollector = TraceCollector.Create(options.Trace, converter);
         var baseRoot = traceCollector != null
             ? PackageLoader.LoadPackage(resolver, provider, traceCollector.ExitHook, traceCollector.EntryHook)
-            : PackageLoader.LoadPackage(resolver, provider);
+            : PackageLoader.LoadPackage(resolver, provider, null, null);
         var typedRoot = baseRoot;
 
         if (!string.IsNullOrWhiteSpace(options.ExpressionOverride))
@@ -134,6 +134,14 @@ internal sealed class FuncDrawProvider : KeyValueCollection
         {
             ["fd"] = Engine.NormalizeDataType(fdContext)
         };
+        if (_hooks != null)
+        {
+            foreach (var hookName in _hooks.Keys)
+            {
+                // Force hook materialization so usage is tracked and values are addressable directly.
+                _entries[hookName] = _hooks.GetValue(hookName);
+            }
+        }
     }
 
     public object? Get(string name)
@@ -272,7 +280,13 @@ internal sealed class ValueHookSet
             return false;
         }
 
-        return _entries.ContainsKey(name);
+        if (_entries.TryGetValue(name, out var entry))
+        {
+            entry.GetValue();
+            return true;
+        }
+
+        return false;
     }
 
     public object GetValue(string name)

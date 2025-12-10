@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
@@ -14,7 +15,7 @@ if (options.Test)
     Environment.ExitCode = PackageTestCli.Run(root);
     return;
 }
-var service = new SceneService(root, options.ExpressionOverride);
+var service = new SceneService(root, options.ExpressionOverride, options.Time);
 
 var traceRequested = (options.Trace != null && options.Trace.Enabled) || !string.IsNullOrWhiteSpace(options.TraceFile);
 var traceOptions = traceRequested ? options.Trace ?? new TraceOptions { Enabled = true, StepInto = false, Filter = null } : null;
@@ -23,7 +24,7 @@ var traceOnly = traceRequested && !options.Dump;
 
 if (options.Dump)
 {
-    var payload = service.Evaluate(new EvaluationRequest(null, null, null, options.IncludeSvg, traceOptions, options.ExpressionOverride));
+    var payload = service.Evaluate(new EvaluationRequest(options.Time, null, null, options.IncludeSvg, traceOptions, options.ExpressionOverride));
     WriteTraceToFile(payload.Trace, traceOutputPath, root);
     if (traceRequested)
     {
@@ -41,7 +42,7 @@ if (options.Dump)
 
 if (traceOnly)
 {
-    var payload = service.Evaluate(new EvaluationRequest(null, null, null, false, traceOptions, options.ExpressionOverride));
+    var payload = service.Evaluate(new EvaluationRequest(options.Time, null, null, false, traceOptions, options.ExpressionOverride));
     WriteTraceToFile(payload.Trace, traceOutputPath, root);
     PrintTraceEntries(payload.Trace);
     return;
@@ -261,7 +262,8 @@ internal sealed record CliOptions(
     string Root,
     TraceOptions? Trace,
     string? TraceFile,
-    string? ExpressionOverride);
+    string? ExpressionOverride,
+    double? Time);
 
 internal static class CliParser
 {
@@ -276,6 +278,7 @@ internal static class CliParser
         TraceOptions? trace = null;
         string? traceFile = null;
         string? expressionOverride = null;
+        double? time = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -313,6 +316,10 @@ internal static class CliParser
                 case "--trace-file":
                     traceFile = RequireNext(args, ref i, "--trace-file");
                     break;
+                case "--t":
+                case "--time":
+                    time = ParseDouble(RequireNext(args, ref i, current));
+                    break;
                 case "--help":
                 case "-h":
                     PrintHelp();
@@ -323,7 +330,7 @@ internal static class CliParser
             }
         }
 
-        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride);
+        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride, time);
     }
 
     private static string RequireNext(string[] args, ref int index, string option)
@@ -371,6 +378,16 @@ internal static class CliParser
             StepInto = stepInto,
             Filter = filter
         };
+    }
+
+    private static double ParseDouble(string raw)
+    {
+        if (double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+        {
+            return value;
+        }
+
+        throw new ArgumentException($"Invalid numeric value '{raw}'.");
     }
 
     private static bool IsOption(string value)

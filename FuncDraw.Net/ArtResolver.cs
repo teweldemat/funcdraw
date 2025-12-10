@@ -27,11 +27,11 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     public string WatchPath => _artRoot;
 
-    public IEnumerable<PackageNodeDescriptor> ListChildren(IReadOnlyList<string> path)
-    {
-        if (path != null && path.Any(segment => segment == "."))
+        public IEnumerable<PackageNodeDescriptor> ListChildren(IReadOnlyList<string> path)
         {
-            return Array.Empty<PackageNodeDescriptor>();
+            if (path != null && path.Any(segment => segment == "."))
+            {
+                return Array.Empty<PackageNodeDescriptor>();
         }
 
         var targetDir = ResolveDirectory(path);
@@ -40,22 +40,34 @@ internal sealed class ArtResolver : IFsPackageResolver
             return Array.Empty<PackageNodeDescriptor>();
         }
 
-        var names = new List<string>();
-        foreach (var entry in Directory.EnumerateFileSystemEntries(targetDir))
-        {
-            var attributes = File.GetAttributes(entry);
-            if (attributes.HasFlag(FileAttributes.Directory))
+            var names = new List<string>();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(targetDir))
             {
-                names.Add(Path.GetFileName(entry));
-                continue;
-            }
+                var attributes = File.GetAttributes(entry);
+                if (attributes.HasFlag(FileAttributes.Directory))
+                {
+                    var dirName = Path.GetFileName(entry);
+                    if (string.Equals(dirName, ".", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
 
-            var extension = Path.GetExtension(entry).ToLowerInvariant();
-            if (SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-            {
-                names.Add(Path.GetFileNameWithoutExtension(entry));
+                    names.Add(dirName);
+                    continue;
+                }
+
+                var extension = Path.GetExtension(entry).ToLowerInvariant();
+                if (SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(entry);
+                    if (string.Equals(fileName, ".", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    names.Add(fileName);
+                }
             }
-        }
 
         return names
             .Distinct(StringComparer.OrdinalIgnoreCase)

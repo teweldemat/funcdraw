@@ -301,6 +301,28 @@ namespace FuncDraw.Net.Tests;
         Assert.That(package, Is.EqualTo(4), "lib.square(3) should evaluate through nested package");
     }
 
+    [Test]
+    public void PackageLoaderEvaluatesPiDivisionInNestedPackage()
+    {
+        var libResolver = new MockResolver();
+        libResolver.AddExpression(new[] { "bugexp" }, @"
+{
+  piOverTwo: math.Pi / 2;
+  eval
+  {
+    angle: piOverTwo;
+  };
+}");
+
+        var rootResolver = new MockResolver();
+        rootResolver.AddExpression(new[] { "eval" }, @"package(""lib"").bugexp.piOverTwo");
+        rootResolver.AddPackage("lib", libResolver);
+
+        var result = PackageLoader.LoadPackage(rootResolver);
+
+        Assert.That(result, Is.Null, "Expected hidden intermediate member to be null");
+    }
+
     private static double[] ExtractNumbers(object value)
     {
         Assert.That(value, Is.InstanceOf<System.Collections.IEnumerable>(), "Expected sequence value");

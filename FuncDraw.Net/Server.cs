@@ -31,12 +31,12 @@ internal sealed class SceneService
     private double _canvasWidth;
     private double _canvasHeight;
 
-    public SceneService(string projectRoot, string? expressionOverride = null)
+    public SceneService(string projectRoot, string? expressionOverride = null, double? initialTime = null)
     {
         _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
         _resolver = new ArtResolver(_projectRoot);
         _expressionOverride = NormalizeExpressionOverride(expressionOverride);
-        _timeline = 0;
+        _timeline = initialTime ?? 0;
         _canvasWidth = 40;
         _canvasHeight = 30;
     }

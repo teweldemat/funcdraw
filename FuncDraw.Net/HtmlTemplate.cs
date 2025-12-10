@@ -601,7 +601,7 @@ internal static class HtmlTemplate
 
     function syncAnimationFromHooks(hooks, scene) {
       const timeHook = hooks.t;
-      const usesTime = Boolean(timeHook && timeHook.used);
+      const usesTime = Boolean(timeHook && (timeHook.used || timeHook.used === false));
       if (!usesTime) {
         if (animationState.enabled) {
           stopAnimation({ preserveTime: false });

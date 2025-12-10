@@ -1,3 +1,4 @@
+**** Hey agent the mistake you always seem to make is failing to distingush between module and collection folders and trying to access the internal components of a module ****
 # FuncDraw: FuncScript-based Vector Graphics Authoring Tool
 
 This repository contains the core framework for FuncDraw.

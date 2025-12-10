@@ -11,7 +11,7 @@
         };
         anchor: [1, 2];
         measurements: { rightHand: [3, 1]; height: 8; };
-        geometry: skeleton(anchor, measurements);
+        geometry: skeleton.build(anchor, measurements);
         headCenter:
         [
           geometry.neck.to[0] + geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),
@@ -76,7 +76,7 @@
           height: 12;
           leftLeg: [-3, -6];
         };
-        geometry: skeleton(anchor, measurements);
+        geometry: skeleton.build(anchor, measurements);
         headCenter:
         [
           geometry.neck.to[0] + geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),
@@ -110,7 +110,7 @@
           limb: "#222222";
         };
         anchor: [2, 3];
-        geometry: skeleton(anchor, {});
+        geometry: skeleton.build(anchor, {});
         primitives: fn(anchor, {}, palette);
 
         eval
@@ -158,7 +158,7 @@
           leftHand: [-6, 2];
           rightLeg: [4, -7];
         };
-        geometry: skeleton(anchor, measurements);
+        geometry: skeleton.build(anchor, measurements);
         primitives: fn(anchor, measurements, palette);
 
         eval

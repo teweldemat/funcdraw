@@ -1,6 +1,6 @@
 (anchor, measurements, palette) =>
 {
-  geometry: skeleton(anchor, measurements);
+  geometry: skeleton.build(anchor, measurements);
   headOffset:
   [
     geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FuncDraw.Net;
 using FuncScript.Core;
@@ -12,6 +13,24 @@ namespace FuncDraw.Net.Tests;
 [TestFixture]
     public class FuncDrawRuntimeTests
     {
+        [Test]
+        public void ArtResolver_IgnoresOperatorLikeSegments()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", ".."));
+            var testLibRoot = Path.Combine(repoRoot, "examples", "testlib");
+            var resolver = new ArtResolver(testLibRoot);
+
+            var root = PackageLoader.LoadPackage(resolver);
+            Assert.That(root, Is.AssignableTo<KeyValueCollection>());
+
+            var bugexp = ((KeyValueCollection)root).Get("bugexp");
+            Assert.That(bugexp, Is.AssignableTo<KeyValueCollection>(), "bugexp should be a module with evaluated exports");
+
+            var angle = ((KeyValueCollection)bugexp).Get("angle");
+            Assert.That(angle, Is.TypeOf<double>());
+            Assert.That((double)angle, Is.EqualTo(System.Math.PI / 2).Within(1e-6));
+        }
+
         [Test]
     public void ModuleWithEvalChildIsEvaluatedWhenAccessedAsPackageMember()
     {

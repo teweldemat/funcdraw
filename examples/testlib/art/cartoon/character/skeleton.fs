@@ -1,18 +1,7 @@
 (anchor, measurements) =>
 {
   defaults: defaultMeasurements;
-  m:
-  {
-    height: measurements.height ?? defaults.height;
-    leftHand: measurements.leftHand ?? defaults.leftHand;
-    rightHand: measurements.rightHand ?? defaults.rightHand;
-    leftLeg: measurements.leftLeg ?? defaults.leftLeg;
-    rightLeg: measurements.rightLeg ?? defaults.rightLeg;
-    neckLength: measurements.neckLength ?? defaults.neckLength;
-    headRadius: measurements.headRadius ?? defaults.headRadius;
-    bodyAngle: measurements.bodyAngle ?? defaults.bodyAngle;
-    neckAngle: measurements.neckAngle ?? defaults.neckAngle;
-  };
+  m: defaults + measurements;
   rotate: (vector, angle) =>
   {
     x: vector[0];
@@ -25,10 +14,10 @@
   neckDelta: [m.neckLength * math.Cos(m.neckAngle), m.neckLength * math.Sin(m.neckAngle)];
 
   bodyTo: [anchor[0] + bodyDelta[0], anchor[1] + bodyDelta[1]];
-  leftHandOffset: rotate(m.leftHand, m.bodyAngle);
-  rightHandOffset: rotate(m.rightHand, m.bodyAngle);
-  leftLegOffset: rotate(m.leftLeg, m.bodyAngle);
-  rightLegOffset: rotate(m.rightLeg, m.bodyAngle);
+  leftHandOffset: m.leftHand;
+  rightHandOffset: m.rightHand;
+  leftLegOffset: m.leftLeg;
+  rightLegOffset: m.rightLeg;
   leftHandTo: [bodyTo[0] + leftHandOffset[0], bodyTo[1] + leftHandOffset[1]];
   rightHandTo: [bodyTo[0] + rightHandOffset[0], bodyTo[1] + rightHandOffset[1]];
   leftLegTo: [anchor[0] + leftLegOffset[0], anchor[1] + leftLegOffset[1]];

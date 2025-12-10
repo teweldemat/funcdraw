@@ -9,6 +9,7 @@ namespace FuncDraw.Net;
 internal sealed class ArtResolver : IFsPackageResolver
 {
     private static readonly string[] SupportedExtensions = { ".fs", ".js" };
+    private static readonly char[] InvalidNameChars = Path.GetInvalidFileNameChars();
 
     private readonly string _projectRoot;
     private readonly string _artRoot;
@@ -29,7 +30,7 @@ internal sealed class ArtResolver : IFsPackageResolver
 
         public IEnumerable<PackageNodeDescriptor> ListChildren(IReadOnlyList<string> path)
         {
-            if (path != null && path.Any(segment => segment == "."))
+            if (!IsPathValid(path))
             {
                 return Array.Empty<PackageNodeDescriptor>();
         }
@@ -76,7 +77,7 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     public PackageExpressionDescriptor? GetExpression(IReadOnlyList<string> path)
     {
-        if (path != null && path.Any(segment => segment == "."))
+        if (!IsPathValid(path))
         {
             return null;
         }
@@ -113,6 +114,11 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     private string? ResolveDirectory(IReadOnlyList<string>? pathSegments)
     {
+        if (!IsPathValid(pathSegments))
+        {
+            return null;
+        }
+
         var segments = pathSegments == null || pathSegments.Count == 0
             ? Array.Empty<string>()
             : pathSegments.ToArray();
@@ -122,6 +128,11 @@ internal sealed class ArtResolver : IFsPackageResolver
 
     private ResolvedFile ResolveFile(IReadOnlyList<string> pathSegments)
     {
+        if (!IsPathValid(pathSegments))
+        {
+            return new ResolvedFile(null, null);
+        }
+
         var normalized = pathSegments.ToArray();
         if (normalized.Length == 0)
         {
@@ -153,6 +164,39 @@ internal sealed class ArtResolver : IFsPackageResolver
         }
 
         return new ResolvedFile(null, null);
+    }
+
+    private static bool IsPathValid(IReadOnlyList<string>? segments)
+    {
+        if (segments == null)
+        {
+            return true;
+        }
+
+        foreach (var segment in segments)
+        {
+            if (string.IsNullOrWhiteSpace(segment))
+            {
+                return false;
+            }
+
+            if (string.Equals(segment, ".", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (segment.IndexOfAny(InvalidNameChars) >= 0)
+            {
+                return false;
+            }
+
+            if (segment.Contains(Path.DirectorySeparatorChar) || segment.Contains(Path.AltDirectorySeparatorChar))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private readonly record struct ResolvedFile(string? FullPath, string? Extension);

@@ -407,6 +407,62 @@ namespace FuncDraw.Net.Tests;
         Assert.That(lower, Is.EqualTo(8d).Within(1e-4));
     }
 
+    [Test]
+    public void SceneService_StepsStateAcrossEvents()
+    {
+        var evalScript = @"
+eval
+{
+  graphics:
+  {
+    type: ""line"";
+    from: [0, 0];
+    to: [0, 0];
+  };
+  step: (current, evt) =>
+  {
+    eval
+    {
+      state: (current??0) + 1;
+      events: [];
+    };
+  };
+};
+";
+
+        var tempRoot = CreateTempArtProject("scene", evalScript);
+        try
+        {
+            var service = new SceneService(tempRoot, expressionOverride: "art.scene");
+            var warmup = service.Evaluate(new EvaluationRequest(null, null, null, false, null, null, null, true));
+            Assert.That(warmup.Raw.StepFunction, Is.Not.Null, "Step function should be exposed from the scene");
+
+            var request = new EvaluationRequest(null, null, null, false, null, null, new object?[] { null }, false);
+
+            var first = service.Evaluate(request);
+            Assert.That(Convert.ToDouble(first.State), Is.EqualTo(1d));
+
+            var second = service.Evaluate(request);
+            Assert.That(Convert.ToDouble(second.State), Is.EqualTo(2d));
+
+            var third = service.Evaluate(request);
+            Assert.That(Convert.ToDouble(third.State), Is.EqualTo(3d));
+
+            var fourth = service.Evaluate(request);
+            Assert.That(Convert.ToDouble(fourth.State), Is.EqualTo(4d));
+
+            var fifth = service.Evaluate(request);
+            Assert.That(Convert.ToDouble(fifth.State), Is.EqualTo(5d));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
     private static double[] ExtractNumbers(object value)
     {
         Assert.That(value, Is.InstanceOf<System.Collections.IEnumerable>(), "Expected sequence value");
@@ -424,6 +480,15 @@ namespace FuncDraw.Net.Tests;
         Assert.That(dict.ContainsKey("stroke"), Is.True);
         Assert.That(dict.ContainsKey("width"), Is.True);
         return dict;
+    }
+
+    private static string CreateTempArtProject(string fileName, string content)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "funcdraw-stepper-" + Guid.NewGuid().ToString("N"));
+        var artDir = Path.Combine(root, "art");
+        Directory.CreateDirectory(artDir);
+        File.WriteAllText(Path.Combine(artDir, $"{fileName}.fs"), content);
+        return root;
     }
 }
 

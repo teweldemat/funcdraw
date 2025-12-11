@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FuncScript;
 using FuncScript.Error;
 using FuncScript.Model;
@@ -14,7 +15,7 @@ namespace FuncDraw.Net;
 internal sealed class FuncDrawOptions
 {
     public bool IncludeSvg { get; init; }
-    public IDictionary<string, Func<object>>? ValueHooks { get; init; }
+    public IDictionary<string, Func<object?>>? ValueHooks { get; init; }
     public Func<string, double, Metrics>? MeasureText { get; init; }
     public TraceOptions? Trace { get; init; }
     public string? ExpressionOverride { get; init; }
@@ -122,7 +123,7 @@ internal static class FuncDrawRuntime
 
 internal sealed class FuncDrawProvider : KeyValueCollection
 {
-    private readonly Dictionary<string, object> _entries;
+    private readonly Dictionary<string, object?> _entries;
     private readonly ValueHookSet? _hooks;
     private readonly KeyValueCollection _fallback;
 
@@ -130,7 +131,7 @@ internal sealed class FuncDrawProvider : KeyValueCollection
     {
         _fallback = fallback ?? throw new ArgumentNullException(nameof(fallback));
         _hooks = hooks;
-        _entries = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        _entries = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["fd"] = Engine.NormalizeDataType(fdContext)
         };
@@ -186,9 +187,9 @@ internal sealed class FuncDrawProvider : KeyValueCollection
         return hierarchy && _fallback.IsDefined(key, hierarchy);
     }
 
-    public IList<KeyValuePair<string, object>> GetAll()
+    public IList<KeyValuePair<string, object?>> GetAll()
     {
-        var list = new List<KeyValuePair<string, object>>();
+        var list = new List<KeyValuePair<string, object?>>();
         foreach (var entry in _entries)
         {
             list.Add(KeyValuePair.Create(entry.Key, entry.Value));
@@ -233,7 +234,7 @@ internal sealed class ValueHookSet
 
     public IReadOnlyCollection<string> Keys => _entries.Values.Select(entry => entry.Name).ToArray();
 
-    public static ValueHookSet? Create(IDictionary<string, Func<object>>? hooks)
+    public static ValueHookSet? Create(IDictionary<string, Func<object?>>? hooks)
     {
         if (hooks == null || hooks.Count == 0)
         {
@@ -289,7 +290,7 @@ internal sealed class ValueHookSet
         return false;
     }
 
-    public object GetValue(string name)
+    public object? GetValue(string name)
     {
         return _entries[name].GetValue();
     }
@@ -309,9 +310,9 @@ internal sealed class ValueHookSet
 internal sealed class ValueHookEntry
 {
     private bool _hasValue;
-    private object _value = null!;
+    private object? _value = null;
 
-    public ValueHookEntry(string name, Func<object> factory)
+    public ValueHookEntry(string name, Func<object?> factory)
     {
         Name = name;
         Factory = factory ?? throw new ArgumentNullException(nameof(factory));
@@ -320,10 +321,10 @@ internal sealed class ValueHookEntry
 
     public string Name { get; }
     public string NormalizedName { get; }
-    public Func<object> Factory { get; }
+    public Func<object?> Factory { get; }
     public bool Used { get; private set; }
 
-    public object GetValue()
+    public object? GetValue()
     {
         Used = true;
         if (!_hasValue)
@@ -740,18 +741,21 @@ internal sealed class TraceCollector
 
 internal sealed class SceneInterpretation
 {
-    public SceneInterpretation(List<object> graphics, object? view, List<string> warnings, object? step)
+    public SceneInterpretation(List<object> graphics, object? view, List<string> warnings, object? step, IFsFunction? stepFunction)
     {
         Graphics = graphics;
         View = view;
         Warnings = warnings;
         Step = step;
+        StepFunction = stepFunction;
     }
 
     public List<object> Graphics { get; }
     public object? View { get; }
     public List<string> Warnings { get; }
     public object? Step { get; }
+    [JsonIgnore]
+    public IFsFunction? StepFunction { get; }
 }
 
 internal static class GraphicsInterpreter
@@ -767,7 +771,7 @@ internal static class GraphicsInterpreter
         var warnings = new List<string>();
         if (typedRoot == null)
         {
-            return new SceneInterpretation(new List<object>(), null, warnings, null);
+            return new SceneInterpretation(new List<object>(), null, warnings, null, null);
         }
 
         var extraction = ExtractContentRoot(typedRoot, warnings, converter);
@@ -782,7 +786,9 @@ internal static class GraphicsInterpreter
         };
 
         var view = extraction.View != null ? converter.ToPlain(extraction.View) : null;
-        return new SceneInterpretation(graphics, view, warnings, extraction.Step);
+        var stepFunction = extraction.Step as IFsFunction;
+        var stepMarker = stepFunction != null ? "<step>" : extraction.Step;
+        return new SceneInterpretation(graphics, view, warnings, stepMarker, stepFunction);
     }
 
     private static (object? Content, object? View, object? Step, List<string> ContentPath) ExtractContentRoot(

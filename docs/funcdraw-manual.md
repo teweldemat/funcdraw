@@ -1,6 +1,12 @@
 # FuncDraw manual
 
+## Cheat sheet
+
+- Use `--dump` to evaluate your composition once and print the resulting scene payload.
+- Use `--test` to run the package’s FuncScript tests (note: `npm run test` does not run these tests).
+
 ## Terminology
+
 **expression** FuncScript code under the `art` folder (`.fs`/`.fx`). Name files without spaces, dots, or dashes.
 **collection** folder containing one or more expressions or folders. If no child is named `eval`, every child expression is directly addressable via dot navigation.
 **module** folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns. It very importan to know that items within a module can't be accessed.  They can only be accessed indirectly if eval expression include them in the final out verbatim.

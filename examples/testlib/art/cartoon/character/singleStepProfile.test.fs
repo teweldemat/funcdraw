@@ -82,6 +82,22 @@
     }
     ,
     {
+      name: "swings hands across the anchor at full step";
+      test: (fn) =>
+      {
+        anchor: [0, 0];
+        target: [3, -14];
+        base: {};
+        profile: fn(anchor, base, "left", target, 1);
+        eval
+        [
+          assert.greater(profile.leftHand.end[0], 0),
+          assert.less(profile.rightHand.end[0], 0)
+        ];
+      };
+    }
+    ,
+    {
       name: "shifts anchor horizontally with the moving foot";
       test: (fn) =>
       {

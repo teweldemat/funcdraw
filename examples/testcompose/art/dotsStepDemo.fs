@@ -1,16 +1,4 @@
 {
-  defaultMeasurements:
-  {
-    height: 16;
-    leftHand: { end: [-7, -12]; upper: 8; lower: 8; sign: -1; };
-    rightHand: { end: [7, -12]; upper: 8; lower: 8; sign: 1; };
-    leftLeg: { end: [-3, -14]; upper: 8; lower: 8; sign: -1; };
-    rightLeg: { end: [3, -14]; upper: 8; lower: 8; sign: 1; };
-    neckLength: 1.5;
-    headRadius: 2.5;
-    bodyAngle: math.Pi / 2;
-    neckAngle: math.Pi / 2;
-  };
   palette:
   {
     body: "#38bdf8";
@@ -68,37 +56,17 @@
   movingNow: if completedState.movingLeft then "left" else "right";
   currentBase:
   {
-    leftLeg: { end: [completedState.left[0] - completedState.anchor[0], completedState.left[1] - completedState.anchor[1]]; };
-    rightLeg: { end: [completedState.right[0] - completedState.anchor[0], completedState.right[1] - completedState.anchor[1]]; };
+    handPhaseOffset: stepIndex;
+    leftLeg: {sign:1, end: [completedState.left[0] - completedState.anchor[0], completedState.left[1] - completedState.anchor[1]]; };
+    rightLeg: {sign:1, end: [completedState.right[0] - completedState.anchor[0], completedState.right[1] - completedState.anchor[1]]; };
+    leftHand:{sign:-1},
+    rightHand:{sign:-1},
   };
   profile: package("@funcdraw/testlib").cartoon.character.singleStepProfile(completedState.anchor, currentBase, movingNow, currentTarget, stepProgress);
-  sideProfile: profile +
-  {
-    leftLeg: profile.leftLeg + { sign: 1; };
-    rightLeg: profile.rightLeg + { sign: 1; };
-  };
+  
+  
 
-  leftHandTarget: defaultMeasurements.leftHand.end;
-  rightHandTarget: defaultMeasurements.rightHand.end;
-  animatedProfile: sideProfile +
-  {
-    leftHand:
-    {
-      end: leftHandTarget;
-      upper: defaultMeasurements.leftHand.upper;
-      lower: defaultMeasurements.leftHand.lower;
-      sign: defaultMeasurements.leftHand.sign;
-    };
-    rightHand:
-    {
-      end: rightHandTarget;
-      upper: defaultMeasurements.rightHand.upper;
-      lower: defaultMeasurements.rightHand.lower;
-      sign: defaultMeasurements.rightHand.sign;
-    };
-  };
-
-  character: package("@funcdraw/testlib").cartoon.character.static(animatedProfile.anchor, animatedProfile, palette);
+  character: package("@funcdraw/testlib").cartoon.character.static(profile.anchor, profile, palette);
 
   markerStartIndex: math.Min(completedState.leftIndex, completedState.rightIndex) - 1;
   dotMarkers:
@@ -113,12 +81,11 @@
 
   eval
   {
-    valueHooks: { t: t; leftHand: animatedProfile.leftHand; rightHand: animatedProfile.rightHand; anchor: animatedProfile.anchor; shoulder: shoulder; };
     view:
     {
-      left: animatedProfile.anchor[0] - 20;
+      left: profile.anchor[0] - 20;
       bottom: -22;
-      right: animatedProfile.anchor[0] + 20;
+      right: profile.anchor[0] + 20;
       top: 26;
     };
     graphics: character + dotMarkers;

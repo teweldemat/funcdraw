@@ -8,4 +8,5 @@
   headRadius: 2.5;
   bodyAngle: math.Pi / 2;
   neckAngle: math.Pi / 2;
+  handPhaseOffset: 0;
 }

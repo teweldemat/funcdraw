@@ -21,6 +21,38 @@
           assert.equal(result[10].type, "line")
         ];
       };
+    },
+    {
+      name: "accepts custom skin expression";
+      test: (fn) =>
+      {
+        palette:
+        {
+          body: "#121212";
+          limb: "#565656";
+        };
+        anchor: [2, -3];
+        skin: (geometry, skinPalette) =>
+        {
+          eval
+          [
+            {
+              type: "skinCheck";
+              anchor: geometry.anchor;
+              stroke: skinPalette.body;
+            }
+          ];
+        };
+        result: fn(anchor, {}, palette, skin);
+
+        eval
+        [
+          assert.equal(result[0].type, "skinCheck"),
+          assert.equal(result[0].anchor[0], anchor[0]),
+          assert.equal(result[0].anchor[1], anchor[1]),
+          assert.equal(result[0].stroke, palette.body)
+        ];
+      };
     }
   ];
 }

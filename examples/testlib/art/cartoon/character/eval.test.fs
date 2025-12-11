@@ -190,6 +190,28 @@
           assert.equal(primitives[10].to[0], geometry.rightLeg.to[0])
         ];
       };
+    },
+    {
+      name: "exposes skins collection for rendering skeleton output";
+      test: (mod) =>
+      {
+        palette:
+        {
+          body: "#161616";
+          limb: "#282828";
+        };
+        anchor: [0, 0];
+        geometry: mod.skeleton.build(anchor, {});
+        primitives: mod.skins.stick(geometry, palette);
+
+        eval
+        [
+          assert.equal(primitives[0].tag[0], anchor[0]),
+          assert.equal(primitives[0].stroke, palette.body),
+          assert.equal(primitives[3].stroke, palette.limb),
+          assert.equal(primitives[10].stroke, palette.limb)
+        ];
+      };
     }
   ];
 }

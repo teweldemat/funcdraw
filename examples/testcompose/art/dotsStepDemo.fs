@@ -5,7 +5,7 @@
     limb: "#bd8c31ff";
   };
 
-  stepDuration: 1.5;
+  stepDuration: 0.5;
   dotSpacing: 6;
   dotStartX: -6;
   dotY: -14;
@@ -61,6 +61,7 @@
     rightLeg: {sign:1, end: [completedState.right[0] - completedState.anchor[0], completedState.right[1] - completedState.anchor[1]]; };
     leftHand:{sign:-1},
     rightHand:{sign:-1},
+    direction:'right',
   };
   profile: package("@funcdraw/testlib").cartoon.character.singleStepProfile(completedState.anchor, currentBase, movingNow, currentTarget, stepProgress);
   

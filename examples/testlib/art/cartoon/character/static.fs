@@ -1,7 +1,7 @@
 (anchor, measurements, palette, skin) =>
 {
   geometry: skeleton.build(anchor, measurements);
-  selectedSkin: if skin == null then skins.stick else skin;
+  selectedSkin: skin??skins.stick;
 
   eval selectedSkin(geometry, palette);
 }

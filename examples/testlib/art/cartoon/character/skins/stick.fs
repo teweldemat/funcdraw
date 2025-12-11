@@ -1,11 +1,54 @@
 (geometry, palette) =>
 {
+  direction: geometry.direction;
   headOffset:
   [
     geometry.measurements.headRadius * math.Cos(geometry.measurements.neckAngle),
     geometry.measurements.headRadius * math.Sin(geometry.measurements.neckAngle)
   ];
   headCenter: [geometry.neck.to[0] + headOffset[0], geometry.neck.to[1] + headOffset[1]];
+  eyeRadius: geometry.measurements.headRadius * 0.2;
+  eyeOffsetX: geometry.measurements.headRadius * 0.5;
+  eyeOffsetY: geometry.measurements.headRadius * 0.15;
+  eye: (offsetX) =>
+  {
+    type: "circle";
+    center: [headCenter[0] + offsetX, headCenter[1] + eyeOffsetY];
+    radius: eyeRadius;
+    stroke: palette.body;
+    width: 0.15;
+  };
+  backMark:
+  {
+    type: "line";
+    from: [headCenter[0] - eyeOffsetX * 0.6, headCenter[1] + eyeOffsetY];
+    to: [headCenter[0] + eyeOffsetX * 0.6, headCenter[1] + eyeOffsetY];
+    stroke: palette.body;
+    width: 0.15;
+  };
+  eyes: if direction == "front" then [eye(-eyeOffsetX), eye(eyeOffsetX)]
+    else if direction == "left" then [eye(-eyeOffsetX * 0.6)]
+    else if direction == "right" then [eye(eyeOffsetX * 0.6)]
+    else if direction == "back" then [backMark]
+    else error("expected direction left|right|front|back");
+
+  shoulders:
+  {
+    type: "line";
+    from: geometry.leftHandAttachment;
+    to: geometry.rightHandAttachment;
+    stroke: palette.body;
+    width: 0.25;
+  };
+
+  thighs:
+  {
+    type: "line";
+    from: geometry.leftLegAttachment;
+    to: geometry.rightLegAttachment;
+    stroke: palette.body;
+    width: 0.25;
+  };
 
   limbSegments: (limb, stroke, width) =>
   {
@@ -62,12 +105,21 @@
   limbWidth: 0.25;
   leftHandSegments: limbSegments(geometry.leftHand, palette.limb, limbWidth);
   rightHandSegments: limbSegments(geometry.rightHand, palette.limb, limbWidth);
+  backHands: if direction == "left" then rightHandSegments
+    else if direction == "right" then leftHandSegments
+    else if direction == "back" then leftHandSegments + rightHandSegments
+    else [];
+  frontHands: if direction == "left" then leftHandSegments
+    else if direction == "right" then rightHandSegments
+    else if direction == "front" then leftHandSegments + rightHandSegments
+    else [];
   leftLegSegments: limbSegments(geometry.leftLeg, palette.limb, limbWidth);
   rightLegSegments: limbSegments(geometry.rightLeg, palette.limb, limbWidth);
 
-  eval [body, neck, head]
-    + leftHandSegments
-    + rightHandSegments
+  eval backHands
+    + [shoulders, thighs, body, neck, head]
+    + frontHands
     + leftLegSegments
-    + rightLegSegments;
+    + rightLegSegments
+    + eyes;
 }

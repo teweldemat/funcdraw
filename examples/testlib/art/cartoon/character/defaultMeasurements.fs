@@ -9,4 +9,7 @@
   bodyAngle: math.Pi / 2;
   neckAngle: math.Pi / 2;
   handPhaseOffset: 0;
+  shoulderWidth: 2;
+  thighWidth: 1.2;
+  direction: "front";
 }

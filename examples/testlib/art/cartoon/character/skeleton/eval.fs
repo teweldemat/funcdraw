@@ -36,18 +36,33 @@
     };
     m: base + merged;
     bodyDelta: [m.height * math.Cos(m.bodyAngle), m.height * math.Sin(m.bodyAngle)];
+    bodyLength: math.Sqrt(bodyDelta[0] * bodyDelta[0] + bodyDelta[1] * bodyDelta[1]);
+    bodyDirection: [bodyDelta[0] / bodyLength, bodyDelta[1] / bodyLength];
+    perpendicular: [-bodyDirection[1], bodyDirection[0]];
+    spread: if m.direction == "front" then 1 else if m.direction == "back" then 1 else if m.direction == "left" then 0 else if m.direction == "right" then 0 else error("expected direction left|right|front|back");
+    shoulderSpread: m.shoulderWidth * spread;
+    thighSpread: m.thighWidth * spread;
+    leftHandAttachment: [anchor[0] + bodyDelta[0] + perpendicular[0] * shoulderSpread, anchor[1] + bodyDelta[1] + perpendicular[1] * shoulderSpread];
+    rightHandAttachment: [anchor[0] + bodyDelta[0] - perpendicular[0] * shoulderSpread, anchor[1] + bodyDelta[1] - perpendicular[1] * shoulderSpread];
+    leftLegAttachment: [anchor[0] + perpendicular[0] * thighSpread, anchor[1] + perpendicular[1] * thighSpread];
+    rightLegAttachment: [anchor[0] - perpendicular[0] * thighSpread, anchor[1] - perpendicular[1] * thighSpread];
     neckDelta: [m.neckLength * math.Cos(m.neckAngle), m.neckLength * math.Sin(m.neckAngle)];
 
     bodyTo: [anchor[0] + bodyDelta[0], anchor[1] + bodyDelta[1]];
-    leftHandGeometry: solveLimb(bodyTo, m.leftHand);
-    rightHandGeometry: solveLimb(bodyTo, m.rightHand);
-    leftLegGeometry: solveLimb(anchor, m.leftLeg);
-    rightLegGeometry: solveLimb(anchor, m.rightLeg);
+    leftHandGeometry: solveLimb(leftHandAttachment, m.leftHand);
+    rightHandGeometry: solveLimb(rightHandAttachment, m.rightHand);
+    leftLegGeometry: solveLimb(leftLegAttachment, m.leftLeg);
+    rightLegGeometry: solveLimb(rightLegAttachment, m.rightLeg);
     neckTo: [bodyTo[0] + neckDelta[0], bodyTo[1] + neckDelta[1]];
 
     eval
     {
       anchor;
+      direction: m.direction;
+      leftHandAttachment;
+      rightHandAttachment;
+      leftLegAttachment;
+      rightLegAttachment;
       measurements: m;
       body:
       {

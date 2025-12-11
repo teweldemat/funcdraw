@@ -107,19 +107,23 @@
   rightHandSegments: limbSegments(geometry.rightHand, palette.limb, limbWidth);
   backHands: if direction == "left" then rightHandSegments
     else if direction == "right" then leftHandSegments
-    else if direction == "back" then leftHandSegments + rightHandSegments
     else [];
   frontHands: if direction == "left" then leftHandSegments
     else if direction == "right" then rightHandSegments
-    else if direction == "front" then leftHandSegments + rightHandSegments
-    else [];
+    else leftHandSegments + rightHandSegments;
   leftLegSegments: limbSegments(geometry.leftLeg, palette.limb, limbWidth);
   rightLegSegments: limbSegments(geometry.rightLeg, palette.limb, limbWidth);
+  backLegs: if direction == "left" then rightLegSegments
+    else if direction == "right" then leftLegSegments
+    else [];
+  frontLegs: if direction == "left" then leftLegSegments
+    else if direction == "right" then rightLegSegments
+    else leftLegSegments + rightLegSegments;
 
   eval backHands
+    + backLegs
     + [shoulders, thighs, body, neck, head]
     + frontHands
-    + leftLegSegments
-    + rightLegSegments
+    + frontLegs
     + eyes;
 }

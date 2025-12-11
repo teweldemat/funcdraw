@@ -15,7 +15,10 @@
     right: [24, 0];
   };
 
+  baseGeometry: character.skeleton.build([0, 0], {});
   groundY: character.skeleton.build(anchors.front, {}).leftLeg.to[1];
+  headCenterY: baseGeometry.neck.to[1] + baseGeometry.measurements.headRadius * math.Sin(baseGeometry.measurements.neckAngle);
+  labelY: anchors.front[1] + headCenterY + baseGeometry.measurements.headRadius * 0.8;
 
   front: character.static(anchors.front, { direction: "front"; }, palette);
   left: character.static(anchors.left, { direction: "left"; }, palette);
@@ -47,10 +50,19 @@
     fill: backgroundColor;
   };
 
+  labels:
+  [
+    { type: "text"; position: [anchors.front[0], labelY]; text: "FRONT"; color: palette.limb; fontSize: 2; align: "center"; },
+    { type: "text"; position: [anchors.left[0], labelY]; text: "LEFT"; color: palette.limb; fontSize: 2; align: "center"; },
+    { type: "text"; position: [anchors.back[0], labelY]; text: "BACK"; color: palette.limb; fontSize: 2; align: "center"; },
+    { type: "text"; position: [anchors.right[0], labelY]; text: "RIGHT"; color: palette.limb; fontSize: 2; align: "center"; }
+  ];
+
   eval
   {
     view;
     graphics: [background, ground]
+      + labels
       + front
       + left
       + back

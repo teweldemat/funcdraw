@@ -13,6 +13,14 @@
     eval toTarget[0] * toJoint[1] - toTarget[1] * toJoint[0];
   };
 
+  widthOf: (points) =>
+  {
+    xs: [points[0][0], points[1][0], points[2][0], points[3][0], points[4][0]];
+    minX: math.Min(xs[0], math.Min(xs[1], math.Min(xs[2], math.Min(xs[3], xs[4]))));
+    maxX: math.Max(xs[0], math.Max(xs[1], math.Max(xs[2], math.Max(xs[3], xs[4]))));
+    eval maxX - minX;
+  };
+
   eval [
     {
       name: "merges default measurements and palette";
@@ -223,6 +231,39 @@
       };
     },
     {
+      name: "poly skin uses polygonal shapes with directional profile";
+      test: (mod) =>
+      {
+        palette:
+        {
+          body: "#f1f5f9";
+          limb: "#0f172a";
+        };
+        anchor: [0, 0];
+        frontGeometry: mod.skeleton.build(anchor, {});
+        leftGeometry: mod.skeleton.build(anchor, { direction: "left"; });
+        front: mod.skins.poly(frontGeometry, palette);
+        left: mod.skins.poly(leftGeometry, palette);
+        frontHead: front[2];
+        leftHead: left[4];
+        frontHeadWidth: widthOf(frontHead.points);
+        leftHeadWidth: widthOf(leftHead.points);
+
+        eval
+        [
+          assert.equal(front[0].name, "body"),
+          assert.equal(front[0].type, "polygon"),
+          assert.equal(front[0].points[0][0], frontGeometry.leftHandAttachment[0]),
+          assert.equal(front[0].points[2][0], frontGeometry.rightLegAttachment[0]),
+          assert.equal(frontHead.name, "head"),
+          assert.greater(frontHeadWidth, leftHeadWidth),
+          assert.equal(front[3].type, "polygon"),
+          assert.equal(front[6].fill, palette.limb),
+          assert.equal(left[5].type, "polygon")
+        ];
+      };
+    },
+    {
       name: "orders hands around the body based on facing direction";
       test: (mod) =>
       {
@@ -240,12 +281,12 @@
         eval
         [
           assert.equal(leftPrimitives[0].from[0], facingLeft.rightHand.from[0]),
-          assert.equal(leftPrimitives[4].name, "body"),
-          assert.equal(leftPrimitives[7].from[0], facingLeft.leftHand.from[0]),
+          assert.equal(leftPrimitives[6].name, "body"),
+          assert.equal(leftPrimitives[9].from[0], facingLeft.leftHand.from[0]),
 
           assert.equal(rightPrimitives[0].from[0], facingRight.leftHand.from[0]),
-          assert.equal(rightPrimitives[4].name, "body"),
-          assert.equal(rightPrimitives[7].from[0], facingRight.rightHand.from[0])
+          assert.equal(rightPrimitives[6].name, "body"),
+          assert.equal(rightPrimitives[9].from[0], facingRight.rightHand.from[0])
         ];
       };
     },

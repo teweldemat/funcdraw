@@ -11,4 +11,10 @@
     <ProjectReference Include="..&#x2F;funcscript&#x2F;FuncScript&#x2F;FuncScript.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Template&#x2F;head.html" LogicalName="FuncDraw.Net.Template.head.html" />
+    <EmbeddedResource Include="Template&#x2F;script.js" LogicalName="FuncDraw.Net.Template.script.js" />
+    <EmbeddedResource Include="Template&#x2F;tail.html" LogicalName="FuncDraw.Net.Template.tail.html" />
+  </ItemGroup>
+
 </Project>

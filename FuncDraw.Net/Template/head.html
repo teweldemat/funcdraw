@@ -1,0 +1,104 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>FuncDraw Play</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: #0f172a;
+      color: #e2e8f0;
+    }
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      padding: 12px 20px;
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #38bdf8;
+    }
+    #fd-toolbar {
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+      align-items: center;
+    }
+    #fd-toolbar button {
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: none;
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #fd-toolbar button:hover {
+      filter: brightness(1.1);
+    }
+    #fd-time-controls {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #fd-time-controls.active {
+      display: flex;
+    }
+    #fd-time-label {
+      font-variant-numeric: tabular-nums;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+    #fd-warning {
+      color: #fbbf24;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+    canvas {
+      background: #020617;
+      border-radius: 12px;
+      box-shadow: 0 20px 30px rgba(2, 6, 23, 0.65);
+      max-width: 100%;
+      max-height: calc(100vh - 140px);
+    }
+  </style>
+</head>
+<body>
+  <header id="fd-header">
+    <h1>FuncDraw Play</h1>
+    <div id="fd-toolbar">
+      <span id="fd-stats">loading…</span>
+      <span id="fd-warning"></span>
+      <div id="fd-time-controls">
+        <button id="fd-play-toggle">Play</button>
+        <button id="fd-reset-timeline">Reset</button>
+        <span id="fd-time-label">t=0.00s</span>
+      </div>
+      <button id="fd-refresh">Refresh</button>
+    </div>
+  </header>
+  <main id="fd-stage">
+    <canvas id="fd-canvas" width="640" height="360"></canvas>
+  </main>
+  <script>

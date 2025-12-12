@@ -19,6 +19,7 @@ internal sealed class FuncDrawOptions
     public Func<string, double, Metrics>? MeasureText { get; init; }
     public TraceOptions? Trace { get; init; }
     public string? ExpressionOverride { get; init; }
+    public object? StateArg { get; init; }
 }
 
 internal sealed class TraceOptions
@@ -108,6 +109,12 @@ internal static class FuncDrawRuntime
             typedRoot = overrideResult ?? new FsError(FsError.ERROR_TYPE_MISMATCH, "Expression override returned null");
         }
 
+        if (typedRoot is IFsFunction func)
+        {
+            var args = new ArrayFsList(new[] { options.StateArg ?? (object?)null });
+            typedRoot = func.Evaluate(args);
+        }
+
         var interpretation = GraphicsInterpreter.Interpret(typedRoot, converter);
         var svg = options.IncludeSvg ? SvgRenderer.Render(interpretation) : null;
         return new SceneResult(
@@ -135,14 +142,6 @@ internal sealed class FuncDrawProvider : KeyValueCollection
         {
             ["fd"] = Engine.NormalizeDataType(fdContext)
         };
-        if (_hooks != null)
-        {
-            foreach (var hookName in _hooks.Keys)
-            {
-                // Force hook materialization so usage is tracked and values are addressable directly.
-                _entries[hookName] = _hooks.GetValue(hookName);
-            }
-        }
     }
 
     public object? Get(string name)
@@ -179,7 +178,7 @@ internal sealed class FuncDrawProvider : KeyValueCollection
             return true;
         }
 
-        if (_hooks != null && _hooks.Contains(key))
+        if (_hooks != null && _hooks.Has(key))
         {
             return true;
         }
@@ -274,7 +273,7 @@ internal sealed class ValueHookSet
         return false;
     }
 
-    public bool Contains(string name)
+    public bool Has(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -283,7 +282,6 @@ internal sealed class ValueHookSet
 
         if (_entries.TryGetValue(name, out var entry))
         {
-            entry.GetValue();
             return true;
         }
 

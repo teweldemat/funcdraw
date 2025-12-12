@@ -15,16 +15,16 @@ if (options.Test)
     Environment.ExitCode = PackageTestCli.Run(root);
     return;
 }
-var service = new SceneService(root, options.ExpressionOverride, options.Time);
 
 var traceRequested = (options.Trace != null && options.Trace.Enabled) || !string.IsNullOrWhiteSpace(options.TraceFile);
 var traceOptions = traceRequested ? options.Trace ?? new TraceOptions { Enabled = true, StepInto = false, Filter = null } : null;
 var traceOutputPath = ResolveTracePath(options.TraceFile, root);
 var traceOnly = traceRequested && !options.Dump;
+var service = new SceneService(root, options.ExpressionOverride, options.Time, null, traceOptions);
 
 if (options.Dump)
 {
-    var payload = service.Evaluate(new EvaluationRequest(options.Time, null, null, options.IncludeSvg, traceOptions, options.ExpressionOverride));
+    var payload = service.Evaluate(options.IncludeSvg);
     WriteTraceToFile(payload.Trace, traceOutputPath, root);
     if (traceRequested)
     {
@@ -42,7 +42,7 @@ if (options.Dump)
 
 if (traceOnly)
 {
-    var payload = service.Evaluate(new EvaluationRequest(options.Time, null, null, false, traceOptions, options.ExpressionOverride));
+    var payload = service.Evaluate(options.IncludeSvg);
     WriteTraceToFile(payload.Trace, traceOutputPath, root);
     PrintTraceEntries(payload.Trace);
     return;

@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using System.Collections;
 using FuncScript;
 using FuncScript.Core;
 using FuncScript.Model;
@@ -6,19 +6,24 @@ using FuncScript.Package;
 
 namespace FuncDraw.Net;
 
-public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression,
+internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpression,
     IEnumerable<(string Name,Func<object> Hook)> hooks, 
     IEnumerable<Action<object>> eventHooks, 
     Func<string,object> measureStringFunction,
     PackageLoader.PackageLoaderTraceDelegate? exitTrace=null,
-    PackageLoader.PackageLoaderEntryTraceDelegate? entryTrace=null)
+    PackageLoader.PackageLoaderEntryTraceDelegate? entryTrace=null,
+    TraceOptions? traceOptions=null)
 {
     private const string MEASURE_STRING_FUNCTION_NAME = "measurestring";
     private IEnumerable<(string Name, Func< object> Hook)> Hooks=>hooks;
     private object MeasureStringFunction => FuncScript.Engine.NormalizeDataType(measureStringFunction);
+    private PackageLoader.PackageLoaderTraceDelegate? ExitTrace => exitTrace;
+    private PackageLoader.PackageLoaderEntryTraceDelegate? EntryTrace => entryTrace;
+    private TraceOptions? TraceOptions => traceOptions;
     class FuncDrawProvider(FuncDrawEvalService service,KeyValueCollection parent) : KeyValueCollection
     {
-        public object Get(string key)
+        private readonly KeyValueCollection _parent = parent;
+        public virtual object Get(string key)
         {
             var lowerKey = key.ToLower();
             if (lowerKey == MEASURE_STRING_FUNCTION_NAME)
@@ -26,10 +31,10 @@ public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression
             var h = service.Hooks.FirstOrDefault(x => x.Name.ToLower().Equals(lowerKey));
             if (h.Hook != null)
                 return Engine.NormalizeDataType(h.Hook());
-            return parent.Get(key);
+            return _parent.Get(key);
         }
 
-        public bool IsDefined(string key, bool hierarchy = true)
+        public virtual bool IsDefined(string key, bool hierarchy = true)
         {
             var lowerKey = key.ToLower();
 
@@ -38,7 +43,7 @@ public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression
             if (service.Hooks.Any(x => x.Name.ToLower().Equals(lowerKey)))
                 return true;
             if (hierarchy)
-                return parent.IsDefined(key);
+                return _parent.IsDefined(key);
             return false;
         }
 
@@ -47,52 +52,125 @@ public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression
             return this.GetAllKeys().Select(k => KeyValuePair.Create(k, this.Get(k))).ToList();
         }
 
-        public IList<string> GetAllKeys()
+        public virtual IList<string> GetAllKeys()
         {
             return new[] { MEASURE_STRING_FUNCTION_NAME }.Concat(service.Hooks.Select(x => x.Name)).ToList();
         }
 
-        public KeyValueCollection ParentProvider => parent;
+        public KeyValueCollection ParentProvider => _parent;
+    }
+
+    class FuncDrawArtProvider(FuncDrawEvalService service,IFsPackageResolver package,FuncDrawProvider provider):KeyValueCollection
+    {
+        private readonly FuncDrawProvider _provider = provider;
+        public object Get(string key)
+        {
+            if (key.ToLower() == "art")
+            {
+                var baseProvider = new FuncDrawProvider(service, new DefaultFsDataProvider());
+                return FuncScript.Package.PackageLoader.LoadPackage(package, baseProvider, service.ExitTrace,
+                    service.EntryTrace);
+            }
+            return _provider.Get(key);
+        }
+
+        public bool IsDefined(string key, bool hierarchy = true)
+        {
+            if (key.ToLower() == "art")
+                return true;
+            if (hierarchy)
+                return _provider.IsDefined(key);
+            return false;
+        }
+
+        public IList<KeyValuePair<string, object>> GetAll()
+        {
+            return this.GetAllKeys().Select(k => KeyValuePair.Create(k, Get(k))).ToList();
+        }
+
+        public IList<string> GetAllKeys()
+        {
+            return new string[] { "art" };
+        }
+
+        public KeyValueCollection ParentProvider => _provider;
     }
 
     private object? _state = null;
     private IFsFunction? _stepFunction = null;
+    internal object? State => _state;
     
-    public object Evaluate()
+    internal void Reset()
     {
-        var value = FuncScript.Package.PackageLoader.LoadPackage(package,
-            new FuncDrawProvider(this, new DefaultFsDataProvider()), exitTrace, entryTrace);
-        if (value is IFsFunction func)
-        {
-            value = func.Evaluate(new ArrayFsList(new[] { _state }));
-        }
-        if (value is KeyValueCollection kvc)
-        {
-            _stepFunction= kvc.Get("step") as IFsFunction;
-        }
-        return InterprateGraphics(value);
+        _state = null;
+        _stepFunction = null;
     }
 
-    public void PushEvent(object e)
+    internal void SetState(object? state)
     {
-        var queue = new Queue<object>();
+        _state = NormalizeFsValue(state);
+    }
+    
+    
+    internal SceneResult Evaluate(bool includeSvg=false)
+    {
+        var converter = new ValueConverter();
+        var traceCollector = TraceCollector.Create(TraceOptions, converter);
+        var baseProvider = new FuncDrawProvider(this, new DefaultFsDataProvider());
+        object typedRoot;
+
+        if (!string.IsNullOrWhiteSpace(artExpression))
+        {
+            
+            typedRoot = Engine.Evaluate(new FuncDrawArtProvider(this,package,baseProvider),artExpression);
+        }
+        else
+        {
+            typedRoot = traceCollector!=null
+                ? PackageLoader.LoadPackage(package,baseProvider,traceCollector.ExitHook,traceCollector.EntryHook)
+                : PackageLoader.LoadPackage(package,baseProvider,exitTrace,entryTrace);
+        }
+
+        if (typedRoot is IFsFunction func)
+        {
+            typedRoot = func.Evaluate(new ArrayFsList(new[] { _state }));
+        }
+        if (typedRoot is KeyValueCollection kvc)
+        {
+            _stepFunction = kvc.Get("step") as IFsFunction;
+        }
+        else
+            _stepFunction=null;
+        return InterprateGraphics(typedRoot, includeSvg, converter, traceCollector);
+    }
+
+    internal SceneResult? PushEvent(object? e,bool includeSvg=false)
+    {
+        var queue = new Queue<object?>();
         queue.Enqueue(e);
+        SceneResult? res=null;
         while (queue.Count>0 && _stepFunction!=null)
         {
             var q = queue.Dequeue();
+            var normalizedEvent = NormalizeFsValue(q);
             foreach (var hook in eventHooks)
             {
-                hook(q);
+                hook(normalizedEvent!);
             }
-            var s=_stepFunction.Evaluate(new ArrayFsList(new[] { e }));
-            object nextState;
-            object events;
+            var s=_stepFunction.Evaluate(new ArrayFsList(new[] { normalizedEvent }));
+            if (s == null)
+            {
+                continue;
+            }
+            object? events = null;
             if (s is KeyValueCollection kvc)
             {
-                nextState = kvc.Get("state");
+                var nextState = kvc.Get("state");
                 events = kvc.Get("events");
                 if (nextState == null)
                 {
+                    if (events != null)
+                        throw new InvalidOperationException("Next state can't be null");
                     _state = s;
                 }
                 else
@@ -102,7 +180,7 @@ public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression
             }
             else
             {
-                nextState = s;
+                _state = s;
                 events = null;
             }
 
@@ -118,12 +196,56 @@ public class FuncDrawEvalService(IFsPackageResolver package,string?artExpression
                     queue.Enqueue(events);
                 }
             }
+            var last = queue.Count == 0;
+            res=Evaluate(includeSvg && last);
         }
+        if (res != null && includeSvg && res.Svg == null)
+        {
+            res = Evaluate(true);
+        }
+        return res;
     }
         
-    object InterprateGraphics(object value)
+    SceneResult InterprateGraphics(object value,bool includeSvg,ValueConverter converter,TraceCollector? traceCollector)
     {
-        throw new NotImplementedException();
+        var interpretation = GraphicsInterpreter.Interpret(value, converter);
+        var svg = includeSvg ? SvgRenderer.Render(interpretation) : null;
+        return new SceneResult(
+            interpretation.Graphics,
+            interpretation.View,
+            interpretation.Warnings,
+            interpretation,
+            null,
+            svg,
+            traceCollector?.Export());
+    }
+
+    private static object? NormalizeFsValue(object? value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        if (value is IDictionary<string, object?> dict)
+        {
+            var entries = dict
+                .Select(pair => KeyValuePair.Create(pair.Key, NormalizeFsValue(pair.Value) ?? (object?)null))
+                .ToArray();
+            return new SimpleKeyValueCollection(null, entries);
+        }
+
+        if (value is IEnumerable enumerable && value is not string)
+        {
+            var list = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                list.Add(NormalizeFsValue(item));
+            }
+            return new ArrayFsList(list.ToArray());
+        }
+
+        return Engine.NormalizeDataType(value);
     }
 
 }

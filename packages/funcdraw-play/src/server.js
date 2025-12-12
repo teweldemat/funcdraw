@@ -18,14 +18,18 @@ async function startServer({ evaluateScene, host = '127.0.0.1', port, openBrowse
     const includeSvg = Boolean(req.query.svg || (req.body && req.body.svg));
     const resetState = Boolean(req.query.resetState || (req.body && req.body.resetState));
     const events = collectEvents(req);
+    const eventCount = Array.isArray(events) ? events.length : 0;
     const time = resolveNumeric(req.query.time ?? req.query.t ?? (req.body && (req.body.time ?? req.body.t)));
     const canvasWidth = resolveNumeric(req.query.canvasWidth ?? (req.body && req.body.canvasWidth));
     const canvasHeight = resolveNumeric(req.query.canvasHeight ?? (req.body && req.body.canvasHeight));
     console.log(
       picocolors.gray(
-        `[funcdraw-play] [${requestId}] ${req.method} /__funcdraw/scene (svg=${includeSvg ? 'yes' : 'no'}, ip=${req.ip || 'n/a'})`
+        `[funcdraw-play] [${requestId}] ${req.method} /__funcdraw/scene (svg=${includeSvg ? 'yes' : 'no'}, resetState=${resetState ? 'yes' : 'no'}, events=${eventCount}, ip=${req.ip || 'n/a'})`
       )
     );
+    if (eventCount > 0) {
+      console.log(picocolors.gray(`[funcdraw-play] [${requestId}] Incoming events payload:`), events);
+    }
     try {
       const scene = await evaluateScene({
         includeSvg,
@@ -34,7 +38,11 @@ async function startServer({ evaluateScene, host = '127.0.0.1', port, openBrowse
         events,
         resetState
       });
-      console.log(picocolors.gray(`[funcdraw-play] [${requestId}] Responding with scene payload`));
+      console.log(
+        picocolors.gray(
+          `[funcdraw-play] [${requestId}] Responding with ${scene === null ? 'null payload (ignored)' : 'scene payload'}`
+        )
+      );
       res.json(scene);
     } catch (error) {
       console.error(

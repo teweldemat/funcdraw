@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
 using FuncDraw.Net;
+using FuncScript.Model;
 using NUnit.Framework;
 
 namespace FuncDraw.Net.Tests;
@@ -35,7 +37,7 @@ eval
                 ["clock"] = () => "12:34:56"
             };
 
-            var service = new SceneService(tempRoot, expressionOverride: "art.scene", valueHooks: hooks);
+            var service = CreateService(tempRoot, "art.scene", hooks);
 
             service.Reset();
             var response = service.Evaluate(false);
@@ -51,6 +53,36 @@ eval
                 Directory.Delete(tempRoot, recursive: true);
             }
         }
+    }
+
+    private static FuncDrawEvalService CreateService(string root, string expression, System.Collections.Generic.IDictionary<string, Func<object?>> hooks)
+    {
+        var resolver = new ArtResolver(root);
+        var hookList = hooks.Select(pair => (pair.Key, new Func<object>(() => pair.Value!()!)));
+        return new FuncDrawEvalService(
+            resolver,
+            expression,
+            hookList,
+            Array.Empty<Action<object>>(),
+            DefaultMeasureString);
+    }
+
+    private static object DefaultMeasureString(string text)
+    {
+        var size = 12d;
+        var length = text?.Length ?? 0;
+        var width = length * size * 0.6;
+        var lineHeight = size * 1.2;
+        var ascent = size;
+        var descent = lineHeight - ascent;
+        var metrics = new Metrics(
+            width,
+            lineHeight,
+            ascent,
+            descent,
+            ascent,
+            size * 0.6);
+        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
     }
 
     private static string CreateTempArtProject(string fileName, string content)

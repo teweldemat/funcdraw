@@ -7,7 +7,6 @@ using System.Text.Json;
 using FuncScript.Package;
 using FuncScript.Model;
 using global::FuncScript;
-using System.Text.Json;
 
 namespace FuncDraw.Net;
 

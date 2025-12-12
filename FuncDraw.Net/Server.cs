@@ -11,9 +11,6 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using FuncScript.Model;
-using FuncScript.Package;
-using FuncScript.Error;
-using FuncScript.Core;
 
 namespace FuncDraw.Net;
 
@@ -25,295 +22,92 @@ internal sealed record SceneRequest(
     double? CanvasHeight,
     IReadOnlyList<object?>? Events);
 
-internal sealed class SceneService
+internal sealed class HookTracker
 {
-    private readonly string _projectRoot;
-    private ArtResolver _resolver;
-    private readonly string? _expressionOverride;
-    private double _timeline;
-    private double _canvasWidth;
-    private double _canvasHeight;
-    private object? _state;
-    private readonly object _stateLock = new();
-    private readonly IDictionary<string, Func<object?>> _valueHooks;
-    private readonly TraceOptions? _traceOptions;
+    private readonly Dictionary<string, HookEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
 
-    public SceneService(
-        string projectRoot,
-        string? expressionOverride = null,
-        double? initialTime = null,
-        IDictionary<string, Func<object?>>? valueHooks = null,
-        TraceOptions? trace = null)
+    public (string Name, Func<object> Hook) Register(string name, Func<object> factory)
     {
-        _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
-        _resolver = new ArtResolver(_projectRoot);
-        _expressionOverride = NormalizeExpressionOverride(expressionOverride);
-        _timeline = initialTime ?? 0;
-        _canvasWidth = 40;
-        _canvasHeight = 30;
-        _valueHooks = InitializeValueHooks(valueHooks);
-        _traceOptions = trace;
+        var entry = new HookEntry(factory);
+        _entries[name] = entry;
+        return (name, entry.Invoke);
     }
 
-    public string WatchPath => _resolver.WatchPath;
-
-    public ScenePayload Evaluate(
-        bool includeSvg = false,
-        double? time = null,
-        double? canvasWidth = null,
-        double? canvasHeight = null)
+    public void ResetUsage()
     {
-        lock (_stateLock)
+        foreach (var entry in _entries.Values)
         {
-            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
-            var result = EvaluateOnce(includeSvg);
-            var plainState = _state == null ? null : new ValueConverter().ToPlain(_state);
-            return new ScenePayload(result, _timeline, includeSvg, plainState);
+            entry.Reset();
         }
     }
 
-    public ScenePayload PushEvent(
-        IReadOnlyList<object?>? events,
-        bool includeSvg = false,
-        double? time = null,
-        double? canvasWidth = null,
-        double? canvasHeight = null)
+    public Dictionary<string, HookUsage> Summarize()
     {
-        lock (_stateLock)
-        {
-            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
-            var queue = new Queue<object?>(events ?? Array.Empty<object?>());
-            if (queue.Count == 0)
-            {
-                return Evaluate(includeSvg);
-            }
-
-            var includeSvgThisEval = includeSvg && queue.Count == 0;
-            var result = EvaluateOnce(includeSvgThisEval);
-            while (queue.Count > 0)
-            {
-                var step = result.Raw.StepFunction;
-                if (step == null)
-                {
-                    throw new InvalidOperationException("Stepper events were provided but the model did not return a step function.");
-                }
-
-                var stepResult = RunStep(step, queue.Dequeue());
-                _state = stepResult.State;
-                foreach (var evt in stepResult.Events)
-                {
-                    queue.Enqueue(evt);
-                }
-
-                includeSvgThisEval = includeSvg && queue.Count == 0;
-                result = EvaluateOnce(includeSvgThisEval);
-            }
-
-            var plainState = _state == null ? null : new ValueConverter().ToPlain(_state);
-            return new ScenePayload(result, _timeline, includeSvg, plainState);
-        }
+        return _entries.ToDictionary(
+            pair => pair.Key,
+            pair => new HookUsage { Used = pair.Value.Used },
+            StringComparer.OrdinalIgnoreCase);
     }
 
-    public void Reset()
+    private sealed class HookEntry
     {
-        lock (_stateLock)
+        private readonly Func<object> _factory;
+        public bool Used { get; private set; }
+
+        public HookEntry(Func<object> factory)
         {
-            _state = null;
-            _timeline = 0;
+            _factory = factory;
+        }
+
+        public object Invoke()
+        {
+            Used = true;
+            return _factory();
+        }
+
+        public void Reset()
+        {
+            Used = false;
         }
     }
-
-    private SceneResult EvaluateOnce(bool includeSvg)
-    {
-        return FuncDrawRuntime.LoadGraphics(
-            _resolver,
-            new FuncDrawOptions
-            {
-                IncludeSvg = includeSvg,
-                ValueHooks = _valueHooks,
-                Trace = _traceOptions,
-                ExpressionOverride = _expressionOverride,
-                StateArg = _state
-            });
-    }
-
-    public void Reload()
-    {
-        _resolver = new ArtResolver(_projectRoot);
-        _timeline = 0;
-        _state = null;
-    }
-
-    private IDictionary<string, Func<object?>> InitializeValueHooks(IDictionary<string, Func<object?>>? customHooks)
-    {
-        var hooks = customHooks != null
-            ? new Dictionary<string, Func<object?>>(customHooks, StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, Func<object?>>(StringComparer.OrdinalIgnoreCase);
-
-        hooks["t"] = () => _timeline;
-        hooks["canvas"] = CreateCanvasHook;
-        return hooks;
-    }
-
-    private void ApplyRequestOverrides(double? time, double? canvasWidth, double? canvasHeight)
-    {
-        if (time.HasValue)
-        {
-            _timeline = time.Value;
-        }
-
-        if (canvasWidth.HasValue)
-        {
-            _canvasWidth = canvasWidth.Value;
-        }
-
-        if (canvasHeight.HasValue)
-        {
-            _canvasHeight = canvasHeight.Value;
-        }
-    }
-
-    private object CreateCanvasHook()
-    {
-        var size = new SimpleKeyValueCollection(null, new[]
-        {
-            KeyValuePair.Create("width", (object)_canvasWidth),
-            KeyValuePair.Create("height", (object)_canvasHeight)
-        });
-        return new SimpleKeyValueCollection(null, new[]
-        {
-            KeyValuePair.Create("size", (object)size)
-        });
-    }
-
-    private static string? NormalizeExpressionOverride(string? expression)
-    {
-        if (string.IsNullOrWhiteSpace(expression))
-        {
-            return null;
-        }
-
-        var trimmed = expression.Trim();
-        return trimmed.Length > 0 ? trimmed : null;
-    }
-
-    private static StepResult RunStep(IFsFunction stepFunction, object? evt)
-    {
-        var args = new ArrayFsList(new[] { evt ?? (object?)null });
-        var raw = stepFunction.Evaluate(args);
-        if (raw is FsError error)
-        {
-            throw new InvalidOperationException($"Stepper function failed: {error.ErrorMessage}");
-        }
-
-        return NormalizeStepResult(raw);
-    }
-
-    private static StepResult NormalizeStepResult(object raw)
-    {
-        if (raw is FsList list && list.Length >= 2)
-        {
-            return new StepResult(list[0], NormalizeEventList(list[1]));
-        }
-
-        if (raw is KeyValueCollection kvc)
-        {
-            var state = kvc.Get("nextState") ?? kvc.Get("state");
-            var events = kvc.Get("events") ?? kvc.Get("outEvents");
-            return new StepResult(state, NormalizeEventList(events));
-        }
-
-        if (raw is IEnumerable enumerable && raw is not string)
-        {
-            var flattened = new List<object?>();
-            foreach (var item in enumerable)
-            {
-                flattened.Add(item);
-            }
-
-            if (flattened.Count >= 2)
-            {
-                return new StepResult(flattened[0], NormalizeEventList(flattened[1]));
-            }
-        }
-
-        throw new InvalidOperationException("Stepper functions must return [nextState, events] or { state, events }.");
-    }
-
-    private static List<object?> NormalizeEventList(object? value)
-    {
-        if (value == null)
-        {
-            return new List<object?>();
-        }
-
-        if (value is FsList list)
-        {
-            var events = new List<object?>();
-            foreach (var item in list)
-            {
-                events.Add(item);
-            }
-            return events;
-        }
-
-        if (value is IEnumerable enumerable && value is not string)
-        {
-            var events = new List<object?>();
-            foreach (var item in enumerable)
-            {
-                events.Add(item);
-            }
-            return events;
-        }
-
-        return new List<object?> { value };
-    }
-
-    private sealed record StepResult(object? State, List<object?> Events);
-}
-
-internal sealed class ScenePayload
-{
-    public ScenePayload(SceneResult result, double timeline, bool includeSvg, object? state)
-    {
-        Graphics = result.Graphics;
-        View = result.View;
-        Warnings = result.Warnings;
-        Raw = result.Raw;
-        ValueHooks = result.ValueHooks;
-        Svg = includeSvg ? result.Svg : null;
-        Timeline = new Dictionary<string, object> { ["t"] = timeline };
-        Trace = result.Trace;
-        State = state;
-    }
-
-    public List<object> Graphics { get; }
-    public object? View { get; }
-    public List<string> Warnings { get; }
-    public SceneInterpretation Raw { get; }
-    public Dictionary<string, HookUsage>? ValueHooks { get; }
-    public string? Svg { get; }
-    public Dictionary<string, object> Timeline { get; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<TraceEntry>? Trace { get; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? State { get; }
 }
 
 internal sealed class FuncDrawServer : IDisposable
 {
     private readonly HttpListener _listener;
-    private readonly SceneService _service;
     private readonly string _html;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly List<HttpListenerResponse> _eventSinks = new();
     private readonly object _sync = new();
     private readonly CancellationTokenSource _cts = new();
+    private readonly object _stateLock = new();
+    private readonly string _projectRoot;
+    private readonly string? _expressionOverride;
+    private readonly TraceOptions? _traceOptions;
+    private readonly IDictionary<string, Func<object?>> _customHooks;
+    private readonly HookTracker _hookTracker = new();
+    private readonly List<Action<object>> _eventHooks = new();
+    private readonly ValueConverter _converter = new();
+    private readonly Func<string, object> _measureString;
+    private ArtResolver _resolver;
+    private FuncDrawEvalService _service;
+    private double _timeline;
+    private double _canvasWidth;
+    private double _canvasHeight;
 
-    private FuncDrawServer(SceneService service, string host, int port, string html)
+    private FuncDrawServer(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
     {
-        _service = service ?? throw new ArgumentNullException(nameof(service));
+        _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
+        _expressionOverride = NormalizeExpressionOverride(expressionOverride);
+        _traceOptions = traceOptions;
+        _customHooks = new Dictionary<string, Func<object?>>(StringComparer.OrdinalIgnoreCase);
+        _timeline = initialTime ?? 0;
+        _canvasWidth = 40;
+        _canvasHeight = 30;
+        _measureString = DefaultMeasureString;
+        _resolver = new ArtResolver(_projectRoot);
+        _service = CreateService();
+
         _html = html ?? throw new ArgumentNullException(nameof(html));
         _listener = new HttpListener();
         var prefixHost = host == "0.0.0.0" ? "*" : host;
@@ -325,9 +119,11 @@ internal sealed class FuncDrawServer : IDisposable
         };
     }
 
-    public static async Task<FuncDrawServer> StartAsync(SceneService service, string host, int port, string html)
+    public string WatchPath => _resolver.WatchPath;
+
+    public static async Task<FuncDrawServer> StartAsync(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
     {
-        var server = new FuncDrawServer(service, host, port, html);
+        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions);
         server.Start();
         await Task.CompletedTask;
         return server;
@@ -390,6 +186,25 @@ internal sealed class FuncDrawServer : IDisposable
             }
 
             _eventSinks.Clear();
+        }
+    }
+
+    public void Reload()
+    {
+        lock (_stateLock)
+        {
+            _resolver = new ArtResolver(_projectRoot);
+            _service = CreateService();
+            _timeline = 0;
+        }
+    }
+
+    public void Reset()
+    {
+        lock (_stateLock)
+        {
+            _service.Reset();
+            _timeline = 0;
         }
     }
 
@@ -474,17 +289,177 @@ internal sealed class FuncDrawServer : IDisposable
 
     private async Task HandleSceneAsync(HttpListenerContext context)
     {
+        var requestId = $"http-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds():x}";
         var request = await ParseSceneRequestAsync(context.Request);
+        var ip = context.Request.RemoteEndPoint?.Address?.ToString() ?? "n/a";
+        var eventCount = request.Events?.Count ?? 0;
+        var start = DateTimeOffset.UtcNow;
+        Console.WriteLine(
+            $"[funcdraw.net] [{requestId}] {context.Request.HttpMethod} /__funcdraw/scene (svg={(request.IncludeSvg ? "yes" : "no")}, resetState={(request.ResetState ? "yes" : "no")}, events={eventCount}, ip={ip})"
+        );
+        if (eventCount > 0)
+        {
+            Console.WriteLine($"[funcdraw.net] [{requestId}] Incoming events payload: {JsonSerializer.Serialize(request.Events)}");
+        }
         if (request.ResetState)
         {
-            _service.Reset();
+            Reset();
         }
 
-        var payload = request.Events != null && request.Events.Count > 0
-            ? _service.PushEvent(request.Events, request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight)
-            : _service.Evaluate(request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight);
+        ScenePayload? payload;
+        if (request.Events != null && request.Events.Count > 0)
+        {
+            payload = PushEvents(request.Events, request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight);
+        }
+        else
+        {
+            payload = Evaluate(request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight);
+        }
+
+        var elapsed = (DateTimeOffset.UtcNow - start).TotalMilliseconds;
+        var warningCount = payload == null ? 0 : payload.Warnings.Count;
+        Console.WriteLine(
+            $"[funcdraw.net] [{requestId}] Responding (ms={elapsed:0.0}, warnings={warningCount})"
+        );
         await WriteJsonAsync(context.Response, payload);
         SafeClose(context.Response);
+    }
+
+    public ScenePayload Evaluate(bool includeSvg, double? time, double? canvasWidth, double? canvasHeight)
+    {
+        lock (_stateLock)
+        {
+            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
+            _hookTracker.ResetUsage();
+            var result = _service.Evaluate(includeSvg);
+            var plainState = _service.State == null ? null : _converter.ToPlain(_service.State);
+            return new ScenePayload(result, _timeline, includeSvg, plainState, _hookTracker.Summarize());
+        }
+    }
+
+    public void SetState(object? state)
+    {
+        lock (_stateLock)
+        {
+            _service.SetState(state);
+        }
+    }
+
+    public ScenePayload? PushEvents(IReadOnlyList<object?> events, bool includeSvg, double? time, double? canvasWidth, double? canvasHeight)
+    {
+        lock (_stateLock)
+        {
+            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
+            _hookTracker.ResetUsage();
+            // Prime the model to ensure a step function is available before processing events.
+            _service.Evaluate(includeSvg && events.Count == 0);
+            SceneResult? result = null;
+            for (var i = 0; i < events.Count; i++)
+            {
+                var last = i == events.Count - 1;
+                var pushed = _service.PushEvent(events[i], includeSvg && last);
+                if (pushed != null)
+                {
+                    result = pushed;
+                }
+            }
+
+            if (result == null)
+            {
+                return null;
+            }
+            var plainState = _service.State == null ? null : _converter.ToPlain(_service.State);
+            return new ScenePayload(result, _timeline, includeSvg, plainState, _hookTracker.Summarize());
+        }
+    }
+
+    private void ApplyRequestOverrides(double? time, double? canvasWidth, double? canvasHeight)
+    {
+        if (time.HasValue)
+        {
+            _timeline = time.Value;
+        }
+
+        if (canvasWidth.HasValue)
+        {
+            _canvasWidth = canvasWidth.Value;
+        }
+
+        if (canvasHeight.HasValue)
+        {
+            _canvasHeight = canvasHeight.Value;
+        }
+    }
+
+    private FuncDrawEvalService CreateService()
+    {
+        var hooks = BuildHooks();
+        return new FuncDrawEvalService(
+            _resolver,
+            _expressionOverride,
+            hooks,
+            _eventHooks,
+            _measureString,
+            traceOptions: _traceOptions);
+    }
+
+    private IEnumerable<(string Name, Func<object> Hook)> BuildHooks()
+    {
+        var hooks = new List<(string, Func<object>)>
+        {
+            _hookTracker.Register("t", () => _timeline),
+            _hookTracker.Register("canvas", CreateCanvasHook)
+        };
+
+        foreach (var pair in _customHooks)
+        {
+            var normalizedName = pair.Key.Trim();
+            hooks.Add(_hookTracker.Register(normalizedName, () => pair.Value!()!));
+        }
+
+        return hooks;
+    }
+
+    private object CreateCanvasHook()
+    {
+        var size = new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("width", (object)_canvasWidth),
+            KeyValuePair.Create("height", (object)_canvasHeight)
+        });
+        return new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("size", (object)size)
+        });
+    }
+
+    private object DefaultMeasureString(string text)
+    {
+        var size = 12d;
+        var length = text?.Length ?? 0;
+        var width = length * size * 0.6;
+        var lineHeight = size * 1.2;
+        var ascent = size;
+        var descent = lineHeight - ascent;
+        var metrics = new Metrics(
+            width,
+            lineHeight,
+            ascent,
+            descent,
+            ascent,
+            size * 0.6);
+        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
+    }
+
+    private static string? NormalizeExpressionOverride(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        var trimmed = expression.Trim();
+        return trimmed.Length > 0 ? trimmed : null;
     }
 
     private async Task<SceneRequest> ParseSceneRequestAsync(HttpListenerRequest request)
@@ -525,75 +500,96 @@ internal sealed class FuncDrawServer : IDisposable
             {
                 canvasHeight = ParseDouble(heightProp);
             }
-            if (root.TryGetProperty("resetState", out var resetProp))
+            if (root.TryGetProperty("resetState", out var resetProp) && resetProp.ValueKind == JsonValueKind.True)
             {
-                resetState = resetProp.ValueKind == JsonValueKind.True;
+                resetState = true;
             }
-            if (root.TryGetProperty("svg", out var svgProp))
+            if (root.TryGetProperty("svg", out var svgProp) && svgProp.ValueKind == JsonValueKind.True)
             {
-                includeSvg = svgProp.ValueKind == JsonValueKind.True;
+                includeSvg = true;
             }
         }
 
         return new SceneRequest(includeSvg, resetState, time, canvasWidth, canvasHeight, events);
     }
 
-    private static IReadOnlyList<object?>? ParseEventsFromQuery(System.Collections.Specialized.NameValueCollection query)
+    private static List<object?>? ParseEventsFromQuery(System.Collections.Specialized.NameValueCollection query)
     {
-        var events = new List<object?>();
-        var singleEvents = query.GetValues("event");
-        if (singleEvents != null)
-        {
-            foreach (var evt in singleEvents)
-            {
-                events.Add(evt);
-            }
-        }
-
-        var eventsJson = query["events"];
-        if (!string.IsNullOrWhiteSpace(eventsJson))
-        {
-            var parsed = JsonSerializer.Deserialize<object?>(eventsJson);
-            AppendEvents(events, parsed);
-        }
-
-        return events.Count == 0 ? null : events;
-    }
-
-    private static IReadOnlyList<object?>? ParseEventsElement(JsonElement element)
-    {
-        object? parsed;
-        try
-        {
-            parsed = JsonSerializer.Deserialize<object?>(element.GetRawText());
-        }
-        catch
+        var raw = query.GetValues("event");
+        if (raw == null || raw.Length == 0)
         {
             return null;
         }
 
         var events = new List<object?>();
-        AppendEvents(events, parsed);
+        foreach (var entry in raw)
+        {
+            events.Add(entry);
+        }
+
         return events.Count == 0 ? null : events;
     }
 
-    private static void AppendEvents(List<object?> target, object? payload)
+    private static List<object?>? ParseEventsElement(JsonElement element)
     {
-        if (payload == null)
+        var parsed = ToPlain(element);
+        if (parsed == null)
         {
-            return;
+            return null;
         }
-
-        if (payload is IEnumerable enumerable && payload is not string)
+        if (parsed is List<object?> list)
         {
-            foreach (var item in enumerable)
+            return list.Count == 0 ? null : list;
+        }
+        return new List<object?> { parsed };
+    }
+
+    private static object? ToPlain(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+                return element.GetString();
+            case JsonValueKind.True:
+                return true;
+            case JsonValueKind.False:
+                return false;
+            case JsonValueKind.Number:
             {
-                target.Add(item);
+                if (element.TryGetInt64(out var longVal))
+                {
+                    return longVal;
+                }
+                if (element.TryGetDouble(out var doubleVal))
+                {
+                    return doubleVal;
+                }
+                return null;
             }
-            return;
+            case JsonValueKind.Array:
+            {
+                var list = new List<object?>();
+                foreach (var item in element.EnumerateArray())
+                {
+                    list.Add(ToPlain(item));
+                }
+                return list;
+            }
+            case JsonValueKind.Object:
+            {
+                var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var prop in element.EnumerateObject())
+                {
+                    map[prop.Name] = ToPlain(prop.Value);
+                }
+                return map;
+            }
+            case JsonValueKind.Null:
+            case JsonValueKind.Undefined:
+                return null;
+            default:
+                return null;
         }
-
-        target.Add(payload);
     }
 
     private void HandleEvents(HttpListenerContext context)
@@ -641,28 +637,32 @@ internal sealed class FuncDrawServer : IDisposable
         return null;
     }
 
-    private async Task WriteJsonAsync(HttpListenerResponse response, object payload)
+    private async Task WriteJsonAsync(HttpListenerResponse response, object? payload)
     {
         response.StatusCode = 200;
         response.ContentType = "application/json; charset=utf-8";
-        using var buffer = new MemoryStream();
-        await JsonSerializer.SerializeAsync(buffer, payload, _jsonOptions, _cts.Token);
-        var bytes = buffer.ToArray();
-        response.ContentLength64 = bytes.Length;
-        await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, _cts.Token);
+        var json = JsonSerializer.Serialize(payload, _jsonOptions);
+        var buffer = Encoding.UTF8.GetBytes(json);
+        response.ContentLength64 = buffer.Length;
+        await response.OutputStream.WriteAsync(buffer, 0, buffer.Length, _cts.Token);
     }
 
-    private static void WriteEvent(HttpListenerResponse response, string? eventName, string? data)
+    private void WriteEvent(HttpListenerResponse response, string? eventName, string? data)
     {
-        var builder = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(eventName))
+        var sb = new StringBuilder();
+        if (!string.IsNullOrEmpty(eventName))
         {
-            builder.Append("event: ").Append(eventName).Append('\n');
+            sb.Append("event: ").Append(eventName).Append("\n");
         }
 
-        builder.Append("data: ").Append(data ?? "{}").Append("\n\n");
-        var bytes = Encoding.UTF8.GetBytes(builder.ToString());
-        response.OutputStream.Write(bytes, 0, bytes.Length);
+        if (!string.IsNullOrEmpty(data))
+        {
+            sb.Append("data: ").Append(data.Replace("\n", "\\n")).Append("\n");
+        }
+
+        sb.Append("\n");
+        var payload = Encoding.UTF8.GetBytes(sb.ToString());
+        response.OutputStream.Write(payload, 0, payload.Length);
         response.OutputStream.Flush();
     }
 
@@ -670,12 +670,40 @@ internal sealed class FuncDrawServer : IDisposable
     {
         try
         {
-            response.OutputStream.Close();
+            response.OutputStream.Dispose();
             response.Close();
         }
         catch
         {
-            // ignore cleanup errors
+            // ignore close errors
         }
     }
+}
+
+internal sealed class ScenePayload
+{
+    public ScenePayload(SceneResult result, double timeline, bool includeSvg, object? state, Dictionary<string, HookUsage>? valueHooks = null)
+    {
+        Graphics = result.Graphics;
+        View = result.View;
+        Warnings = result.Warnings;
+        Raw = result.Raw;
+        ValueHooks = valueHooks ?? result.ValueHooks;
+        Svg = includeSvg ? result.Svg : null;
+        Timeline = new Dictionary<string, object> { ["t"] = timeline };
+        Trace = result.Trace;
+        State = state;
+    }
+
+    public List<object> Graphics { get; }
+    public object? View { get; }
+    public List<string> Warnings { get; }
+    public SceneInterpretation Raw { get; }
+    public Dictionary<string, HookUsage>? ValueHooks { get; }
+    public string? Svg { get; }
+    public Dictionary<string, object> Timeline { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<TraceEntry>? Trace { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? State { get; }
 }

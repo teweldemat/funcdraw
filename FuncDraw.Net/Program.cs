@@ -20,15 +20,23 @@ var traceRequested = (options.Trace != null && options.Trace.Enabled) || !string
 var traceOptions = traceRequested ? options.Trace ?? new TraceOptions { Enabled = true, StepInto = false, Filter = null } : null;
 var traceOutputPath = ResolveTracePath(options.TraceFile, root);
 var traceOnly = traceRequested && !options.Dump;
-var service = new SceneService(root, options.ExpressionOverride, options.Time, null, traceOptions);
+var initialState = ParseJsonArgument(options.StateJson);
+var eventPayload = ParseJsonArgument(options.EventJson);
 
 if (options.Dump)
 {
-    var payload = service.Evaluate(options.IncludeSvg);
-    WriteTraceToFile(payload.Trace, traceOutputPath, root);
+    using var dumpServer = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    if (initialState != null)
+    {
+        dumpServer.SetState(initialState);
+    }
+    ScenePayload? payload = eventPayload != null
+        ? dumpServer.PushEvents(new object?[] { eventPayload }, options.IncludeSvg, options.Time, null, null)
+        : dumpServer.Evaluate(options.IncludeSvg, options.Time, null, null);
+    WriteTraceToFile(payload?.Trace, traceOutputPath, root);
     if (traceRequested)
     {
-        PrintTraceEntries(payload.Trace);
+        PrintTraceEntries(payload?.Trace);
     }
     var jsonOptions = new JsonSerializerOptions
     {
@@ -42,14 +50,21 @@ if (options.Dump)
 
 if (traceOnly)
 {
-    var payload = service.Evaluate(options.IncludeSvg);
-    WriteTraceToFile(payload.Trace, traceOutputPath, root);
-    PrintTraceEntries(payload.Trace);
+    using var traceServer = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    if (initialState != null)
+    {
+        traceServer.SetState(initialState);
+    }
+    ScenePayload? payload = eventPayload != null
+        ? traceServer.PushEvents(new object?[] { eventPayload }, options.IncludeSvg, options.Time, null, null)
+        : traceServer.Evaluate(options.IncludeSvg, options.Time, null, null);
+    WriteTraceToFile(payload?.Trace, traceOutputPath, root);
+    PrintTraceEntries(payload?.Trace);
     return;
 }
 
-using var server = await FuncDrawServer.StartAsync(service, options.Host, options.Port, HtmlTemplate.Content);
-using var watcher = WatchArt(service, server);
+using var server = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+using var watcher = WatchArt(server);
 
 Console.WriteLine($"FuncDraw.Net ready at http://{(options.Host == "0.0.0.0" ? "localhost" : options.Host)}:{options.Port}");
 Console.CancelKeyPress += (_, __) =>
@@ -61,16 +76,16 @@ Console.CancelKeyPress += (_, __) =>
 
 await Task.Delay(Timeout.Infinite);
 
-static IDisposable WatchArt(SceneService service, FuncDrawServer server)
+static IDisposable WatchArt(FuncDrawServer server)
 {
-    var watcher = new FileSystemWatcher(service.WatchPath)
+    var watcher = new FileSystemWatcher(server.WatchPath)
     {
         IncludeSubdirectories = true,
         EnableRaisingEvents = true
     };
     var timer = new System.Threading.Timer(_ =>
     {
-        service.Reload();
+        server.Reload();
         server.BroadcastReload();
     });
 
@@ -253,6 +268,63 @@ static string FormatTraceResult(TraceEntry entry)
     };
 }
 
+static object? ParseJsonArgument(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw))
+    {
+        return null;
+    }
+
+    using var doc = JsonDocument.Parse(raw);
+    return ToPlain(doc.RootElement);
+}
+
+static object? ToPlain(JsonElement element)
+{
+    switch (element.ValueKind)
+    {
+        case JsonValueKind.Null:
+        case JsonValueKind.Undefined:
+            return null;
+        case JsonValueKind.False:
+            return false;
+        case JsonValueKind.True:
+            return true;
+        case JsonValueKind.Number:
+            if (element.TryGetInt64(out var longVal))
+            {
+                return longVal;
+            }
+            if (element.TryGetDouble(out var doubleVal))
+            {
+                return doubleVal;
+            }
+            return null;
+        case JsonValueKind.String:
+            return element.GetString();
+        case JsonValueKind.Array:
+        {
+            var list = new List<object?>();
+            foreach (var item in element.EnumerateArray())
+            {
+                list.Add(ToPlain(item));
+            }
+            return list;
+        }
+        case JsonValueKind.Object:
+        {
+            var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in element.EnumerateObject())
+            {
+                map[prop.Name] = ToPlain(prop.Value);
+            }
+            return map;
+        }
+        default:
+            return null;
+    }
+}
+
 internal sealed record CliOptions(
     string Host,
     int Port,
@@ -263,7 +335,9 @@ internal sealed record CliOptions(
     TraceOptions? Trace,
     string? TraceFile,
     string? ExpressionOverride,
-    double? Time);
+    double? Time,
+    string? StateJson,
+    string? EventJson);
 
 internal static class CliParser
 {
@@ -279,6 +353,8 @@ internal static class CliParser
         string? traceFile = null;
         string? expressionOverride = null;
         double? time = null;
+        string? stateJson = null;
+        string? eventJson = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -320,6 +396,12 @@ internal static class CliParser
                 case "--time":
                     time = ParseDouble(RequireNext(args, ref i, current));
                     break;
+                case "--state":
+                    stateJson = RequireNext(args, ref i, "--state");
+                    break;
+                case "--event":
+                    eventJson = RequireNext(args, ref i, "--event");
+                    break;
                 case "--help":
                 case "-h":
                     PrintHelp();
@@ -330,7 +412,7 @@ internal static class CliParser
             }
         }
 
-        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride, time);
+        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride, time, stateJson, eventJson);
     }
 
     private static string RequireNext(string[] args, ref int index, string option)

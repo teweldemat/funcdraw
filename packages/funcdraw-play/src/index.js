@@ -110,6 +110,7 @@ async function startPlayer(cwd, argvInput) {
     height: 30
   };
   let modelState = null;
+  let retainedStepFn = null;
   setTimelineValue(argv.t);
   if (Array.isArray(argv.canvas) && argv.canvas.length > 0) {
     setCanvasSize({
@@ -144,6 +145,7 @@ async function startPlayer(cwd, argvInput) {
   const evaluateScene = async ({ includeSvg, requestId, query, events, resetState } = {}) => {
     if (resetState) {
       modelState = null;
+      retainedStepFn = null;
     }
     if (query && Object.prototype.hasOwnProperty.call(query, 'time')) {
       setTimelineValue(query.time);
@@ -160,6 +162,7 @@ async function startPlayer(cwd, argvInput) {
     const start = Date.now();
     const queue = Array.isArray(events) ? [...events] : [];
     const dumpLogger = dumpLoggingEnabled ? createDumpLogger(evalId) : null;
+    const pipelineLogging = debugEnabled || resetState || queue.length > 0;
     console.log(
       picocolors.gray(
         `[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel}${
@@ -167,6 +170,14 @@ async function startPlayer(cwd, argvInput) {
         })`
       )
     );
+    if (pipelineLogging) {
+      console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Timeline state:`), timelineState.value);
+      console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Canvas state:`), canvasState);
+      console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Model state arg:`), modelState);
+      if (queue.length > 0) {
+        console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Event queue:`), queue);
+      }
+    }
 
     const evaluateOnce = async (includeSvgFlag) => {
       const outputsForRun = includeSvg && includeSvgFlag ? outputs : ['raw'];
@@ -192,22 +203,77 @@ async function startPlayer(cwd, argvInput) {
     };
 
     try {
-      let result = await evaluateOnce(includeSvg && queue.length === 0);
-      let stepFn = typeof result.step === 'function' ? result.step : null;
+      let result = null;
 
-      while (queue.length > 0) {
-        if (!stepFn) {
-          throw new Error('Stepper events were provided but the model did not return a step function.');
+      if (queue.length === 0) {
+        result = await evaluateOnce(includeSvg);
+        retainedStepFn = typeof result.step === 'function' ? result.step : null;
+        if (pipelineLogging || retainedStepFn) {
+          console.log(
+            picocolors.gray(
+              `[funcdraw-play] [${evalId}] Root evaluation returned step=${retainedStepFn ? 'yes' : 'no'}`
+            )
+          );
         }
-        const nextEvent = queue.shift();
-        const outcome = normalizeStepResult(stepFn(nextEvent));
-        modelState = outcome.state;
-        for (const evt of outcome.events) {
-          queue.push(evt);
+      } else {
+        const prime = await evaluateOnce(false);
+        retainedStepFn = typeof prime.step === 'function' ? prime.step : null;
+        if (pipelineLogging || retainedStepFn) {
+          console.log(
+            picocolors.gray(
+              `[funcdraw-play] [${evalId}] Root evaluation returned step=${retainedStepFn ? 'yes' : 'no'}`
+            )
+          );
         }
-        const includeSvgThisEval = includeSvg && queue.length === 0;
-        result = await evaluateOnce(includeSvgThisEval);
-        stepFn = typeof result.step === 'function' ? result.step : null;
+
+	        while (queue.length > 0) {
+	          if (!retainedStepFn) {
+	            if (result == null) {
+	              console.log(picocolors.gray(`[funcdraw-play] [${evalId}] No stepper available; events ignored.`));
+	              return null;
+	            }
+	            console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Stepper cleared; remaining events ignored.`));
+	            queue.length = 0;
+	            break;
+	          }
+	          const nextEvent = queue.shift();
+	          console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Step event:`), nextEvent);
+	          const rawStepResult = retainedStepFn(nextEvent);
+          console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Step result (raw):`), rawStepResult);
+          if (rawStepResult === null) {
+            console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Step result ignored (null)`));
+            continue;
+          }
+          const outcome = normalizeStepResult(rawStepResult);
+          console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Step result (normalized):`), outcome);
+          modelState = outcome.state;
+          for (const evt of outcome.events) {
+            queue.push(evt);
+          }
+          console.log(
+            picocolors.gray(
+              `[funcdraw-play] [${evalId}] Step applied (next queued events: ${queue.length})`
+            )
+          );
+          const includeSvgThisEval = includeSvg && queue.length === 0;
+          result = await evaluateOnce(includeSvgThisEval);
+          retainedStepFn = typeof result.step === 'function' ? result.step : null;
+          console.log(
+            picocolors.gray(
+              `[funcdraw-play] [${evalId}] Post-step evaluation returned step=${retainedStepFn ? 'yes' : 'no'}`
+            )
+          );
+        }
+
+        if (result == null) {
+          console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Events ignored; state unchanged.`));
+          return null;
+        }
+
+        if (includeSvg && !result.svg) {
+          result = await evaluateOnce(true);
+          retainedStepFn = typeof result.step === 'function' ? result.step : null;
+        }
       }
 
       const warningsCount = Array.isArray(result.warnings) ? result.warnings.length : 0;
@@ -221,7 +287,7 @@ async function startPlayer(cwd, argvInput) {
         printSceneSummary(result, evalId);
       }
 
-      const stepIndicator = stepFn ? '<step>' : null;
+      const stepIndicator = retainedStepFn ? '<step>' : null;
       if (stepIndicator) {
         result.step = stepIndicator;
         if (result.raw && typeof result.raw === 'object') {

@@ -10,8 +10,12 @@
 
   stepper: (event) =>
   {
-    nextFill: if event.action == "down" then toggled else fill;
-    eval { state: { fill: nextFill; }; events: []; };
+    eval if event.action == "down" then
+    {
+      state: { fill: toggled; };
+      events: [];
+    }
+    else null;
   };
 
   eval

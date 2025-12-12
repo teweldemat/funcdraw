@@ -183,6 +183,9 @@ function createHtmlTemplate() {
             }
           : undefined;
       logInfo('Requesting scene', { reason, requestUrl, method: requestInit ? 'POST' : 'GET' });
+      if (events.length > 0) {
+        logInfo('Sending events', events);
+      }
       try {
         const response = await fetch(requestUrl, requestInit);
         logDebug('Scene HTTP response', { status: response.status, ok: response.ok });
@@ -191,7 +194,27 @@ function createHtmlTemplate() {
         }
         const payload = await response.json();
         logDebug('Scene payload received', payload);
+        if (payload === null) {
+          logInfo('Scene ignored events (null payload)', { reason, eventCount: events.length });
+          return null;
+        }
+        const prevState = latestScene && latestScene.state;
         latestScene = payload;
+        const logSceneDetails =
+          reason === 'initial' ||
+          reason === 'event-open' ||
+          reason === 'server-reload' ||
+          resetState ||
+          events.length > 0 ||
+          String(reason).startsWith('pointer-');
+        if (logSceneDetails) {
+          logInfo('Scene flags', {
+            supportsStepper: supportsStepper(payload),
+            step: payload && payload.step,
+            rawStep: payload && payload.raw && payload.raw.step
+          });
+          logInfo('Scene state', { prevState, nextState: payload && payload.state });
+        }
         renderScene(payload);
         if (payload.svg) {
           logDebug('SVG output available');
@@ -708,13 +731,27 @@ function createHtmlTemplate() {
     }
 
     function sendPointerEvent(action, event) {
-      if (!supportsStepper(latestScene) || !projector) {
+      if (!latestScene) {
+        logWarn('Pointer event ignored (no scene loaded yet)', action);
+        return;
+      }
+      if (!supportsStepper(latestScene)) {
+        logWarn('Pointer event ignored (scene does not expose a stepper)', {
+          action,
+          step: latestScene.step,
+          rawStep: latestScene.raw && latestScene.raw.step
+        });
+        return;
+      }
+      if (!projector) {
+        logWarn('Pointer event ignored (projector not ready yet)', action);
         return;
       }
       const payload = buildPointerEvent(action, event);
       if (!payload) {
         return;
       }
+      logInfo('Pointer event', payload);
       if (action === 'down') {
         pointerState.active = true;
         canvas.setPointerCapture(event.pointerId);

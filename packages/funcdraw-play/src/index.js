@@ -109,6 +109,7 @@ async function startPlayer(cwd, argvInput) {
     width: 40,
     height: 30
   };
+  let modelState = null;
   setTimelineValue(argv.t);
   if (Array.isArray(argv.canvas) && argv.canvas.length > 0) {
     setCanvasSize({
@@ -140,7 +141,10 @@ async function startPlayer(cwd, argvInput) {
     }
   }
 
-  const evaluateScene = async ({ includeSvg, requestId, query } = {}) => {
+  const evaluateScene = async ({ includeSvg, requestId, query, events, resetState } = {}) => {
+    if (resetState) {
+      modelState = null;
+    }
     if (query && Object.prototype.hasOwnProperty.call(query, 'time')) {
       setTimelineValue(query.time);
     }
@@ -154,13 +158,23 @@ async function startPlayer(cwd, argvInput) {
     const evalId = requestId || `eval-${Date.now().toString(36)}`;
     const outputLabel = outputs.join(', ');
     const start = Date.now();
-    console.log(picocolors.gray(`[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel})`));
-    try {
-      const dumpLogger = dumpLoggingEnabled ? createDumpLogger(evalId) : null;
+    const queue = Array.isArray(events) ? [...events] : [];
+    const dumpLogger = dumpLoggingEnabled ? createDumpLogger(evalId) : null;
+    console.log(
+      picocolors.gray(
+        `[funcdraw-play] [${evalId}] Evaluating scene (outputs: ${outputLabel}${
+          queue.length ? `, events: ${queue.length}` : ''
+        })`
+      )
+    );
+
+    const evaluateOnce = async (includeSvgFlag) => {
+      const outputsForRun = includeSvg && includeSvgFlag ? outputs : ['raw'];
       const result = await currentExpression.evaluate({
-        output: outputs,
+        output: outputsForRun,
         trace: traceOptions || traceEnabled,
         dumpLogger,
+        stateArg: modelState,
         valueHooks: {
           t: () => timelineState.value,
           canvas: () => ({
@@ -171,9 +185,31 @@ async function startPlayer(cwd, argvInput) {
           })
         }
       });
-      if (!includeSvg) {
+      if (!includeSvgFlag) {
         delete result.svg;
       }
+      return result;
+    };
+
+    try {
+      let result = await evaluateOnce(includeSvg && queue.length === 0);
+      let stepFn = typeof result.step === 'function' ? result.step : null;
+
+      while (queue.length > 0) {
+        if (!stepFn) {
+          throw new Error('Stepper events were provided but the model did not return a step function.');
+        }
+        const nextEvent = queue.shift();
+        const outcome = normalizeStepResult(stepFn(nextEvent));
+        modelState = outcome.state;
+        for (const evt of outcome.events) {
+          queue.push(evt);
+        }
+        const includeSvgThisEval = includeSvg && queue.length === 0;
+        result = await evaluateOnce(includeSvgThisEval);
+        stepFn = typeof result.step === 'function' ? result.step : null;
+      }
+
       const warningsCount = Array.isArray(result.warnings) ? result.warnings.length : 0;
       const viewText = Array.isArray(result.view) ? result.view.join('×') : 'unknown';
       console.log(
@@ -184,8 +220,22 @@ async function startPlayer(cwd, argvInput) {
       if (debugEnabled) {
         printSceneSummary(result, evalId);
       }
+
+      const stepIndicator = stepFn ? '<step>' : null;
+      if (stepIndicator) {
+        result.step = stepIndicator;
+        if (result.raw && typeof result.raw === 'object') {
+          result.raw.step = stepIndicator;
+        }
+      } else {
+        delete result.step;
+        if (result.raw && typeof result.raw === 'object') {
+          delete result.raw.step;
+        }
+      }
       result.timeline = { t: timelineState.value };
       result.canvas = { ...canvasState };
+      result.state = modelState;
       if (traceEnabled && traceOutputPath) {
         writeTraceToFile(result && result.trace, traceOutputPath, cwd);
       }
@@ -245,6 +295,7 @@ async function startPlayer(cwd, argvInput) {
       config = updated;
       currentExpression = buildExpression(config);
       resetTimeline();
+      modelState = null;
       console.log(picocolors.green('FuncDraw scene reloaded'));
       const nextWatchPaths = Array.isArray(config.watchPaths) ? config.watchPaths : [];
       if (!pathsEqual(nextWatchPaths, watchedPaths)) {
@@ -284,6 +335,41 @@ function parseFloatValue(value) {
   }
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function normalizeStepResult(raw) {
+  if (Array.isArray(raw) && raw.length >= 2) {
+    return { state: raw[0], events: normalizeEventList(raw[1]) };
+  }
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const state = raw.nextState !== undefined ? raw.nextState : raw.state;
+    const events = raw.events !== undefined ? raw.events : raw.outEvents;
+    return { state, events: normalizeEventList(events) };
+  }
+  if (isIterable(raw)) {
+    const flattened = Array.from(raw);
+    if (flattened.length >= 2) {
+      return { state: flattened[0], events: normalizeEventList(flattened[1]) };
+    }
+  }
+  throw new Error('Stepper functions must return [nextState, events] or { state, events }.');
+}
+
+function normalizeEventList(value) {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (isIterable(value)) {
+    return Array.from(value);
+  }
+  return [value];
+}
+
+function isIterable(value) {
+  return Boolean(value && typeof value !== 'string' && typeof value[Symbol.iterator] === 'function');
 }
 
 function resolveExpressionOverride(argv) {

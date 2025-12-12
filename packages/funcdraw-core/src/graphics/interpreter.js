@@ -24,8 +24,9 @@ function interpretGraphics({ typedRoot, engine, providerFactory, converter }) {
   const graphicsTree = normalizeTypedNode(content, warnings, { engine, converter }, contentPath);
   const graphics = Array.isArray(graphicsTree) ? graphicsTree : graphicsTree ? [graphicsTree] : [];
   const plainView = view ? converter.toPlain(view, viewPath) : null;
-  const step = metadata.step && typeof metadata.step.evaluate === 'function'
-    ? createStepFunctionWrapper(engine.valueOf ? engine.valueOf(metadata.step) : metadata.step, {
+  const stepValue = metadata.step && engine.valueOf ? engine.valueOf(metadata.step) : metadata.step;
+  const step = stepValue && typeof stepValue.evaluate === 'function'
+    ? createStepFunctionWrapper(stepValue, {
         engine,
         providerFactory,
         converter

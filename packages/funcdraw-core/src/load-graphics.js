@@ -8,6 +8,23 @@ const { loadFont } = require('./glyphs/font-loader');
 const { createFontMeasure } = require('./glyphs/text-metrics');
 const { renderSvg } = require('./output/svg-renderer');
 
+function createParameterListClass(ParameterList) {
+  return class InlineParameterList extends ParameterList {
+    constructor(values) {
+      super();
+      this.values = Array.isArray(values) ? values : [];
+    }
+
+    get count() {
+      return this.values.length;
+    }
+
+    getParameter(_, index) {
+      return this.values[index];
+    }
+  };
+}
+
 function ensureResolver(resolver) {
   if (!resolver || typeof resolver.listChildren !== 'function' || typeof resolver.getExpression !== 'function') {
     throw new Error('FuncDraw requires a valid FuncScript package resolver');
@@ -58,7 +75,12 @@ function loadGraphics(resolver, options = {}) {
   const traceEntryHook = traceCollector ? traceCollector.entryHook : null;
   const typedRoot = engine.loadPackage(resolver, provider, traceHook, traceEntryHook);
   const interpretation = interpretGraphics({
-    typedRoot,
+    typedRoot: evaluateStatefulRoot({
+      engine,
+      providerFactory,
+      typedRoot,
+      stateArg: options.stateArg
+    }),
     engine,
     providerFactory,
     converter
@@ -187,6 +209,25 @@ function summarizeValueHookUsage(valueHooks) {
     };
   }
   return summary;
+}
+
+function evaluateStatefulRoot({ engine, providerFactory, typedRoot, stateArg }) {
+  if (!typedRoot) {
+    return typedRoot;
+  }
+
+  const callable = engine && typeof engine.valueOf === 'function'
+    ? engine.valueOf(typedRoot)
+    : typedRoot;
+
+  if (!callable || typeof callable.evaluate !== 'function') {
+    return typedRoot;
+  }
+
+  const InlineParameterList = createParameterListClass(engine.ParameterList);
+  const provider = providerFactory();
+  const params = new InlineParameterList([engine.normalize(stateArg === undefined ? null : stateArg)]);
+  return callable.evaluate(provider, params);
 }
 
 function normalizeHookValue(engine, value) {

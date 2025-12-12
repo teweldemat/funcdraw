@@ -17,7 +17,13 @@ using FuncScript.Core;
 
 namespace FuncDraw.Net;
 
-internal sealed record SceneRequest(bool IncludeSvg, bool ResetState, IReadOnlyList<object?>? Events);
+internal sealed record SceneRequest(
+    bool IncludeSvg,
+    bool ResetState,
+    double? Time,
+    double? CanvasWidth,
+    double? CanvasHeight,
+    IReadOnlyList<object?>? Events);
 
 internal sealed class SceneService
 {
@@ -25,9 +31,11 @@ internal sealed class SceneService
     private ArtResolver _resolver;
     private readonly string? _expressionOverride;
     private double _timeline;
+    private double _canvasWidth;
+    private double _canvasHeight;
     private object? _state;
     private readonly object _stateLock = new();
-    private readonly IDictionary<string, Func<object?>>? _valueHooks;
+    private readonly IDictionary<string, Func<object?>> _valueHooks;
     private readonly TraceOptions? _traceOptions;
 
     public SceneService(
@@ -41,28 +49,39 @@ internal sealed class SceneService
         _resolver = new ArtResolver(_projectRoot);
         _expressionOverride = NormalizeExpressionOverride(expressionOverride);
         _timeline = initialTime ?? 0;
-        _valueHooks = valueHooks != null
-            ? new Dictionary<string, Func<object?>>(valueHooks, StringComparer.OrdinalIgnoreCase)
-            : null;
+        _canvasWidth = 40;
+        _canvasHeight = 30;
+        _valueHooks = InitializeValueHooks(valueHooks);
         _traceOptions = trace;
     }
 
     public string WatchPath => _resolver.WatchPath;
 
-    public ScenePayload Evaluate(bool includeSvg = false)
+    public ScenePayload Evaluate(
+        bool includeSvg = false,
+        double? time = null,
+        double? canvasWidth = null,
+        double? canvasHeight = null)
     {
         lock (_stateLock)
         {
+            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
             var result = EvaluateOnce(includeSvg);
             var plainState = _state == null ? null : new ValueConverter().ToPlain(_state);
             return new ScenePayload(result, _timeline, includeSvg, plainState);
         }
     }
 
-    public ScenePayload PushEvent(IReadOnlyList<object?>? events, bool includeSvg = false)
+    public ScenePayload PushEvent(
+        IReadOnlyList<object?>? events,
+        bool includeSvg = false,
+        double? time = null,
+        double? canvasWidth = null,
+        double? canvasHeight = null)
     {
         lock (_stateLock)
         {
+            ApplyRequestOverrides(time, canvasWidth, canvasHeight);
             var queue = new Queue<object?>(events ?? Array.Empty<object?>());
             if (queue.Count == 0)
             {
@@ -123,6 +142,48 @@ internal sealed class SceneService
         _resolver = new ArtResolver(_projectRoot);
         _timeline = 0;
         _state = null;
+    }
+
+    private IDictionary<string, Func<object?>> InitializeValueHooks(IDictionary<string, Func<object?>>? customHooks)
+    {
+        var hooks = customHooks != null
+            ? new Dictionary<string, Func<object?>>(customHooks, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, Func<object?>>(StringComparer.OrdinalIgnoreCase);
+
+        hooks["t"] = () => _timeline;
+        hooks["canvas"] = CreateCanvasHook;
+        return hooks;
+    }
+
+    private void ApplyRequestOverrides(double? time, double? canvasWidth, double? canvasHeight)
+    {
+        if (time.HasValue)
+        {
+            _timeline = time.Value;
+        }
+
+        if (canvasWidth.HasValue)
+        {
+            _canvasWidth = canvasWidth.Value;
+        }
+
+        if (canvasHeight.HasValue)
+        {
+            _canvasHeight = canvasHeight.Value;
+        }
+    }
+
+    private object CreateCanvasHook()
+    {
+        var size = new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("width", (object)_canvasWidth),
+            KeyValuePair.Create("height", (object)_canvasHeight)
+        });
+        return new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("size", (object)size)
+        });
     }
 
     private static string? NormalizeExpressionOverride(string? expression)
@@ -420,8 +481,8 @@ internal sealed class FuncDrawServer : IDisposable
         }
 
         var payload = request.Events != null && request.Events.Count > 0
-            ? _service.PushEvent(request.Events, request.IncludeSvg)
-            : _service.Evaluate(request.IncludeSvg);
+            ? _service.PushEvent(request.Events, request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight)
+            : _service.Evaluate(request.IncludeSvg, request.Time, request.CanvasWidth, request.CanvasHeight);
         await WriteJsonAsync(context.Response, payload);
         SafeClose(context.Response);
     }
@@ -431,6 +492,13 @@ internal sealed class FuncDrawServer : IDisposable
         var query = request.QueryString;
         var includeSvg = query["svg"] != null;
         var resetState = query["resetState"] != null;
+        var time = ParseDouble(query["time"]);
+        if (time == null)
+        {
+            time = ParseDouble(query["t"]);
+        }
+        var canvasWidth = ParseDouble(query["canvasWidth"]);
+        var canvasHeight = ParseDouble(query["canvasHeight"]);
         var events = ParseEventsFromQuery(query);
 
         if (string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase) && request.HasEntityBody)
@@ -440,6 +508,22 @@ internal sealed class FuncDrawServer : IDisposable
             if (root.TryGetProperty("events", out var eventsProp))
             {
                 events = ParseEventsElement(eventsProp);
+            }
+            if (root.TryGetProperty("time", out var timeProp))
+            {
+                time = ParseDouble(timeProp);
+            }
+            else if (root.TryGetProperty("t", out var tProp))
+            {
+                time = ParseDouble(tProp);
+            }
+            if (root.TryGetProperty("canvasWidth", out var widthProp))
+            {
+                canvasWidth = ParseDouble(widthProp);
+            }
+            if (root.TryGetProperty("canvasHeight", out var heightProp))
+            {
+                canvasHeight = ParseDouble(heightProp);
             }
             if (root.TryGetProperty("resetState", out var resetProp))
             {
@@ -451,7 +535,7 @@ internal sealed class FuncDrawServer : IDisposable
             }
         }
 
-        return new SceneRequest(includeSvg, resetState, events);
+        return new SceneRequest(includeSvg, resetState, time, canvasWidth, canvasHeight, events);
     }
 
     private static IReadOnlyList<object?>? ParseEventsFromQuery(System.Collections.Specialized.NameValueCollection query)

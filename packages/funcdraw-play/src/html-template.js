@@ -134,11 +134,14 @@ function createHtmlTemplate() {
     const logError = (...args) => console.error(logPrefix, ...args);
     let latestScene = null;
     let projector = null;
+    const pointerState = { active: false };
 
     logInfo('Booting FuncDraw Play browser client');
 
     async function loadScene(reason = 'manual', loadOptions = {}) {
       const params = new URLSearchParams();
+      const events = Array.isArray(loadOptions.events) ? loadOptions.events : [];
+      const resetState = Boolean(loadOptions.resetState);
       let hasCustomTimeParam = false;
       if (loadOptions.params && typeof loadOptions.params === 'object') {
         for (const [key, rawValue] of Object.entries(loadOptions.params)) {
@@ -151,15 +154,37 @@ function createHtmlTemplate() {
           }
         }
       }
-      if (!hasCustomTimeParam && animationState.enabled) {
-        params.set('time', formatTimeParam(animationState.time));
+      const timeValue = hasCustomTimeParam
+        ? loadOptions.params.time
+        : animationState.enabled
+          ? animationState.time
+          : undefined;
+      if (timeValue !== undefined) {
+        params.set('time', formatTimeParam(timeValue));
       }
       addCanvasSizeParams(params);
+      if (resetState) {
+        params.set('resetState', 'true');
+      }
       params.set('_ts', Date.now().toString());
       const requestUrl = API + '?' + params.toString();
-      logInfo('Requesting scene', { reason, requestUrl });
+      const requestInit =
+        events && events.length
+          ? {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                events,
+                time: timeValue,
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                resetState
+              })
+            }
+          : undefined;
+      logInfo('Requesting scene', { reason, requestUrl, method: requestInit ? 'POST' : 'GET' });
       try {
-        const response = await fetch(requestUrl);
+        const response = await fetch(requestUrl, requestInit);
         logDebug('Scene HTTP response', { status: response.status, ok: response.ok });
         if (!response.ok) {
           throw new Error('Failed to load scene');
@@ -321,6 +346,12 @@ function createHtmlTemplate() {
           const [mx, my] = toPoint(point);
           const x = offsetX + (mx - viewBox.left) * scale;
           const y = offsetY + (viewBox.top - my) * scale;
+          return [x, y];
+        },
+        unprojectPoint(point) {
+          const [cx, cy] = toPoint(point);
+          const x = viewBox.left + (cx - offsetX) / scale;
+          const y = viewBox.top - (cy - offsetY) / scale;
           return [x, y];
         },
         projectSize(size) {
@@ -560,7 +591,28 @@ function createHtmlTemplate() {
         return;
       }
       stopAnimation({ preserveTime: false });
-      loadScene('timeline-reset', { params: { time: formatTimeParam(animationState.time) } });
+      loadScene('timeline-reset', {
+        params: { time: formatTimeParam(animationState.time) },
+        resetState: true
+      });
+    });
+
+    canvas.addEventListener('pointerdown', (event) => {
+      sendPointerEvent('down', event);
+    });
+    canvas.addEventListener('pointerup', (event) => {
+      pointerState.active = false;
+      sendPointerEvent('up', event);
+    });
+    canvas.addEventListener('pointerleave', (event) => {
+      pointerState.active = false;
+      sendPointerEvent('leave', event);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      if (!pointerState.active) {
+        return;
+      }
+      sendPointerEvent('move', event);
     });
 
     const events = new EventSource('/__funcdraw/events');
@@ -620,6 +672,60 @@ function createHtmlTemplate() {
     function syncCanvasHookState(hooks) {
       const canvasHook = hooks.canvas;
       canvasHookState.active = Boolean(canvasHook && canvasHook.used);
+    }
+
+    function supportsStepper(scene) {
+      const stepMarker = scene && (scene.step || (scene.raw && scene.raw.step));
+      return stepMarker === '<step>';
+    }
+
+    function buildPointerEvent(action, event) {
+      const canvasPoint = [event.offsetX, event.offsetY];
+      const worldPoint = projector ? projector.unprojectPoint(canvasPoint) : [0, 0];
+      return {
+        type: 'pointer',
+        action,
+        button: event.button,
+        buttons: event.buttons,
+        modifiers: {
+          alt: event.altKey,
+          ctrl: event.ctrlKey,
+          meta: event.metaKey,
+          shift: event.shiftKey
+        },
+        canvas: {
+          x: canvasPoint[0],
+          y: canvasPoint[1],
+          width: canvas.width,
+          height: canvas.height
+        },
+        point: {
+          x: worldPoint[0],
+          y: worldPoint[1]
+        },
+        time: animationState.time
+      };
+    }
+
+    function sendPointerEvent(action, event) {
+      if (!supportsStepper(latestScene) || !projector) {
+        return;
+      }
+      const payload = buildPointerEvent(action, event);
+      if (!payload) {
+        return;
+      }
+      if (action === 'down') {
+        pointerState.active = true;
+        canvas.setPointerCapture(event.pointerId);
+      } else if (action === 'up' || action === 'leave') {
+        pointerState.active = false;
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      loadScene('pointer-' + action, {
+        events: [payload],
+        params: { time: formatTimeParam(animationState.time) }
+      });
     }
 
     function startAnimation() {

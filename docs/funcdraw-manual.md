@@ -61,7 +61,7 @@ Key points:
 ## Common mistakes (and how to avoid them)
 
 - **Modules vs. collections** – if a folder contains `eval.*`, only what `eval` returns is exported. Sibling expressions are not addressable unless you re-export them from `eval.*`.
-- **Boolean operators** – FuncScript uses `and`/`or`/`not` (not `&&`/`||`/`!`). Treat parse errors as real errors even if something renders.
+- **Boolean operators** – use `and`/`or` and negation via `!x` or `not(x)` (not `&&`/`||`). Treat parse errors as real errors even if something renders.
 - **Binding vs. equality** – `name: expr;` binds a value; `=`/`==` compare values. There is no assignment operator.
 - **Interactive scenes must be stateful** – export a function like `(state) => { ...; eval { view; graphics; step; }; }`. The initial `state` is `null`.
 - **`step(event)` return contract** – return `null` to ignore an event; otherwise return `{ state: <newState>; events: []; }`. Only return a step when something actually changed.

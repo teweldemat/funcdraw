@@ -361,8 +361,19 @@ internal sealed class FuncDrawServer : IDisposable
         {
             ApplyRequestOverrides(time, canvasWidth, canvasHeight);
             _hookTracker.ResetUsage();
-            // Prime the model to ensure a step function is available before processing events.
-            _service.Evaluate(includeSvg && events.Count == 0);
+            // If a stepper is absent, events cannot be consumed without a prior evaluation.
+            if (!_service.HasStepFunction)
+            {
+                if (!_service.HasEvaluated)
+                {
+                    _service.Evaluate(false);
+                }
+
+                if (!_service.HasStepFunction)
+                {
+                    return null;
+                }
+            }
             SceneResult? result = null;
             for (var i = 0; i < events.Count; i++)
             {

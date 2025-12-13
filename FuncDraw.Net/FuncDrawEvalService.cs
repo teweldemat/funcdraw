@@ -101,17 +101,23 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
 
     private object? _state = null;
     private IFsFunction? _stepFunction = null;
+    private bool _hasEvaluated = false;
     internal object? State => _state;
+    internal bool HasStepFunction => _stepFunction != null;
+    internal bool HasEvaluated => _hasEvaluated;
     
     internal void Reset()
     {
         _state = null;
         _stepFunction = null;
+        _hasEvaluated = false;
     }
 
     internal void SetState(object? state)
     {
         _state = NormalizeFsValue(state);
+        _stepFunction = null;
+        _hasEvaluated = false;
     }
     
     
@@ -146,6 +152,7 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
         }
         else
             _stepFunction=null;
+        _hasEvaluated = true;
         return InterprateGraphics(typedRoot, includeSvg, converter, traceCollector);
     }
 

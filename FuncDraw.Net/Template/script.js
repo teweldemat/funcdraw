@@ -565,18 +565,18 @@
       syncCanvasHookState(hooks);
     }
 
-    function syncAnimationFromHooks(hooks, scene) {
-      const timeHook = hooks.t;
-      const usesTime = Boolean(timeHook && (timeHook.used || timeHook.used === false));
-      if (!usesTime) {
-        if (animationState.enabled) {
-          stopAnimation({ preserveTime: false });
-          animationState.enabled = false;
-          animationControls.container.classList.remove('active');
-          updateAnimationUi();
-        }
-        return;
-      }
+	    function syncAnimationFromHooks(hooks, scene) {
+	      const timeHook = hooks.t;
+	      const usesTime = Boolean(timeHook && timeHook.used);
+	      if (!usesTime) {
+	        if (animationState.enabled) {
+	          stopAnimation({ preserveTime: false });
+	          animationState.enabled = false;
+	          animationControls.container.classList.remove('active');
+	          updateAnimationUi();
+	        }
+	        return;
+	      }
       animationState.enabled = true;
       animationControls.container.classList.add('active');
       if (scene.timeline && typeof scene.timeline.t === 'number' && Number.isFinite(scene.timeline.t)) {

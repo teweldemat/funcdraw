@@ -93,4 +93,18 @@ eval
         File.WriteAllText(Path.Combine(artDir, $"{fileName}.fs"), content);
         return root;
     }
+
+    [Test]
+    public void WebClientTimeControlsRequireTimeHookUsed()
+    {
+        var assembly = typeof(FuncDrawEvalService).Assembly;
+        using var stream = assembly.GetManifestResourceStream("FuncDraw.Net.Template.script.js");
+        Assert.That(stream, Is.Not.Null);
+        using var reader = new StreamReader(stream!);
+        var script = reader.ReadToEnd();
+
+        Assert.That(script, Does.Contain("timeHook && timeHook.used"));
+        Assert.That(script, Does.Not.Contain("used === false"));
+        Assert.That(script, Does.Not.Contain("timeHook.used || timeHook.used === false"));
+    }
 }

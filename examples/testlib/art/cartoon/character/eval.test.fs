@@ -245,7 +245,7 @@
         front: mod.skins.poly(frontGeometry, palette);
         left: mod.skins.poly(leftGeometry, palette);
         frontHead: front[2];
-        leftHead: left[4];
+        leftHead: left[6];
         frontHeadWidth: widthOf(frontHead.points);
         leftHeadWidth: widthOf(leftHead.points);
 

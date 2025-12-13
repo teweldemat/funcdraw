@@ -86,7 +86,7 @@
       test: (fn) =>
       {
         anchor: [0, 0];
-        target: [3, -14];
+        target: [0, -14];
         base: {};
         profile: fn(anchor, base, "left", target, 1);
         eval

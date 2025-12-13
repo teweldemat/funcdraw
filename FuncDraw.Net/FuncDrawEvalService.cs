@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading;
 using FuncScript;
 using FuncScript.Core;
 using FuncScript.Model;
@@ -14,6 +15,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
     PackageLoader.PackageLoaderEntryTraceDelegate? entryTrace=null,
     TraceOptions? traceOptions=null)
 {
+    private static long _globalEvaluationCount = 0;
+    private static long _globalStepCallCount = 0;
     private const string MEASURE_STRING_FUNCTION_NAME = "measurestring";
     private IEnumerable<(string Name, Func< object> Hook)> Hooks=>hooks;
     private object MeasureStringFunction => FuncScript.Engine.NormalizeDataType(measureStringFunction);
@@ -114,6 +117,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
     
     internal SceneResult Evaluate(bool includeSvg=false)
     {
+        var evaluationNumber = Interlocked.Increment(ref _globalEvaluationCount);
+        Console.WriteLine($"[funcdraw.net] Eval #{evaluationNumber}");
         var converter = new ValueConverter();
         var traceCollector = TraceCollector.Create(TraceOptions, converter);
         var baseProvider = new FuncDrawProvider(this, new DefaultFsDataProvider());
@@ -157,6 +162,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
             {
                 hook(normalizedEvent!);
             }
+            var stepNumber = Interlocked.Increment(ref _globalStepCallCount);
+            Console.WriteLine($"[funcdraw.net] Step #{stepNumber}");
             var s=_stepFunction.Evaluate(new ArrayFsList(new[] { normalizedEvent }));
             if (s == null)
             {

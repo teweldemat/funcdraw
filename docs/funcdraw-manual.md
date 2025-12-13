@@ -2,26 +2,24 @@
 
 ## Cheat sheet
 
-- Use `--dump` to evaluate your composition once and print the resulting scene payload.
+- `npm run nplay` starts the FuncDraw.Net preview server (recommended).
+- Use `--dump` to evaluate your composition once and print the resulting scene payload (headless; no port).
 - Use `--test` to run the package’s FuncScript tests (note: `npm run test` does not run these tests).
+- Optional: `npm run play` starts the parallel JS preview server (requires `@funcdraw/play`).
 
 ## Terminology
 
-**expression** FuncScript code under the `art` folder (`.fs`/`.fx`). Name files without spaces, dots, or dashes.
-**collection** folder containing one or more expressions or folders. If no child is named `eval`, every child expression is directly addressable via dot navigation.
-**module** folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns. It very importan to know that items within a module can't be accessed.  They can only be accessed indirectly if eval expression include them in the final out verbatim.
-eval.fs
-{
-    //internal implementation detail
-    eval
-    {
-        //other keys
-        someExpressionExternalName:SomeExpressionInternalName
-    }
-}
-**package** the entire `art` tree for a project. Packages are Node-style (they live alongside `package.json`) and can be consumed from other FuncDraw packages with `package("<name>")`.
-**model** an expression/module intended to render a graphical object. Anything that returns graphics (e.g., `cartoon/stickman/head.fs`) is a model.
-**component** an expression/module used as a building block for larger models.
+- **expression** – FuncScript code under the `art` folder (`.fs`/`.fx`). Name files without spaces, dots, or dashes.
+- **collection** – folder containing one or more expressions or folders. If no child is named `eval`, every child expression is directly addressable via dot navigation.
+- **module** – folder that contains an expression named `eval` (any supported extension). The folder exports only what `eval` returns; sibling expressions in that folder are implementation details and are not addressable directly.
+  - To expose an internal expression, re-export it from `eval.fs`:
+    ```funcscript
+    // art/widgets/button/eval.fs
+    { draw; hitTest; } // consumers can access `art.widgets.button.draw` and `.hitTest`
+    ```
+- **package** – the entire `art` tree for a project. Packages are Node-style (they live alongside `package.json`) and can be consumed from other FuncDraw packages with `package("<name>")`.
+- **model** – an expression/module intended to render a graphical object. Anything that returns graphics (e.g., `cartoon/stickman/head.fs`) is a model.
+- **component** – an expression/module used as a building block for larger models.
 
 Example of loading a library package from FuncScript:
 ```funcscript
@@ -54,51 +52,75 @@ Key points:
 - Plan the expressions, modules, and collections you will need before writing code; name files without spaces/dashes and decide up front which folders are collections vs. modules.
 - Build incrementally: sketch the interface (inputs/outputs) for each expression, then fill in behaviour in small passes.
 - As expressions grow with added detail, convert them into modules and break the work into smaller expressions; aim to keep individual expressions under ~200 lines (shorter is better). Name folders/files to hint at how the art is decomposed.
-- For each expression, write a `.test.fs` (simple sanity for small pieces, richer validation for complex ones) and keep `npm run play -- --test` passing as you iterate; prefer fast, deterministic tests over visual checks. If you’re authoring a library, put the test composition in a separate package that depends on the library so you exercise the real consumer path.
-- Assume inputs are already validated; use simple coalescing for defaults and keep functions pure (no module-level mutation) so reruns are stable.
+- For each expression, write a `.test.fs` (simple sanity for small pieces, richer validation for complex ones) and keep `npm run nplay -- --test` passing as you iterate; prefer fast, deterministic tests over visual checks. If you’re authoring a library, put the test composition in a separate package that depends on the library so you exercise the real consumer path.
+- Assume inputs are already validated; keep functions pure (no module-level mutation) so reruns are stable. If an input should never be missing, prefer `error("expected ...")` over silent fallbacks.
 - Once a model is complete, add it to the test composition and verify with `--dump`; use `--trace` (and `--trace step-into` when needed) to chase resolver/evaluation issues.
 - Keep docs in sync: update the model’s `.doc.md` after interfaces change, and record construction steps and inputs/outputs concisely.
 - When multiple helpers share behaviour, refactor to shared collections to avoid duplication; keep palettes and constants near their consumers unless reused broadly.
 
-## FuncDraw Play CLI
-Run `npm run play -- [options]` from a FuncDraw package to start the preview server. Common flags:
+## Common mistakes (and how to avoid them)
 
-- `--port, -p <number>` choose preferred HTTP port (default: auto-pick).
-- `--host <address>` bind to a specific interface, e.g. `0.0.0.0` for LAN access.
-- `--open` / `--no-open` toggle automatic browser launch (default: on).
-- `--debug` print every evaluated scene payload to the terminal; helpful when inspecting warnings or raw output.
-- `--test` run FuncScript package tests (pairs like `scene.fs` with `scene.test.fs`) and exit with non-zero status on failures; skips starting the preview server.
-- `--dump` evaluate once, print the scene payload, and exit (no UI server).
-- `--trace` print FuncScript package trace info; with `--dump` it includes the payload, without `--dump` it runs a trace-only evaluation and prints just the trace. Add `--trace step-into [filter]` to include every traced step (not just per-expression summaries) and optionally filter by substring.
-- `--exp <expression>` temporarily evaluate a FuncScript snippet with `art` bound to the loaded package (e.g., `art.altScene`), handy for debugging alternates without touching `art/eval.*`. just `art` will evaluate the loaded package. If the package has `eval` at the root that will be evaluated as per the funscript package convension.
-- `--svg [file]` (dump mode only) emit the rendered SVG payload when using `--dump`; pass a file path to write the SVG to disk.
-- `--t <seconds>` seed the timeline hook (`fd.valueHooks.t`) before evaluation.
-- `--canvas <width> [height]` set the initial preview canvas size in pixels; omit height to keep the previous value.
+- **Modules vs. collections** – if a folder contains `eval.*`, only what `eval` returns is exported. Sibling expressions are not addressable unless you re-export them from `eval.*`.
+- **Boolean operators** – FuncScript uses `and`/`or`/`not` (not `&&`/`||`/`!`). Treat parse errors as real errors even if something renders.
+- **Binding vs. equality** – `name: expr;` binds a value; `=`/`==` compare values. There is no assignment operator.
+- **Interactive scenes must be stateful** – export a function like `(state) => { ...; eval { view; graphics; step; }; }`. The initial `state` is `null`.
+- **`step(event)` return contract** – return `null` to ignore an event; otherwise return `{ state: <newState>; events: []; }`. Only return a step when something actually changed.
+- **Event shapes in tests** – if your stepper reads `event.point.x/y`, your test event must include `point: { x; y; }` (no implicit defaults).
+- **Work proportional to `t`** – for animations, keep per-frame work roughly constant; compute indices from `fd.valueHooks.t` instead of looping/recursing `t` times.
 
-All options can be combined. For example, `npm run play -- --dump --svg output.svg --trace --t 12.5` quickly inspects the scene at `t = 12.5s`, prints raw data, writes the SVG to `output.svg`, and includes the FuncScript trace without starting the dev server. Use `--test` alone when you just want to run the package’s `.test.fs` suites and exit.
+## FuncDraw.Net CLI (nplay)
+Most packages include an `nplay` script that runs the .NET previewer (example: `dotnet run --project ../../FuncDraw.Net -- --root .`).
+
+- `npm run nplay` starts the preview server.
+- `npm run nplay -- --dump` evaluates once and prints the payload (headless; no port).
+- `npm run nplay -- --test` runs the package’s FuncScript tests and exits (headless; no port).
+- `npm run nplay -- --trace [step-into [filter]]` prints FuncScript trace output; add `--dump` when you also want the payload.
+
+Notes:
+- Server mode defaults to port `5177`. If it’s already in use, FuncDraw.Net falls back to an available port.
+- `--dump` and trace-only `--trace` (without `--dump`) run headless and do not bind a port.
+- `--svg` includes SVG output in the dumped JSON payload (flag only; no file argument).
+
+Common flags:
+- `--root <path>` project root containing `art/` (default: current directory).
+- `--host <address>` interface to bind in server mode (default: `127.0.0.1`).
+- `--port <number>` preferred port in server mode (default: `5177`).
+- `--exp <expression>` evaluate a snippet with `art` bound to the loaded package.
+- `--t/--time <seconds>` seed `fd.valueHooks.t`.
+- `--state <json>` set the initial scene state before evaluation (dump/trace-only).
+- `--event <json>` push a single event before evaluation (dump/trace-only).
+- `--trace-file <path>` write trace entries to a JSON file.
 
 ### Tracing with `--trace`
 
-Use `--trace` when you need to inspect how FuncScript resolves and evaluates your package without running the preview server.
-
-- `npm run play -- --trace` runs a single trace-only evaluation, printing per-expression trace entries (path, optional source span, snippet, and a preview of the returned value or error) and then exiting.
-- `npm run play -- --dump --trace [--svg [file]]` prints both the scene payload and the trace, which is helpful in CI or when debugging headless renders.
-- Add `--trace step-into` to log every traced step instead of just per-expression summaries; append a substring to filter noisy output (e.g., `--trace step-into palette`).
-- Trace entries are emitted directly to the terminal via the runtime tracing hook, so they reflect the exact resolver path and values that were produced during evaluation.
+- `npm run nplay -- --trace` runs a trace-only evaluation and prints trace entries.
+- Add `--trace step-into [filter]` to log every traced step and optionally filter by substring (e.g., `--trace step-into palette`).
+- Use `--dump --trace [--svg]` when you want both the payload and the trace.
 
 ### Working with `--test`
 
-`funcdraw-play --test` runs FuncScript test pairs from the loaded package and exits. The tool prints a summary of scripts, suites, and case counts; a non-zero exit means at least one case failed. A few useful tips:
+`npm run nplay -- --test` runs FuncScript test pairs from the loaded package and exits.
 
-- **Ensure dependencies are installed** – tests execute against the current package. From the package root, run `npm install` first so `@funcdraw/core`, `@funcdraw/play`, and your local packages resolve.
-- **Limit scope with the config resolver** – `funcdraw-play` loads the same resolver it uses for rendering. If you want to test a different package, run the CLI from that package root or point your config there.
-- **Debug failures with `--debug`** – combine `--test --debug` to dump full test payloads and errors to the console. This is handy when assertions bubble FuncScript errors (`fsError` blocks) or you need to see intermediate values.
-- **Focus on a single case** – narrow a failing suite by temporarily adding guard logic in the `.test.fs`/`.test.js` to return only the suite you’re debugging. Tests must return an array of suite objects; pruning to one suite is allowed.
-- **Pairing rules** – FuncScript looks for `*.test.fs` alongside `*.fs` expressions. JS tests (`*.test.js`) can also be returned from `eval` of a module. Ensure each test file `return`s an array of suite objects: `{ name, cases, test }`.
-- **Non-rendering environments** – `--test` never starts the preview server, so it’s safe in CI and headless environments.
-- **Inspect warnings** – if tests pass but you suspect silent issues, run without `--test` and add `--debug` to inspect any warnings emitted during evaluation.
+- **Ensure dependencies are installed** – tests execute against the current package; run `npm install` so packages referenced via `package("<name>")` resolve.
+- **Limit scope with `--root`** – run from the package root or pass `--root` to point at the package you want to test.
+- **Debug failures with `--dump --trace`** – combine with `--exp` to focus evaluation on a single expression while inspecting trace output.
 
-## Using JavaScript (optional)
+## JavaScript preview server (optional)
+FuncDraw also has a parallel JS preview server (`funcdraw-play`). Only add it when you want to run `npm run play`; FuncDraw.Net (`nplay`) does not require it.
+
+To enable it in a package, add `@funcdraw/play` and a `play` script:
+```json
+{
+  "scripts": {
+    "play": "funcdraw-play"
+  },
+  "devDependencies": {
+    "@funcdraw/play": "file:../../packages/funcdraw-play"
+  }
+}
+```
+
+## JavaScript expressions (optional)
 FuncScript is the default, but JavaScript bindings remain available when needed. Keep JS files stateless, end them with a `return` of the value you want to export, and refer to siblings the same way you would from FuncScript (they are injected into scope). Avoid `require`/`module.exports`; just use `package("<name>")` for external packages and direct identifiers for local helpers. Use JS sparingly—prefer `.fs`/`.fx` for new work.
 
 ## Latest lessons (keep for next session)
@@ -106,4 +128,4 @@ FuncScript is the default, but JavaScript bindings remain available when needed.
 - Package loading is lazy: the .NET `PackageLoader` now evaluates expressions on demand through a `KeyValueCollection` instead of concatenating a giant expression. Folders with an `eval` child are treated as modules and evaluated when accessed; nested eval modules now work (this was the bug that broke the .NET player).
 - The package test runner also follows the JS build-expression path so `eval`/`eval.test` pairs execute correctly. Tests must return `eval [ { name, test, cases? } ]`—missing `test` will fail the run.
 - Character sample: `art/cartoon/character/eval.fs` takes `(anchor, measurements, palette)`, merges `measurements` with `defaultMeasurements` (kept local to the folder), and returns body + two hands + two legs. Palette has `body` and `limb`. `examples/testcompose/art/characterTest.fs` calls `package("@funcdraw/testlib").cartoon.character([0,0], {}, palette)`.
-- Useful comparisons when debugging: `npm run play -- --exp art.characterTest --dump --trace step-into` (JS) vs. `npm run nplay -- --exp art.characterTest --dump --trace step-into` (dotnet).
+- Useful comparisons when debugging: `npm run nplay -- --exp art.characterTest --dump --trace step-into` (dotnet) vs. `npm run play -- --exp art.characterTest --dump --trace step-into` (JS, if enabled).

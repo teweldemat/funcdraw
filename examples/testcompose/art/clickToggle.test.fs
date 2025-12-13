@@ -37,7 +37,8 @@
         noChange: initial.step(pointerUp);
         eval
         [
-          assert.equal(noChange.state.fill, "#38bdf8")
+          assert.isnull(noChange),
+          assert.equal(initial.graphics[0].fill, "#38bdf8")
         ];
       };
     }

@@ -67,6 +67,11 @@ function createHtmlTemplate() {
       color: #94a3b8;
       font-weight: 500;
     }
+    #fd-frame-time-label {
+      font-variant-numeric: tabular-nums;
+      color: #94a3b8;
+      font-weight: 500;
+    }
     #fd-warning {
       color: #fbbf24;
     }
@@ -96,6 +101,7 @@ function createHtmlTemplate() {
         <button id="fd-play-toggle">Play</button>
         <button id="fd-reset-timeline">Reset</button>
         <span id="fd-time-label">t=0.00s</span>
+        <span id="fd-frame-time-label">avg10=—</span>
       </div>
       <button id="fd-refresh">Refresh</button>
     </div>
@@ -114,14 +120,16 @@ function createHtmlTemplate() {
       container: document.getElementById('fd-time-controls'),
       toggle: document.getElementById('fd-play-toggle'),
       reset: document.getElementById('fd-reset-timeline'),
-      label: document.getElementById('fd-time-label')
+      label: document.getElementById('fd-time-label'),
+      frameTimeLabel: document.getElementById('fd-frame-time-label')
     };
     const animationState = {
       enabled: false,
       playing: false,
       time: 0,
       raf: null,
-      lastTick: null
+      lastTick: null,
+      renderFrameTimes: []
     };
     const canvasHookState = {
       active: false
@@ -134,7 +142,7 @@ function createHtmlTemplate() {
     const logError = (...args) => console.error(logPrefix, ...args);
     let latestScene = null;
     let projector = null;
-    const pointerState = { active: false };
+    const pointerState = { down: new Set(), captured: new Set() };
 
     logInfo('Booting FuncDraw Play browser client');
 
@@ -624,18 +632,34 @@ function createHtmlTemplate() {
       sendPointerEvent('down', event);
     });
     canvas.addEventListener('pointerup', (event) => {
-      pointerState.active = false;
       sendPointerEvent('up', event);
     });
-    canvas.addEventListener('pointerleave', (event) => {
-      pointerState.active = false;
-      sendPointerEvent('leave', event);
+    canvas.addEventListener('pointercancel', (event) => {
+      sendPointerEvent('cancel', event);
     });
     canvas.addEventListener('pointermove', (event) => {
-      if (!pointerState.active) {
-        return;
-      }
       sendPointerEvent('move', event);
+    });
+    canvas.addEventListener('pointerenter', (event) => {
+      sendPointerEvent('enter', event);
+    });
+    canvas.addEventListener('pointerleave', (event) => {
+      sendPointerEvent('leave', event);
+    });
+    canvas.addEventListener('pointerover', (event) => {
+      sendPointerEvent('over', event);
+    });
+    canvas.addEventListener('pointerout', (event) => {
+      sendPointerEvent('out', event);
+    });
+    canvas.addEventListener('gotpointercapture', (event) => {
+      sendPointerEvent('gotcapture', event);
+    });
+    canvas.addEventListener('lostpointercapture', (event) => {
+      sendPointerEvent('lostcapture', event);
+    });
+    canvas.addEventListener('pointerrawupdate', (event) => {
+      sendPointerEvent('rawupdate', event);
     });
 
     const events = new EventSource('/__funcdraw/events');
@@ -704,10 +728,24 @@ function createHtmlTemplate() {
 
     function buildPointerEvent(action, event) {
       const canvasPoint = [event.offsetX, event.offsetY];
-      const worldPoint = projector ? projector.unprojectPoint(canvasPoint) : [0, 0];
+      const worldPoint = projector.unprojectPoint(canvasPoint);
       return {
         type: 'pointer',
         action,
+        pointer: {
+          id: event.pointerId,
+          type: event.pointerType,
+          isPrimary: event.isPrimary,
+          down: pointerState.down.has(event.pointerId),
+          captured: pointerState.captured.has(event.pointerId),
+          pressure: event.pressure,
+          tangentialPressure: event.tangentialPressure,
+          tiltX: event.tiltX,
+          tiltY: event.tiltY,
+          twist: event.twist,
+          width: event.width / projector.scale,
+          height: event.height / projector.scale
+        },
         button: event.button,
         buttons: event.buttons,
         modifiers: {
@@ -715,12 +753,6 @@ function createHtmlTemplate() {
           ctrl: event.ctrlKey,
           meta: event.metaKey,
           shift: event.shiftKey
-        },
-        canvas: {
-          x: canvasPoint[0],
-          y: canvasPoint[1],
-          width: canvas.width,
-          height: canvas.height
         },
         point: {
           x: worldPoint[0],
@@ -731,6 +763,17 @@ function createHtmlTemplate() {
     }
 
     function sendPointerEvent(action, event) {
+      if (action === 'up' || action === 'cancel') {
+        pointerState.down.delete(event.pointerId);
+        if (pointerState.captured.has(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+          pointerState.captured.delete(event.pointerId);
+        }
+      } else if (action === 'gotcapture') {
+        pointerState.captured.add(event.pointerId);
+      } else if (action === 'lostcapture') {
+        pointerState.captured.delete(event.pointerId);
+      }
       if (!latestScene) {
         logWarn('Pointer event ignored (no scene loaded yet)', action);
         return;
@@ -747,18 +790,13 @@ function createHtmlTemplate() {
         logWarn('Pointer event ignored (projector not ready yet)', action);
         return;
       }
-      const payload = buildPointerEvent(action, event);
-      if (!payload) {
-        return;
-      }
-      logInfo('Pointer event', payload);
       if (action === 'down') {
-        pointerState.active = true;
+        pointerState.down.add(event.pointerId);
         canvas.setPointerCapture(event.pointerId);
-      } else if (action === 'up' || action === 'leave') {
-        pointerState.active = false;
-        canvas.releasePointerCapture(event.pointerId);
+        pointerState.captured.add(event.pointerId);
       }
+      const payload = buildPointerEvent(action, event);
+      logInfo('Pointer event', payload);
       loadScene('pointer-' + action, {
         events: [payload],
         params: { time: formatTimeParam(animationState.time) }
@@ -804,9 +842,15 @@ function createHtmlTemplate() {
       animationState.lastTick = timestamp;
       animationState.time += delta / 1000;
       updateAnimationUi();
-      await loadScene('animation', {
+      const frameStart = performance.now();
+      const frameScene = await loadScene('animation', {
         params: { time: formatTimeParam(animationState.time) }
       });
+      const frameDuration = performance.now() - frameStart;
+      if (frameScene) {
+        recordRenderFrameTime(frameDuration);
+        updateAnimationUi();
+      }
       if (animationState.playing) {
         animationState.raf = requestAnimationFrame(animationFrame);
       } else {
@@ -817,12 +861,38 @@ function createHtmlTemplate() {
     function updateAnimationUi() {
       if (!animationState.enabled) {
         animationControls.container.classList.remove('active');
+        animationControls.frameTimeLabel.textContent = '';
         return;
       }
       animationControls.container.classList.add('active');
       animationControls.toggle.textContent = animationState.playing ? 'Pause' : 'Play';
       animationControls.reset.disabled = animationState.time === 0 && !animationState.playing;
       animationControls.label.textContent = 't=' + formatTimeDisplay(animationState.time);
+      const avgRenderTime = averageRenderFrameTime(animationState.renderFrameTimes);
+      animationControls.frameTimeLabel.textContent =
+        avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
+    }
+
+    function recordRenderFrameTime(value) {
+      animationState.renderFrameTimes.push(value);
+      if (animationState.renderFrameTimes.length > 10) {
+        animationState.renderFrameTimes.shift();
+      }
+    }
+
+    function averageRenderFrameTime(samples) {
+      if (samples.length === 0) {
+        return null;
+      }
+      let total = 0;
+      for (const sample of samples) {
+        total += sample;
+      }
+      return total / samples.length;
+    }
+
+    function formatRenderTime(value) {
+      return Number(value).toFixed(1) + 'ms';
     }
 
     function formatTimeParam(value) {

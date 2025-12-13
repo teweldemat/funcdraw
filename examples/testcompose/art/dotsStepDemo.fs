@@ -14,42 +14,18 @@
   startAnchor: [-3, 0];
   startLeftIndex: 0;
   startRightIndex: 1;
-  initialLeftWorld: dotAtIndex(startLeftIndex);
-  initialRightWorld: dotAtIndex(startRightIndex);
-
-  resolveSteps: (count, anchorIn, leftWorld, rightWorld, movingLeft, leftIndex, rightIndex) =>
-  {
-    eval
-    (
-      if count <= 0 then
-        { anchor: anchorIn; left: leftWorld; right: rightWorld; movingLeft; leftIndex; rightIndex; }
-      else
-      {
-        targetIndex: (if movingLeft then rightIndex else leftIndex) + 1;
-        target: dotAtIndex(targetIndex);
-        moving: if movingLeft then "left" else "right";
-        base:
-        {
-          leftLeg: { end: [leftWorld[0] - anchorIn[0], leftWorld[1] - anchorIn[1]]; };
-          rightLeg: { end: [rightWorld[0] - anchorIn[0], rightWorld[1] - anchorIn[1]]; };
-        };
-        profile: package("@funcdraw/testlib").cartoon.character.singleStepProfile(anchorIn, base, moving, target, 1);
-        nextAnchor: profile.anchor;
-        nextLeft: [nextAnchor[0] + profile.leftLeg.end[0], nextAnchor[1] + profile.leftLeg.end[1]];
-        nextRight: [nextAnchor[0] + profile.rightLeg.end[0], nextAnchor[1] + profile.rightLeg.end[1]];
-        nextLeftIndex: if movingLeft then targetIndex else leftIndex;
-        nextRightIndex: if movingLeft then rightIndex else targetIndex;
-
-        eval resolveSteps(count - 1, nextAnchor, nextLeft, nextRight, if movingLeft then false else true, nextLeftIndex, nextRightIndex);
-      }
-    );
-  };
 
   stepIndex: math.Floor(t / stepDuration);
   stepProgressRaw: t / stepDuration - stepIndex;
   stepProgress: (1 - math.Cos(stepProgressRaw * math.Pi)) / 2;
 
-  completedState: resolveSteps(stepIndex, startAnchor, initialLeftWorld, initialRightWorld, true, startLeftIndex, startRightIndex);
+  isEvenStep: math.Floor(stepIndex / 2) * 2 == stepIndex;
+  leftIndex: if isEvenStep then startLeftIndex + stepIndex else startLeftIndex + stepIndex + 1;
+  rightIndex: if isEvenStep then startRightIndex + stepIndex else startRightIndex + stepIndex - 1;
+  anchor: [startAnchor[0] + dotSpacing * stepIndex, startAnchor[1]];
+  leftWorld: dotAtIndex(leftIndex);
+  rightWorld: dotAtIndex(rightIndex);
+  completedState: { anchor; left: leftWorld; right: rightWorld; movingLeft: isEvenStep; leftIndex; rightIndex; };
 
   currentTargetIndex: (if completedState.movingLeft then completedState.rightIndex else completedState.leftIndex) + 1;
   currentTarget: dotAtIndex(currentTargetIndex);

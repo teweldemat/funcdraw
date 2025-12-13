@@ -8,14 +8,16 @@
       container: document.getElementById('fd-time-controls'),
       toggle: document.getElementById('fd-play-toggle'),
       reset: document.getElementById('fd-reset-timeline'),
-      label: document.getElementById('fd-time-label')
+      label: document.getElementById('fd-time-label'),
+      frameTimeLabel: document.getElementById('fd-frame-time-label')
     };
     const animationState = {
       enabled: false,
       playing: false,
       time: 0,
       raf: null,
-      lastTick: null
+      lastTick: null,
+      renderFrameTimes: []
     };
     const canvasHookState = {
       active: false
@@ -28,11 +30,14 @@
     const logError = (...args) => console.error(logPrefix, ...args);
     let latestScene = null;
     let projector = null;
+    const pointerState = { down: new Set(), captured: new Set() };
 
     logInfo('Booting FuncDraw Play browser client');
 
     async function loadScene(reason = 'manual', loadOptions = {}) {
       const params = new URLSearchParams();
+      const events = Array.isArray(loadOptions.events) ? loadOptions.events : [];
+      const resetState = Boolean(loadOptions.resetState);
       let hasCustomTimeParam = false;
       if (loadOptions.params && typeof loadOptions.params === 'object') {
         for (const [key, rawValue] of Object.entries(loadOptions.params)) {
@@ -45,21 +50,50 @@
           }
         }
       }
-      if (!hasCustomTimeParam && animationState.enabled) {
-        params.set('time', formatTimeParam(animationState.time));
+      const timeValue = hasCustomTimeParam
+        ? loadOptions.params.time
+        : animationState.enabled
+          ? animationState.time
+          : undefined;
+      if (timeValue !== undefined) {
+        params.set('time', formatTimeParam(timeValue));
       }
       addCanvasSizeParams(params);
+      if (resetState) {
+        params.set('resetState', 'true');
+      }
       params.set('_ts', Date.now().toString());
       const requestUrl = API + '?' + params.toString();
-      logInfo('Requesting scene', { reason, requestUrl });
+      const requestInit =
+        events && events.length
+          ? {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                events,
+                time: timeValue,
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                resetState
+              })
+            }
+          : undefined;
+      logInfo('Requesting scene', { reason, requestUrl, method: requestInit ? 'POST' : 'GET' });
+      if (events.length > 0) {
+        logInfo('Sending events', events);
+      }
       try {
-        const response = await fetch(requestUrl);
+        const response = await fetch(requestUrl, requestInit);
         logDebug('Scene HTTP response', { status: response.status, ok: response.ok });
         if (!response.ok) {
           throw new Error('Failed to load scene');
         }
         const payload = await response.json();
         logDebug('Scene payload received', payload);
+        if (payload === null) {
+          logInfo('Scene ignored events (null payload)', { reason, eventCount: events.length });
+          return null;
+        }
         latestScene = payload;
         renderScene(payload);
         if (payload.svg) {
@@ -229,6 +263,12 @@
         },
         projectScalar(value) {
           return value * scale;
+        },
+        unprojectPoint(point) {
+          const [px, py] = point;
+          const mx = (px - offsetX) / scale + viewBox.left;
+          const my = viewBox.top - (py - offsetY) / scale;
+          return [mx, my];
         }
       };
     }
@@ -457,6 +497,40 @@
       loadScene('timeline-reset', { params: { time: formatTimeParam(animationState.time) } });
     });
 
+    canvas.addEventListener('pointerdown', (event) => {
+      sendPointerEvent('down', event);
+    });
+    canvas.addEventListener('pointerup', (event) => {
+      sendPointerEvent('up', event);
+    });
+    canvas.addEventListener('pointercancel', (event) => {
+      sendPointerEvent('cancel', event);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      sendPointerEvent('move', event);
+    });
+    canvas.addEventListener('pointerenter', (event) => {
+      sendPointerEvent('enter', event);
+    });
+    canvas.addEventListener('pointerleave', (event) => {
+      sendPointerEvent('leave', event);
+    });
+    canvas.addEventListener('pointerover', (event) => {
+      sendPointerEvent('over', event);
+    });
+    canvas.addEventListener('pointerout', (event) => {
+      sendPointerEvent('out', event);
+    });
+    canvas.addEventListener('gotpointercapture', (event) => {
+      sendPointerEvent('gotcapture', event);
+    });
+    canvas.addEventListener('lostpointercapture', (event) => {
+      sendPointerEvent('lostcapture', event);
+    });
+    canvas.addEventListener('pointerrawupdate', (event) => {
+      sendPointerEvent('rawupdate', event);
+    });
+
     const events = new EventSource('/__funcdraw/events');
     events.addEventListener('reload', () => {
       logInfo('Reload event received from server');
@@ -516,6 +590,88 @@
       canvasHookState.active = Boolean(canvasHook && canvasHook.used);
     }
 
+    function supportsStepper(scene) {
+      const stepMarker = scene && (scene.step || (scene.raw && scene.raw.step));
+      return stepMarker === '<step>';
+    }
+
+    function buildPointerEvent(action, event) {
+      const canvasPoint = [event.offsetX, event.offsetY];
+      const worldPoint = projector.unprojectPoint(canvasPoint);
+      return {
+        type: 'pointer',
+        action,
+        pointer: {
+          id: event.pointerId,
+          type: event.pointerType,
+          isPrimary: event.isPrimary,
+          down: pointerState.down.has(event.pointerId),
+          captured: pointerState.captured.has(event.pointerId),
+          pressure: event.pressure,
+          tangentialPressure: event.tangentialPressure,
+          tiltX: event.tiltX,
+          tiltY: event.tiltY,
+          twist: event.twist,
+          width: event.width / projector.scale,
+          height: event.height / projector.scale
+        },
+        button: event.button,
+        buttons: event.buttons,
+        modifiers: {
+          alt: event.altKey,
+          ctrl: event.ctrlKey,
+          meta: event.metaKey,
+          shift: event.shiftKey
+        },
+        point: {
+          x: worldPoint[0],
+          y: worldPoint[1]
+        },
+        time: animationState.time
+      };
+    }
+
+    function sendPointerEvent(action, event) {
+      if (action === 'up' || action === 'cancel') {
+        pointerState.down.delete(event.pointerId);
+        if (pointerState.captured.has(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+          pointerState.captured.delete(event.pointerId);
+        }
+      } else if (action === 'gotcapture') {
+        pointerState.captured.add(event.pointerId);
+      } else if (action === 'lostcapture') {
+        pointerState.captured.delete(event.pointerId);
+      }
+      if (!latestScene) {
+        logWarn('Pointer event ignored (no scene loaded yet)', action);
+        return;
+      }
+      if (!supportsStepper(latestScene)) {
+        logWarn('Pointer event ignored (scene does not expose a stepper)', {
+          action,
+          step: latestScene.step,
+          rawStep: latestScene.raw && latestScene.raw.step
+        });
+        return;
+      }
+      if (!projector) {
+        logWarn('Pointer event ignored (projector not ready yet)', action);
+        return;
+      }
+      if (action === 'down') {
+        pointerState.down.add(event.pointerId);
+        canvas.setPointerCapture(event.pointerId);
+        pointerState.captured.add(event.pointerId);
+      }
+      const payload = buildPointerEvent(action, event);
+      logInfo('Pointer event', payload);
+      loadScene('pointer-' + action, {
+        events: [payload],
+        params: { time: formatTimeParam(animationState.time) }
+      });
+    }
+
     function startAnimation() {
       if (!animationState.enabled || animationState.playing) {
         return;
@@ -555,9 +711,15 @@
       animationState.lastTick = timestamp;
       animationState.time += delta / 1000;
       updateAnimationUi();
-      await loadScene('animation', {
+      const frameStart = performance.now();
+      const frameScene = await loadScene('animation', {
         params: { time: formatTimeParam(animationState.time) }
       });
+      const frameDuration = performance.now() - frameStart;
+      if (frameScene) {
+        recordRenderFrameTime(frameDuration);
+        updateAnimationUi();
+      }
       if (animationState.playing) {
         animationState.raf = requestAnimationFrame(animationFrame);
       } else {
@@ -568,12 +730,38 @@
     function updateAnimationUi() {
       if (!animationState.enabled) {
         animationControls.container.classList.remove('active');
+        animationControls.frameTimeLabel.textContent = '';
         return;
       }
       animationControls.container.classList.add('active');
       animationControls.toggle.textContent = animationState.playing ? 'Pause' : 'Play';
       animationControls.reset.disabled = animationState.time === 0 && !animationState.playing;
       animationControls.label.textContent = 't=' + formatTimeDisplay(animationState.time);
+      const avgRenderTime = averageRenderFrameTime(animationState.renderFrameTimes);
+      animationControls.frameTimeLabel.textContent =
+        avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
+    }
+
+    function recordRenderFrameTime(value) {
+      animationState.renderFrameTimes.push(value);
+      if (animationState.renderFrameTimes.length > 10) {
+        animationState.renderFrameTimes.shift();
+      }
+    }
+
+    function averageRenderFrameTime(samples) {
+      if (samples.length === 0) {
+        return null;
+      }
+      let total = 0;
+      for (const sample of samples) {
+        total += sample;
+      }
+      return total / samples.length;
+    }
+
+    function formatRenderTime(value) {
+      return Number(value).toFixed(1) + 'ms';
     }
 
     function formatTimeParam(value) {

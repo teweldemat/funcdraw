@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
@@ -25,7 +27,7 @@ var eventPayload = ParseJsonArgument(options.EventJson);
 
 if (options.Dump)
 {
-    using var dumpServer = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    using var dumpServer = await FuncDrawServer.CreateHeadlessAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
     if (initialState != null)
     {
         dumpServer.SetState(initialState);
@@ -50,7 +52,7 @@ if (options.Dump)
 
 if (traceOnly)
 {
-    using var traceServer = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    using var traceServer = await FuncDrawServer.CreateHeadlessAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
     if (initialState != null)
     {
         traceServer.SetState(initialState);
@@ -63,14 +65,27 @@ if (traceOnly)
     return;
 }
 
-using var server = await FuncDrawServer.StartAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
-using var watcher = WatchArt(server);
+var serverPort = options.Port;
+FuncDrawServer server;
+try
+{
+    server = await FuncDrawServer.StartAsync(root, options.Host, serverPort, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+}
+catch (HttpListenerException ex) when (IsAddressInUse(ex))
+{
+    serverPort = FindAvailablePort(options.Host);
+    Console.WriteLine($"[funcdraw.net] Port {options.Port} already in use; falling back to {serverPort}.");
+    server = await FuncDrawServer.StartAsync(root, options.Host, serverPort, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+}
 
-Console.WriteLine($"FuncDraw.Net ready at http://{(options.Host == "0.0.0.0" ? "localhost" : options.Host)}:{options.Port}");
+using var serverHandle = server;
+using var watcher = WatchArt(serverHandle);
+
+Console.WriteLine($"FuncDraw.Net ready at http://{(options.Host == "0.0.0.0" ? "localhost" : options.Host)}:{serverPort}");
 Console.CancelKeyPress += (_, __) =>
 {
     watcher.Dispose();
-    server.Dispose();
+    serverHandle.Dispose();
     Environment.Exit(0);
 };
 
@@ -123,6 +138,25 @@ static string? ResolveTracePath(string? traceFile, string root)
     }
 
     return Path.IsPathRooted(traceFile) ? traceFile : Path.Combine(root, traceFile);
+}
+
+static bool IsAddressInUse(HttpListenerException ex)
+{
+    return ex.ErrorCode is 48 or 98;
+}
+
+static int FindAvailablePort(string host)
+{
+    var address = host == "0.0.0.0"
+        ? IPAddress.Any
+        : string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            ? IPAddress.Loopback
+            : IPAddress.Parse(host);
+    var listener = new TcpListener(address, 0);
+    listener.Start();
+    var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+    listener.Stop();
+    return port;
 }
 
 static void WriteTraceToFile(List<TraceEntry>? entries, string? targetPath, string root)

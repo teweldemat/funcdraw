@@ -1,4 +1,6 @@
-**** Hey agent the mistake you always seem to make is failing to distingush between module and collection folders and trying to access the internal components of a module ****
+!!Important!!
+**** We are currntly developing FuncDraw.Net and have paused the development of packages/funcdraw-play until we are satsified with the .net version **
+**** Do note make the of failing to distingush between module and collection folders and trying to access the internal components of a module ****
 # FuncDraw: FuncScript-based Vector Graphics Authoring Tool
 
 This repository contains the core framework for FuncDraw.

@@ -54,7 +54,7 @@ step_f : Event → (NextState × EventList) | null
 - Supported shape: a map `{ state, events }`. `state` must be non-null whenever `events` is non-null; a null `state` with emitted events is rejected.  
 - `events` may be a single value or an FsList. A single non-null value is enqueued once; list contents are enqueued in order.  
 - Any non-null return value that is **not** a map is treated as the next state and **does not** emit events.  
-- A `null` return means the event was ignored: the host keeps `State` unchanged, emits no events, and `pushEvent` returns `null`.  
+- A `null` return means the event was ignored: the host keeps `State` unchanged, emits no events, and does not re-evaluate the model for that event.  
 
 > Tuple/list forms like `[nextState, events]` are **not** recognized by this reference host.
 
@@ -83,14 +83,18 @@ The system proceeds through the following lifecycle:
 For each event popped from the event queue:
 
 ```
-StepF(Event) → (NextState, OutEvents)
+StepResult ← StepF(Event)
+if StepResult is null
+    continue
+(NextState, OutEvents) ← normalize(StepResult)
 State ← NextState
 Push OutEvents into the queue
+Re-evaluate to get new StepF and RenderData
 ```
 
 If `StepF(Event)` returns `null`, the event is ignored: `State` is unchanged, no events are enqueued, and the host does not re-evaluate the model for that event.
 
-After **each** event:
+After each **applied** event (non-null step result):
 
 ```
 model(HookedVars, State) → (RenderData, StepF_new)
@@ -138,4 +142,4 @@ If every processed step returns `null`, the model state is unchanged and `pushEv
 
 scene.evaluate() -> RenderData
 
-When any used hook value changes, the consumer call evaluate again to produced update RenderData similar to initialization.
+When any used hook value changes, the consumer calls evaluate again to produce updated RenderData similar to initialization.

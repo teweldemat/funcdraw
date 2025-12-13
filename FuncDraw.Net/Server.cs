@@ -95,7 +95,7 @@ internal sealed class FuncDrawServer : IDisposable
     private double _canvasWidth;
     private double _canvasHeight;
 
-    private FuncDrawServer(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
+    private FuncDrawServer(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions, bool enableHttpListener)
     {
         _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
         _expressionOverride = NormalizeExpressionOverride(expressionOverride);
@@ -110,8 +110,11 @@ internal sealed class FuncDrawServer : IDisposable
 
         _html = html ?? throw new ArgumentNullException(nameof(html));
         _listener = new HttpListener();
-        var prefixHost = host == "0.0.0.0" ? "*" : host;
-        _listener.Prefixes.Add($"http://{prefixHost}:{port}/");
+        if (enableHttpListener)
+        {
+            var prefixHost = host == "0.0.0.0" ? "*" : host;
+            _listener.Prefixes.Add($"http://{prefixHost}:{port}/");
+        }
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -123,8 +126,15 @@ internal sealed class FuncDrawServer : IDisposable
 
     public static async Task<FuncDrawServer> StartAsync(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
     {
-        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions);
+        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions, enableHttpListener: true);
         server.Start();
+        await Task.CompletedTask;
+        return server;
+    }
+
+    public static async Task<FuncDrawServer> CreateHeadlessAsync(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
+    {
+        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions, enableHttpListener: false);
         await Task.CompletedTask;
         return server;
     }

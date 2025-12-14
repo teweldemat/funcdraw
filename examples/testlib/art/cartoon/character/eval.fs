@@ -1,1 +1,1 @@
-{ static; singleStepProfile; skeleton; skins; }
+{ static; singleStepProfile; singleStepZoom; skeleton; skins; }

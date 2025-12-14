@@ -119,6 +119,46 @@ To enable it in a package, add `@funcdraw/play` and a `play` script:
   }
 }
 ```
+## Documenting FuncDraw files
+FuncDraw expressions are the API surface of a package. Document anything intended for reuse (components, UI controls, exported modules) so consumers can use it without reading the implementation.
+
+### Where docs live
+
+- Leaf expression: `art/foo/bar.fs` → `art/foo/bar.doc.md`
+- Module folder (has `eval.fs`): `art/foo/bar/eval.fs` → `art/foo/bar.doc.md` (sibling of the folder)
+- Collection folders: use a short `README.md` when the folder is a “topic” (e.g. `art/ui/README.md`). A collection folder is not an API by itself unless it contains a module (`eval.fs`) or you explicitly document each exported leaf.
+
+### Modules vs. collections (important)
+
+If a folder contains an `eval` expression, it is a module: only what `eval` returns is public. Sibling expressions are implementation details and must not be referenced by consumers.
+
+To expose a helper from a module, re-export it from `eval.fs`:
+
+```funcscript
+// art/ui/button/eval.fs
+{ draw; step; } // consumers can access `art.ui.button.draw` and `.step`
+```
+
+### Doc structure
+
+Follow the standard headings from the `## Documentation guidelines` section:
+
+- `## Overview` – what it renders/does, in plain graphical terms.
+- `## Construction Overview` – ordered build steps and key helpers it delegates to.
+- `## Inputs` – pseudo-schema for every argument (include units, coordinate frame, defaults).
+- `## Outputs` – shape of the returned value (graphics, helpers, metadata).
+
+For interactive components/scenes (anything that returns `{ ..., step: <function> }`), also add:
+
+- `## State` – the persisted state shape and meaning of fields.
+- `## Events` (or `## Stepper`) – which events it consumes and what state changes are expected.
+
+### Writing conventions
+
+- Prefer pseudo-schemas (`{ position:[x,y]; size:[w,h]; ... }`) over prose-only descriptions.
+- Be explicit about coordinate frames (world vs. canvas), units (radians vs degrees), and defaults.
+- Call out any hooks/dependencies (`fd.measureText`, `t`, `canvas`, pointer events) so hosts and debug runs behave predictably.
+
 
 ## JavaScript expressions (optional)
 FuncScript is the default, but JavaScript bindings remain available when needed. Keep JS files stateless, end them with a `return` of the value you want to export, and refer to siblings the same way you would from FuncScript (they are injected into scope). Avoid `require`/`module.exports`; just use `package("<name>")` for external packages and direct identifiers for local helpers. Use JS sparingly—prefer `.fs`/`.fx` for new work.

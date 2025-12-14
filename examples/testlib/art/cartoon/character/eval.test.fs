@@ -264,6 +264,28 @@
       };
     },
     {
+      name: "poly skin hides eyes when facing back";
+      test: (mod) =>
+      {
+        palette:
+        {
+          body: "#f1f5f9";
+          limb: "#0f172a";
+        };
+        anchor: [0, 0];
+        backGeometry: mod.skeleton.build(anchor, { direction: "back"; });
+        back: mod.skins.poly(backGeometry, palette);
+        backMark: back[3];
+        firstHand: back[4];
+
+        eval
+        [
+          assert.equal(backMark.name, "head-back-mark"),
+          assert.equal(firstHand.name, "leftHand-upper")
+        ];
+      };
+    },
+    {
       name: "orders hands around the body based on facing direction";
       test: (mod) =>
       {

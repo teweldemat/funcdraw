@@ -54,6 +54,24 @@
     stroke: palette.limb;
   };
 
+  backMarkThickness: eyeSize * 0.2;
+  backMarkY: headCenter[1] + headHeight * 0.1;
+  backMarkHalfLength: headWidthFront * 0.3;
+  backMark:
+  {
+    type: "polygon";
+    name: "head-back-mark";
+    points:
+    [
+      [headCenter[0] - backMarkHalfLength, backMarkY - backMarkThickness],
+      [headCenter[0] + backMarkHalfLength, backMarkY - backMarkThickness],
+      [headCenter[0] + backMarkHalfLength, backMarkY + backMarkThickness],
+      [headCenter[0] - backMarkHalfLength, backMarkY + backMarkThickness]
+    ];
+    fill: palette.limb;
+    stroke: palette.limb;
+  };
+
   nose:
   {
     type: "polygon";
@@ -75,9 +93,7 @@
     ]
   else if direction == "back" then
     [
-      eyeDiamond([headCenter[0] - eyeSize * 0.8, headCenter[1] + headHeight * 0.1]),
-      eyeDiamond([headCenter[0] + eyeSize * 0.8, headCenter[1] + headHeight * 0.1]),
-      nose
+      backMark
     ]
   else
     [

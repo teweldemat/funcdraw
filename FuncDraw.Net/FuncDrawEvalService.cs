@@ -10,21 +10,28 @@ namespace FuncDraw.Net;
 internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpression,
     IEnumerable<(string Name,Func<object> Hook)> hooks, 
     IEnumerable<Action<object>> eventHooks, 
-    Func<string,object> measureStringFunction,
     PackageLoader.PackageLoaderTraceDelegate? exitTrace=null,
     PackageLoader.PackageLoaderEntryTraceDelegate? entryTrace=null,
     TraceOptions? traceOptions=null)
 {
     private static long _globalEvaluationCount = 0;
     private static long _globalStepCallCount = 0;
+    private static readonly object MeasureStringHook = Engine.NormalizeDataType(new Func<object, object>(MeasureString));
     private const string MEASURE_STRING_FUNCTION_NAME = "measurestring";
     private const string FD_CONTEXT_NAME = "fd";
-    private readonly KeyValueCollection _fdContext = FdContext.Create(null);
+    private readonly KeyValueCollection _fdContext = FdContext.Create();
     private IEnumerable<(string Name, Func< object> Hook)> Hooks=>hooks;
-    private object MeasureStringFunction => FuncScript.Engine.NormalizeDataType(measureStringFunction);
+    private static object MeasureStringFunction => MeasureStringHook;
     private PackageLoader.PackageLoaderTraceDelegate? ExitTrace => exitTrace;
     private PackageLoader.PackageLoaderEntryTraceDelegate? EntryTrace => entryTrace;
     private TraceOptions? TraceOptions => traceOptions;
+    
+    private static object MeasureString(object rawText)
+    {
+        var text = rawText?.ToString() ?? string.Empty;
+        var metrics = FontEngine.Default.MeasureText(text, 12d, null);
+        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
+    }
     class FuncDrawProvider(FuncDrawEvalService service,KeyValueCollection parent) : KeyValueCollection
     {
         private readonly KeyValueCollection _parent = parent;
@@ -32,7 +39,7 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
         {
             var lowerKey = key.ToLower();
             if (lowerKey == MEASURE_STRING_FUNCTION_NAME)
-                return service.MeasureStringFunction;
+                return FuncDrawEvalService.MeasureStringFunction;
             if (lowerKey == FD_CONTEXT_NAME)
                 return service._fdContext;
             var h = service.Hooks.FirstOrDefault(x => x.Name.ToLower().Equals(lowerKey));
@@ -229,6 +236,7 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
     SceneResult InterprateGraphics(object value,bool includeSvg,ValueConverter converter,TraceCollector? traceCollector)
     {
         var interpretation = GraphicsInterpreter.Interpret(value, converter);
+        TextToGlyphConverter.Convert(interpretation);
         var svg = includeSvg ? SvgRenderer.Render(interpretation) : null;
         return new SceneResult(
             interpretation.Graphics,

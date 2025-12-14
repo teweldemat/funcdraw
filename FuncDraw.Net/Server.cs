@@ -88,7 +88,6 @@ internal sealed class FuncDrawServer : IDisposable
     private readonly HookTracker _hookTracker = new();
     private readonly List<Action<object>> _eventHooks = new();
     private readonly ValueConverter _converter = new();
-    private readonly Func<string, object> _measureString;
     private ArtResolver _resolver;
     private FuncDrawEvalService _service;
     private double _timeline;
@@ -104,7 +103,6 @@ internal sealed class FuncDrawServer : IDisposable
         _timeline = initialTime ?? 0;
         _canvasWidth = 40;
         _canvasHeight = 30;
-        _measureString = DefaultMeasureString;
         _resolver = new ArtResolver(_projectRoot);
         _service = CreateService();
 
@@ -420,7 +418,6 @@ internal sealed class FuncDrawServer : IDisposable
             _expressionOverride,
             hooks,
             _eventHooks,
-            _measureString,
             traceOptions: _traceOptions);
     }
 
@@ -452,24 +449,6 @@ internal sealed class FuncDrawServer : IDisposable
         {
             KeyValuePair.Create("size", (object)size)
         });
-    }
-
-    private object DefaultMeasureString(string text)
-    {
-        var size = 12d;
-        var length = text?.Length ?? 0;
-        var width = length * size * 0.6;
-        var lineHeight = size * 1.2;
-        var ascent = size;
-        var descent = lineHeight - ascent;
-        var metrics = new Metrics(
-            width,
-            lineHeight,
-            ascent,
-            descent,
-            ascent,
-            size * 0.6);
-        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
     }
 
     private static string? NormalizeExpressionOverride(string? expression)

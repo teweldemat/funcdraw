@@ -150,26 +150,7 @@ public class BoundingBoxTests
             resolver,
             expression,
             Array.Empty<(string Name, Func<object> Hook)>(),
-            Array.Empty<Action<object>>(),
-            DefaultMeasureString);
-    }
-
-    private static object DefaultMeasureString(string text)
-    {
-        var size = 12d;
-        var length = text?.Length ?? 0;
-        var width = length * size * 0.6;
-        var lineHeight = size * 1.2;
-        var ascent = size;
-        var descent = lineHeight - ascent;
-        var metrics = new Metrics(
-            width,
-            lineHeight,
-            ascent,
-            descent,
-            ascent,
-            size * 0.6);
-        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
+            Array.Empty<Action<object>>());
     }
 
     private static string CreateTempArtProject(string fileName, string content)
@@ -181,4 +162,3 @@ public class BoundingBoxTests
         return root;
     }
 }
-

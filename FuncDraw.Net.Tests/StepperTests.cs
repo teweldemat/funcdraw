@@ -123,9 +123,8 @@ public class StepperTests
             resolver,
             expression,
             Array.Empty<(string Name, Func<object> Hook)>(),
-            Array.Empty<Action<object>>(),
-            DefaultMeasureString);
-	}
+            Array.Empty<Action<object>>());
+		}
 
 	    private static SceneResult? PushEvent(FuncDrawEvalService service, object? evt)
 	    {
@@ -137,26 +136,8 @@ public class StepperTests
 	        return Convert.ToDouble(service.State);
 	    }
 
-	    private static object DefaultMeasureString(string text)
+	    private static string CreateTempArtProject(string fileName, string content)
 	    {
-	        var size = 12d;
-	        var length = text?.Length ?? 0;
-        var width = length * size * 0.6;
-        var lineHeight = size * 1.2;
-        var ascent = size;
-        var descent = lineHeight - ascent;
-        var metrics = new Metrics(
-            width,
-            lineHeight,
-            ascent,
-            descent,
-            ascent,
-            size * 0.6);
-        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
-    }
-
-    private static string CreateTempArtProject(string fileName, string content)
-    {
         var root = Path.Combine(Path.GetTempPath(), "funcdraw-stepper-" + Guid.NewGuid().ToString("N"));
         var artDir = Path.Combine(root, "art");
         Directory.CreateDirectory(artDir);

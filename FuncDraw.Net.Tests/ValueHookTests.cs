@@ -19,11 +19,11 @@ eval
   graphics:
   [
     {
-      type: ""text"";
-      position: [0,0];
-      text: clock;
-      color: ""#fff"";
-      fontSize: 10;
+      type: ""line"";
+      from: [0, 0];
+      to: [Len(clock), 0];
+      stroke: ""#fff"";
+      width: 1;
     }
   ];
 };
@@ -42,9 +42,11 @@ eval
             service.Reset();
             var response = service.Evaluate(false);
             Assert.That(response.Graphics, Has.Count.EqualTo(1));
-            var textNode = response.Graphics[0] as System.Collections.Generic.IDictionary<string, object>;
-            Assert.That(textNode, Is.Not.Null);
-            Assert.That(Convert.ToString(textNode!["text"]), Is.EqualTo("12:34:56"));
+            var lineNode = response.Graphics[0] as System.Collections.Generic.IDictionary<string, object>;
+            Assert.That(lineNode, Is.Not.Null);
+            Assert.That(Convert.ToString(lineNode!["type"]), Is.EqualTo("line"));
+            var to = (System.Collections.Generic.IEnumerable<object>)lineNode["to"];
+            Assert.That(Convert.ToDouble(to.First()), Is.EqualTo(8d));
         }
         finally
         {
@@ -63,26 +65,7 @@ eval
             resolver,
             expression,
             hookList,
-            Array.Empty<Action<object>>(),
-            DefaultMeasureString);
-    }
-
-    private static object DefaultMeasureString(string text)
-    {
-        var size = 12d;
-        var length = text?.Length ?? 0;
-        var width = length * size * 0.6;
-        var lineHeight = size * 1.2;
-        var ascent = size;
-        var descent = lineHeight - ascent;
-        var metrics = new Metrics(
-            width,
-            lineHeight,
-            ascent,
-            descent,
-            ascent,
-            size * 0.6);
-        return new SimpleKeyValueCollection(null, metrics.ToDictionary());
+            Array.Empty<Action<object>>());
     }
 
     private static string CreateTempArtProject(string fileName, string content)

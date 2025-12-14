@@ -17,4 +17,14 @@
     <EmbeddedResource Include="Template&#x2F;tail.html" LogicalName="FuncDraw.Net.Template.tail.html" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Typography.OpenFont" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="fonts&#x2F;**&#x2F;*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

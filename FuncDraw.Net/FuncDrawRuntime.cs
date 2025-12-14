@@ -17,7 +17,6 @@ internal sealed class FuncDrawOptions
 {
     public bool IncludeSvg { get; init; }
     public IDictionary<string, Func<object?>>? ValueHooks { get; init; }
-    public Func<string, double, Metrics>? MeasureText { get; init; }
     public TraceOptions? Trace { get; init; }
     public string? ExpressionOverride { get; init; }
     public object? StateArg { get; init; }
@@ -89,7 +88,7 @@ internal static class FuncDrawRuntime
         }
 
         var hooks = ValueHookSet.Create(options.ValueHooks);
-        var fdContext = FdContext.Create(options.MeasureText);
+        var fdContext = FdContext.Create();
         var baseProvider = new DefaultFsDataProvider();
         var provider = new FuncDrawProvider(fdContext, hooks, baseProvider);
         var converter = new ValueConverter();
@@ -117,6 +116,7 @@ internal static class FuncDrawRuntime
         }
 
         var interpretation = GraphicsInterpreter.Interpret(typedRoot, converter);
+        TextToGlyphConverter.Convert(interpretation);
         var svg = options.IncludeSvg ? SvgRenderer.Render(interpretation) : null;
         return new SceneResult(
             interpretation.Graphics,
@@ -403,15 +403,14 @@ internal static class FdContext
         }
     }
 
-    public static KeyValueCollection Create(Func<string, double, Metrics>? measureText)
+    public static KeyValueCollection Create()
     {
-        var metrics = measureText ?? DefaultMeasureText;
-        var measureDelegate = new Func<object, object, object>((text, size) => Measure(metrics, text, size));
+        var measureDelegate = new Func<object, object, object>(MeasureText);
         var rotateDelegate = new Func<object, object, object, object>(Rotate);
         var translateDelegate = new Func<object, object, object, object>(Translate);
         var scaleDelegate = new Func<object, object, object, object, object>(Scale);
         var traslateDelegate = new Func<object, object, object, object>(Traslate);
-        var boundingBoxDelegate = new Func<object, object?>(graphics => BoundingBox(metrics, graphics));
+        var boundingBoxDelegate = new Func<object, object?>(BoundingBox);
         var fdEntries = new[]
         {
             KeyValuePair.Create("measureText", (object)Engine.NormalizeDataType(measureDelegate)),
@@ -424,11 +423,11 @@ internal static class FdContext
         return new SimpleKeyValueCollection(null, fdEntries);
     }
 
-    private static object Measure(Func<string, double, Metrics> measure, object rawText, object rawSize)
+    private static object MeasureText(object rawText, object rawSize)
     {
         var text = rawText?.ToString() ?? string.Empty;
         var size = NormalizeFontSize(rawSize);
-        var metrics = measure(text, size);
+        var metrics = FontEngine.Default.MeasureText(text, size, null);
         var pairs = metrics.ToDictionary();
         return new SimpleKeyValueCollection(null, pairs);
     }
@@ -504,10 +503,10 @@ internal static class FdContext
 
     
 
-    private static object? BoundingBox(Func<string, double, Metrics> measure, object graphics)
+    private static object? BoundingBox(object graphics)
     {
         var accumulator = new BoundsAccumulator();
-        var error = AppendBounds(measure, graphics, Matrix.Identity, ref accumulator);
+        var error = AppendBounds(graphics, Matrix.Identity, ref accumulator);
         if (error != null)
         {
             return error;
@@ -533,7 +532,7 @@ internal static class FdContext
         });
     }
 
-    private static FsError? AppendBounds(Func<string, double, Metrics> measure, object? value, Matrix transform, ref BoundsAccumulator accumulator)
+    private static FsError? AppendBounds(object? value, Matrix transform, ref BoundsAccumulator accumulator)
     {
         if (value == null)
         {
@@ -547,14 +546,14 @@ internal static class FdContext
 
         if (value is KeyValueCollection collection)
         {
-            return AppendBoundsFromCollection(measure, collection, transform, ref accumulator);
+            return AppendBoundsFromCollection(collection, transform, ref accumulator);
         }
 
         if (value is IEnumerable enumerable && value is not string && value is not byte[])
         {
             foreach (var item in enumerable)
             {
-                var err = AppendBounds(measure, item, transform, ref accumulator);
+                var err = AppendBounds(item, transform, ref accumulator);
                 if (err != null)
                 {
                     return err;
@@ -567,7 +566,7 @@ internal static class FdContext
         return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: expected graphics (primitive or list)");
     }
 
-    private static FsError? AppendBoundsFromCollection(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    private static FsError? AppendBoundsFromCollection(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
     {
         var typeValue = collection.Get("type");
         if (typeValue == null)
@@ -575,7 +574,7 @@ internal static class FdContext
             var graphicsValue = collection.Get("graphics");
             if (graphicsValue != null)
             {
-                return AppendBounds(measure, graphicsValue, transform, ref accumulator);
+                return AppendBounds(graphicsValue, transform, ref accumulator);
             }
 
             return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: expected graphics object (missing 'type' or 'graphics')");
@@ -596,15 +595,15 @@ internal static class FdContext
             "ellipse" => AppendEllipseBounds(collection, transform, ref accumulator),
             "polygon" => AppendPointsBounds(collection, "polygon", transform, ref accumulator),
             "polyline" => AppendPointsBounds(collection, "polyline", transform, ref accumulator),
-            "text" => AppendTextBounds(measure, collection, transform, ref accumulator),
+            "text" => AppendTextBounds(collection, transform, ref accumulator),
             "debug" => null,
             "path" => new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: 'path' is not supported yet"),
-            "transform" => AppendTransformBounds(measure, collection, transform, ref accumulator),
-            _ => AppendUnknownBounds(measure, collection, typeText, transform, ref accumulator)
+            "transform" => AppendTransformBounds(collection, transform, ref accumulator),
+            _ => AppendUnknownBounds(collection, typeText, transform, ref accumulator)
         };
     }
 
-    private static FsError? AppendTransformBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    private static FsError? AppendTransformBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
     {
         var matrixValue = collection.Get("matrix");
         if (matrixValue == null)
@@ -623,15 +622,15 @@ internal static class FdContext
             return null;
         }
 
-        return AppendBounds(measure, graphicsValue, transform.Multiply(localMatrix), ref accumulator);
+        return AppendBounds(graphicsValue, transform.Multiply(localMatrix), ref accumulator);
     }
 
-    private static FsError? AppendUnknownBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, string typeText, Matrix transform, ref BoundsAccumulator accumulator)
+    private static FsError? AppendUnknownBounds(KeyValueCollection collection, string typeText, Matrix transform, ref BoundsAccumulator accumulator)
     {
         var graphicsValue = collection.Get("graphics");
         if (graphicsValue != null)
         {
-            return AppendBounds(measure, graphicsValue, transform, ref accumulator);
+            return AppendBounds(graphicsValue, transform, ref accumulator);
         }
 
         var trimmed = typeText.Trim();
@@ -761,7 +760,7 @@ internal static class FdContext
         return null;
     }
 
-    private static FsError? AppendTextBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    private static FsError? AppendTextBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
     {
         var positionValue = collection.Get("position");
         if (positionValue == null || !TryReadPoint(positionValue, out var position))
@@ -772,47 +771,57 @@ internal static class FdContext
         var rawText = collection.Get("text");
         var text = rawText?.ToString() ?? string.Empty;
         var fontSize = NormalizeFontSize(collection.Get("fontsize"));
+        var font = collection.Get("font")?.ToString();
 
-        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-        if (lines.Length == 0)
+        try
         {
+            var align = collection.Get("align")?.ToString() ?? "left";
+            var typeface = FontEngine.Default.ResolveTypeface(font);
+            var mapper = FontEngine.Default.ResolveGlyphMapper(font);
+            var scale = fontSize / typeface.UnitsPerEm;
+            var ascent = typeface.Ascender * scale;
+            var descent = -typeface.Descender * scale;
+            var lineHeight = (ascent + descent) * 1.2;
+            var normalizedAlign = align.Trim().ToLowerInvariant();
+            var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var glyphIndices = lines[i].EnumerateRunes().Select(r => mapper.Lookup(r.Value)).ToArray();
+                var lineWidth = glyphIndices.Sum(g => typeface.GetHAdvanceWidthFromGlyphIndex(g) * scale);
+                var penX = normalizedAlign switch
+                {
+                    "center" => position.X - lineWidth / 2,
+                    "right" => position.X - lineWidth,
+                    _ => position.X
+                };
+                var baselineY = position.Y - i * lineHeight;
+
+                foreach (var glyphIndex in glyphIndices)
+                {
+                    var glyph = typeface.GetGlyphByIndex(glyphIndex);
+                    if (glyph.Bounds.XMin != glyph.Bounds.XMax || glyph.Bounds.YMin != glyph.Bounds.YMax)
+                    {
+                        var minX = penX + glyph.Bounds.XMin * scale;
+                        var maxX = penX + glyph.Bounds.XMax * scale;
+                        var minY = baselineY + glyph.Bounds.YMin * scale;
+                        var maxY = baselineY + glyph.Bounds.YMax * scale;
+                        accumulator.Include(transform.Transform(new Point(minX, minY)));
+                        accumulator.Include(transform.Transform(new Point(maxX, minY)));
+                        accumulator.Include(transform.Transform(new Point(maxX, maxY)));
+                        accumulator.Include(transform.Transform(new Point(minX, maxY)));
+                    }
+
+                    penX += typeface.GetHAdvanceWidthFromGlyphIndex(glyphIndex) * scale;
+                }
+            }
+
             return null;
         }
-
-        var lineMetrics = measure(lines[0], fontSize);
-        var lineHeight = lineMetrics.Height;
-        var ascent = lineMetrics.Ascent;
-        var descent = lineMetrics.Descent;
-
-        var maxWidth = 0d;
-        foreach (var line in lines)
+        catch (Exception ex)
         {
-            var metrics = measure(line, fontSize);
-            maxWidth = Math.Max(maxWidth, metrics.Width);
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, $"fd.boundingbox: {ex.Message}");
         }
-
-        var align = (collection.Get("align")?.ToString() ?? "left").Trim().ToLowerInvariant();
-        var left = align switch
-        {
-            "center" => position.X - maxWidth / 2,
-            "right" => position.X - maxWidth,
-            _ => position.X
-        };
-        var right = align switch
-        {
-            "center" => position.X + maxWidth / 2,
-            "right" => position.X,
-            _ => position.X + maxWidth
-        };
-
-        var top = position.Y + ascent;
-        var bottom = position.Y - descent - (lines.Length - 1) * lineHeight;
-
-        accumulator.Include(transform.Transform(new Point(left, bottom)));
-        accumulator.Include(transform.Transform(new Point(right, bottom)));
-        accumulator.Include(transform.Transform(new Point(right, top)));
-        accumulator.Include(transform.Transform(new Point(left, top)));
-        return null;
     }
 
     private static void ExpandStrokeBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
@@ -914,21 +923,6 @@ internal static class FdContext
         };
     }
 
-    private static Metrics DefaultMeasureText(string text, double size)
-    {
-        var length = text?.Length ?? 0;
-        var width = length * size * 0.6;
-        var lineHeight = size * 1.2;
-        var ascent = size;
-        var descent = lineHeight - ascent;
-        return new Metrics(
-            width,
-            lineHeight,
-            ascent,
-            descent,
-            ascent,
-            size * 0.6);
-    }
 }
 
 internal sealed record Metrics(
@@ -1705,16 +1699,18 @@ internal static class SvgRenderer
         }
 
         var position = ToPoint(Get(node, "position"));
-        var align = Get(node, "align")?.ToString()?.ToLowerInvariant() ?? "left";
         var fontSize = ToDouble(Get(node, "fontSize"), 12);
         var fill = Get(node, "color")?.ToString() ?? Get(node, "fill")?.ToString() ?? "#e2e8f0";
-        var anchor = align switch
+        var align = Get(node, "align")?.ToString() ?? "left";
+        var font = Get(node, "font")?.ToString();
+
+        var built = FontEngine.Default.BuildTextPath(text, fontSize, font, align, position.X, position.Y);
+        if (string.IsNullOrWhiteSpace(built.PathData))
         {
-            "center" => "middle",
-            "right" => "end",
-            _ => "start"
-        };
-        return $"<text x=\"{position.X}\" y=\"{position.Y}\" font-size=\"{fontSize}\" fill=\"{fill}\" text-anchor=\"{anchor}\">{EncodeAttribute(text)}</text>";
+            return string.Empty;
+        }
+
+        return $"<path d=\"{EncodeAttribute(built.PathData)}\" fill=\"{fill}\" stroke=\"none\" stroke-width=\"0\" />";
     }
 
     private static object? Get(IDictionary<string, object?> map, string key)

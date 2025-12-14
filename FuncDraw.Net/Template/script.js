@@ -125,9 +125,19 @@
       const viewBox = resolveViewBox(scene);
       resizeCanvasForView();
       projector = createProjector(viewBox);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(
+        projector.matrix[0],
+        projector.matrix[1],
+        projector.matrix[2],
+        projector.matrix[3],
+        projector.matrix[4],
+        projector.matrix[5]
+      );
       const raw = scene.raw || {};
       drawNodes(raw.graphics || []);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       const primitiveCount = countPrimitives(raw.graphics || []);
       stats.textContent =
         primitiveCount + ' primitives · view ' + viewBox.width + '×' + viewBox.height;
@@ -341,6 +351,9 @@
         case 'polygon':
           drawPolygon(nodes);
           break;
+        case 'path':
+          drawPath(nodes);
+          break;
         case 'text':
           drawText(nodes);
           break;
@@ -356,18 +369,14 @@
 
     function drawTransform(node) {
       const worldMatrix = normalizeMatrix(node.matrix);
-      const pixelMatrix = multiplyMatrix(
-        multiplyMatrix(projector.matrix, worldMatrix),
-        projector.inverseMatrix
-      );
       ctx.save();
       ctx.transform(
-        pixelMatrix[0],
-        pixelMatrix[1],
-        pixelMatrix[2],
-        pixelMatrix[3],
-        pixelMatrix[4],
-        pixelMatrix[5]
+        worldMatrix[0],
+        worldMatrix[1],
+        worldMatrix[2],
+        worldMatrix[3],
+        worldMatrix[4],
+        worldMatrix[5]
       );
       drawNodes(node.graphics);
       ctx.restore();
@@ -415,8 +424,8 @@
     }
 
     function drawLine(node) {
-      const from = projector.projectPoint(node.from);
-      const to = projector.projectPoint(node.to);
+      const from = toPoint(node.from);
+      const to = toPoint(node.to);
       ctx.strokeStyle = node.stroke || '#38bdf8';
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.beginPath();
@@ -428,12 +437,10 @@
     function drawRect(node) {
       const pos = toPoint(node.position);
       const size = toPoint(node.size || [1, 1]);
-      const bottomLeft = projector.projectPoint(pos);
-      const projectedSize = projector.projectSize(size);
-      const width = projectedSize[0];
-      const height = projectedSize[1];
-      const x = bottomLeft[0];
-      const y = bottomLeft[1] - height;
+      const width = size[0];
+      const height = size[1];
+      const x = pos[0];
+      const y = pos[1];
       if (node.fill) {
         ctx.fillStyle = node.fill;
         ctx.fillRect(x, y, width, height);
@@ -446,8 +453,8 @@
     }
 
     function drawCircle(node) {
-      const center = projector.projectPoint(node.center);
-      const radius = projector.projectScalarX(Math.abs(Number(node.radius) || 1));
+      const center = toPoint(node.center);
+      const radius = Math.abs(Number(node.radius) || 1);
       ctx.beginPath();
       ctx.arc(center[0], center[1], radius, 0, Math.PI * 2);
       if (node.fill) {
@@ -460,9 +467,9 @@
     }
 
     function drawEllipse(node) {
-      const center = projector.projectPoint(node.center);
-      const rx = projector.projectScalarX(Math.abs(Number(node.radiusX) || Number(node.rx) || 1));
-      const ry = projector.projectScalarY(Math.abs(Number(node.radiusY) || Number(node.ry) || 1));
+      const center = toPoint(node.center);
+      const rx = Math.abs(Number(node.radiusX) || Number(node.rx) || 1);
+      const ry = Math.abs(Number(node.radiusY) || Number(node.ry) || 1);
       ctx.beginPath();
       ctx.ellipse(center[0], center[1], rx, ry, 0, 0, Math.PI * 2);
       if (node.fill) {
@@ -480,7 +487,7 @@
       }
       ctx.beginPath();
       node.points.forEach((point, index) => {
-        const [x, y] = projector.projectPoint(point);
+        const [x, y] = toPoint(point);
         if (index === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -498,21 +505,25 @@
     }
 
     function drawText(node) {
-      const pos = toPoint(node.position);
-      const [x, yBase] = projector.projectPoint(pos);
-      const fontSize = Math.abs(Number(node.fontSize) || 12);
-      const fontSizePx = projector.projectScalarY(fontSize);
-      ctx.fillStyle = node.color || '#e2e8f0';
-      ctx.font = fontSizePx + 'px Inter, sans-serif';
-      ctx.textAlign = (node.align || 'left').toLowerCase();
-      ctx.textBaseline = 'alphabetic';
-      const safeText = node.text !== undefined && node.text !== null ? node.text : '';
-      const lines = String(safeText).split(/\\r?\\n/);
-      let offset = 0;
-      const lineHeight = fontSizePx * 1.2;
-      for (const line of lines) {
-        ctx.fillText(line, x, yBase + offset);
-        offset += lineHeight;
+      logWarn('Text primitives should be converted to glyph paths by FuncDraw.Net', node);
+    }
+
+    function drawPath(node) {
+      const d = node.d;
+      if (!d) {
+        return;
+      }
+      const path = new Path2D(String(d));
+      const fill = node.fill || 'none';
+      if (fill && fill !== 'none') {
+        ctx.fillStyle = fill;
+        ctx.fill(path);
+      }
+      const stroke = node.stroke || '#38bdf8';
+      if (stroke && stroke !== 'none') {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = projectStrokeWidth(node.width);
+        ctx.stroke(path);
       }
     }
 
@@ -526,7 +537,7 @@
     function projectStrokeWidth(value) {
       const base = Math.abs(Number(value)) || 0.25;
       const scale = projector ? projector.scale : 1;
-      return Math.max(base * scale, 0.5);
+      return Math.max(base, 0.5 / scale);
     }
 
     function addCanvasSizeParams(params) {

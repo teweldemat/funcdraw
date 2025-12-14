@@ -35,6 +35,8 @@ loadGraphics(resolver, { font: './fonts/SpaceGrotesk-Regular.ttf' });
 
 The value can be a filesystem path, a Buffer/TypedArray, or an object such as `{ path, buffer, data }`. When omitted, FuncDraw uses the packaged Inter Regular font stored under `assets/fonts/Inter-Regular.ttf`, so measurements still work in headless environments and match the SVG glyph outlines. The parsed font powers the default `fd.measureText` helper, ensuring your expressions see the same metrics that the renderer uses.
 
+FuncDraw.Net mirrors this behavior using a local `fonts/` directory (tracked under `FuncDraw.Net/fonts/` and copied next to the executable). When a `text` primitive sets `font`, FuncDraw.Net requires the value to match an available font file in that folder (e.g. `Inter-Regular.ttf`); unknown font names error.
+
 You can override `fd.measureText` entirely (for example to clamp to integer widths or include extra metadata) while still benefiting from the parsed font: pass your own function through `fd.measureText` and capture any state you need in the surrounding closure.
 
 ## Shared rules
@@ -76,7 +78,8 @@ You can override `fd.measureText` entirely (for example to clamp to integer widt
 - `position`: anchor point (baseline-middle in the renderer).
 - `text`: required string.
 - `color`: default `#e2e8f0`.
-- `fontSize`: default `1` (world units).
+- `fontSize`: default `12` (world units).
+- `font`: optional font file name from `fonts/` (FuncDraw.Net), defaults to `Inter-Regular.ttf`.
 - `align`: `left` (default), `center`, or `right`.
 
 ### `transform`

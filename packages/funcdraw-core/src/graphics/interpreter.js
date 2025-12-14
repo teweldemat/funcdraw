@@ -170,6 +170,10 @@ function normalizeTypedKvc(typedKvc, warnings, context, path) {
     return null;
   }
   const lowerType = typeName.toLowerCase();
+  if (lowerType === 'transofrm') {
+    warnings.push("Unknown primitive type 'transofrm' (did you mean 'transform'?)");
+    return null;
+  }
 
   let normalizedGraphics = null;
   if (graphicsEntry && graphicsEntry.value !== undefined && graphicsEntry.value !== null) {

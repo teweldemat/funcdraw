@@ -10,6 +10,7 @@ const BUILT_IN_PRIMITIVES = new Set([
   'polyline',
   'path',
   'text',
+  'transform',
   'debug'
 ]);
 

@@ -369,10 +369,14 @@ function createHtmlTemplate() {
       const drawnHeight = height * scale;
       const offsetX = (canvas.width - drawnWidth) / 2;
       const offsetY = (canvas.height - drawnHeight) / 2;
+      const baseE = offsetX - viewBox.left * scale;
+      const baseF = offsetY + viewBox.top * scale;
       return {
         scale,
         offsetX,
         offsetY,
+        baseE,
+        baseF,
         projectPoint(point) {
           const [mx, my] = toPoint(point);
           const x = offsetX + (mx - viewBox.left) * scale;
@@ -397,6 +401,23 @@ function createHtmlTemplate() {
         },
         projectScalar(value) {
           return value * scale;
+        },
+        projectMatrix(matrix) {
+          if (!Array.isArray(matrix) || matrix.length !== 6) {
+            throw new Error('transform.matrix must be [a, b, c, d, e, f]');
+          }
+          const [a, b, c, d, e, f] = matrix;
+          if (![a, b, c, d, e, f].every((value) => typeof value === 'number' && Number.isFinite(value))) {
+            throw new Error('transform.matrix must be [a, b, c, d, e, f]');
+          }
+          return [
+            a,
+            -b,
+            -c,
+            d,
+            baseE * (1 - a) + c * baseF + scale * e,
+            b * baseE + baseF * (1 - d) - scale * f
+          ];
         }
       };
     }
@@ -433,6 +454,10 @@ function createHtmlTemplate() {
         }
         return;
       }
+      if ((nodes.type || '').toLowerCase() === 'transform') {
+        drawTransform(nodes);
+        return;
+      }
       if (nodes.graphics) {
         drawNodes(nodes.graphics);
         return;
@@ -465,6 +490,14 @@ function createHtmlTemplate() {
           }
           break;
       }
+    }
+
+    function drawTransform(node) {
+      const matrix = projector.projectMatrix(node.matrix);
+      ctx.save();
+      ctx.transform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+      drawNodes(node.graphics);
+      ctx.restore();
     }
 
     function drawLine(node) {

@@ -60,8 +60,10 @@ function loadGraphics(resolver, options = {}) {
   const font = loadFont(fontInput);
   const fontMeasure = createFontMeasure(font, options.textMetrics || {});
   const fdOptions = options.fd || {};
-  const measureText = typeof fdOptions.measureText === 'function' ? fdOptions.measureText : fontMeasure;
+  const measureText = fontMeasure;
   const fdContext = createFdContext({
+    engine,
+    font,
     measureText,
     expose: fdOptions.expose
   });

@@ -94,6 +94,8 @@ function renderNode(node, context) {
       return renderPath(node);
     case 'text':
       return renderText(node, context);
+    case 'transform':
+      return renderTransform(node, context);
     case 'custom':
       return renderCustom(node, context);
     case 'debug':
@@ -192,6 +194,19 @@ function renderCustom(node, context) {
   return `<g data-custom="${encodeAttribute(node.name || 'custom')}"${attributes}>${inner}</g>`;
 }
 
+function renderTransform(node, context) {
+  const matrix = node.matrix;
+  if (!Array.isArray(matrix) || matrix.length !== 6) {
+    throw new Error('transform.matrix must be [a, b, c, d, e, f]');
+  }
+  const numbers = matrix.map((entry) => Number(entry));
+  if (numbers.some((value) => !Number.isFinite(value))) {
+    throw new Error('transform.matrix must be [a, b, c, d, e, f]');
+  }
+  const inner = renderNode(node.graphics, context);
+  return `<g transform="matrix(${numbers.join(' ')})">${inner}</g>`;
+}
+
 function renderText(node, context) {
   const text = node.text == null ? '' : String(node.text);
   if (!text) {
@@ -201,35 +216,33 @@ function renderText(node, context) {
   const align = typeof node.align === 'string' ? node.align.toLowerCase() : 'left';
   const fontSize = Number(node.fontSize) || 12;
   const fill = node.color || node.fill || '#e2e8f0';
-  const measure =
-    typeof context.measureText === 'function'
-      ? context.measureText
-      : (value, size) => ({
-          width: (value ? value.length : 0) * size * 0.6,
-          lineHeight: size * 1.2,
-          baseline: size
-        });
+  const measureText = context.measureText;
+  if (typeof measureText !== 'function') {
+    throw new Error('FuncDraw svg renderer requires a measureText helper');
+  }
   const font = context.font;
+  if (!font || typeof font.getPath !== 'function') {
+    throw new Error('FuncDraw svg renderer requires a glyph font');
+  }
   const lines = text.split(/\r?\n/);
   const pathSegments = [];
-  let offsetY = 0;
-  for (const line of lines) {
-    const metrics = measure(line, fontSize) || {};
-    const width = metrics.width || 0;
-    const lineHeight = metrics.lineHeight || fontSize * 1.2;
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
+    const metrics = measureText(line, fontSize);
+    const width = metrics.width;
+    const lineHeight = metrics.lineHeight;
     let x = position[0];
     if (align === 'center') {
       x -= width / 2;
     } else if (align === 'right') {
       x -= width;
     }
-    const baseline = position[1] + offsetY + (metrics.baseline || fontSize);
-    const linePath = safeGetPath(font, line, x, baseline, fontSize);
+    const baseline = position[1] - lineIndex * lineHeight;
+    const linePath = font.getPath(line, x, baseline, fontSize);
     const d = pathToData(linePath);
     if (d) {
       pathSegments.push(d);
     }
-    offsetY += lineHeight;
   }
   if (pathSegments.length === 0) {
     return '';
@@ -304,13 +317,3 @@ function formatPoints(points) {
 module.exports = {
   renderSvg
 };
-function safeGetPath(font, text, x, y, fontSize) {
-  if (!font || typeof font.getPath !== 'function') {
-    return null;
-  }
-  try {
-    return font.getPath(text, x, y, fontSize);
-  } catch {
-    return null;
-  }
-}

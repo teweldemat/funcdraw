@@ -50,8 +50,16 @@ function parseFont(buffer) {
   if (!buffer) {
     return null;
   }
+  let arrayBuffer;
+  if (buffer instanceof ArrayBuffer) {
+    arrayBuffer = buffer;
+  } else if (ArrayBuffer.isView(buffer)) {
+    arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  } else {
+    return null;
+  }
   try {
-    return opentype.parse(buffer);
+    return opentype.parse(arrayBuffer);
   } catch {
     return null;
   }

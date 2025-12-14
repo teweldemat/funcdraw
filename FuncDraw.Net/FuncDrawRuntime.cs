@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -337,13 +338,88 @@ internal sealed class ValueHookEntry
 
 internal static class FdContext
 {
+    private readonly record struct Point(double X, double Y);
+    private readonly record struct Matrix(double A, double B, double C, double D, double E, double F)
+    {
+        public static Matrix Identity => new(1d, 0d, 0d, 1d, 0d, 0d);
+
+        public Matrix Multiply(Matrix other)
+        {
+            return new Matrix(
+                A * other.A + C * other.B,
+                B * other.A + D * other.B,
+                A * other.C + C * other.D,
+                B * other.C + D * other.D,
+                A * other.E + C * other.F + E,
+                B * other.E + D * other.F + F);
+        }
+
+        public Point Transform(Point point)
+        {
+            return new Point(
+                A * point.X + C * point.Y + E,
+                B * point.X + D * point.Y + F);
+        }
+    }
+
+    private struct BoundsAccumulator
+    {
+        public bool HasValue;
+        public double MinX;
+        public double MinY;
+        public double MaxX;
+        public double MaxY;
+
+        public void Include(Point point)
+        {
+            if (!HasValue)
+            {
+                HasValue = true;
+                MinX = point.X;
+                MaxX = point.X;
+                MinY = point.Y;
+                MaxY = point.Y;
+                return;
+            }
+
+            MinX = Math.Min(MinX, point.X);
+            MinY = Math.Min(MinY, point.Y);
+            MaxX = Math.Max(MaxX, point.X);
+            MaxY = Math.Max(MaxY, point.Y);
+        }
+
+        public void Include(double minX, double minY, double maxX, double maxY)
+        {
+            Include(new Point(minX, minY));
+            Include(new Point(maxX, maxY));
+        }
+
+        public void Expand(double dx, double dy)
+        {
+            MinX -= dx;
+            MaxX += dx;
+            MinY -= dy;
+            MaxY += dy;
+        }
+    }
+
     public static KeyValueCollection Create(Func<string, double, Metrics>? measureText)
     {
         var metrics = measureText ?? DefaultMeasureText;
         var measureDelegate = new Func<object, object, object>((text, size) => Measure(metrics, text, size));
+        var rotateDelegate = new Func<object, object, object, object>(Rotate);
+        var translateDelegate = new Func<object, object, object, object>(Translate);
+        var scaleDelegate = new Func<object, object, object, object, object>(Scale);
+        var traslateDelegate = new Func<object, object, object, object>(Traslate);
+        var boundingBoxDelegate = new Func<object, object?>(graphics => BoundingBox(metrics, graphics));
         var fdEntries = new[]
         {
-            KeyValuePair.Create("measureText", (object)Engine.NormalizeDataType(measureDelegate))
+            KeyValuePair.Create("measureText", (object)Engine.NormalizeDataType(measureDelegate)),
+            KeyValuePair.Create("rotate", (object)Engine.NormalizeDataType(rotateDelegate)),
+            KeyValuePair.Create("translate", (object)Engine.NormalizeDataType(translateDelegate)),
+            KeyValuePair.Create("traslate", (object)Engine.NormalizeDataType(traslateDelegate)),
+            KeyValuePair.Create("scale", (object)Engine.NormalizeDataType(scaleDelegate)),
+            KeyValuePair.Create("boundingBox", (object)Engine.NormalizeDataType(boundingBoxDelegate)),
         };
         return new SimpleKeyValueCollection(null, fdEntries);
     }
@@ -355,6 +431,476 @@ internal static class FdContext
         var metrics = measure(text, size);
         var pairs = metrics.ToDictionary();
         return new SimpleKeyValueCollection(null, pairs);
+    }
+
+    private static object Rotate(object graphics, object rawOrigin, object rawAngle)
+    {
+        if (!TryReadPoint(rawOrigin, out var origin))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.rotate: expected origin [x, y]");
+        }
+
+        var angle = NormalizeNumber(rawAngle);
+        if (double.IsNaN(angle))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.rotate: expected angle number (radians)");
+        }
+
+        var cos = Math.Cos(angle);
+        var sin = Math.Sin(angle);
+        var e = origin.X * (1 - cos) + origin.Y * sin;
+        var f = -origin.X * sin + origin.Y * (1 - cos);
+        var matrix = new ArrayFsList(new object[] { cos, sin, -sin, cos, e, f });
+        return CreateTransform(graphics, matrix);
+    }
+
+    private static object Translate(object graphics, object rawDx, object rawDy)
+    {
+        var dx = NormalizeNumber(rawDx);
+        if (double.IsNaN(dx))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.translate: expected dx number");
+        }
+
+        var dy = NormalizeNumber(rawDy);
+        if (double.IsNaN(dy))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.translate: expected dy number");
+        }
+
+        var matrix = new ArrayFsList(new object[] { 1d, 0d, 0d, 1d, dx, dy });
+        return CreateTransform(graphics, matrix);
+    }
+
+    private static object Traslate(object graphics, object rawDx, object rawDy)
+    {
+        return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.traslate is not supported (did you mean fd.translate?)");
+    }
+
+    private static object Scale(object graphics, object rawOrigin, object rawScaleX, object rawScaleY)
+    {
+        if (!TryReadPoint(rawOrigin, out var origin))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.scale: expected origin [x, y]");
+        }
+
+        var sx = NormalizeNumber(rawScaleX);
+        if (double.IsNaN(sx))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.scale: expected scaleX number");
+        }
+
+        var sy = NormalizeNumber(rawScaleY);
+        if (double.IsNaN(sy))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.scale: expected scaleY number");
+        }
+
+        var e = origin.X * (1 - sx);
+        var f = origin.Y * (1 - sy);
+        var matrix = new ArrayFsList(new object[] { sx, 0d, 0d, sy, e, f });
+        return CreateTransform(graphics, matrix);
+    }
+
+    
+
+    private static object? BoundingBox(Func<string, double, Metrics> measure, object graphics)
+    {
+        var accumulator = new BoundsAccumulator();
+        var error = AppendBounds(measure, graphics, Matrix.Identity, ref accumulator);
+        if (error != null)
+        {
+            return error;
+        }
+
+        if (!accumulator.HasValue)
+        {
+            return null;
+        }
+
+        var left = accumulator.MinX;
+        var bottom = accumulator.MinY;
+        var right = accumulator.MaxX;
+        var top = accumulator.MaxY;
+        return new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("left", (object)left),
+            KeyValuePair.Create("bottom", (object)bottom),
+            KeyValuePair.Create("right", (object)right),
+            KeyValuePair.Create("top", (object)top),
+            KeyValuePair.Create("width", (object)(right - left)),
+            KeyValuePair.Create("height", (object)(top - bottom))
+        });
+    }
+
+    private static FsError? AppendBounds(Func<string, double, Metrics> measure, object? value, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        if (value is FsError fsError)
+        {
+            return fsError;
+        }
+
+        if (value is KeyValueCollection collection)
+        {
+            return AppendBoundsFromCollection(measure, collection, transform, ref accumulator);
+        }
+
+        if (value is IEnumerable enumerable && value is not string && value is not byte[])
+        {
+            foreach (var item in enumerable)
+            {
+                var err = AppendBounds(measure, item, transform, ref accumulator);
+                if (err != null)
+                {
+                    return err;
+                }
+            }
+
+            return null;
+        }
+
+        return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: expected graphics (primitive or list)");
+    }
+
+    private static FsError? AppendBoundsFromCollection(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var typeValue = collection.Get("type");
+        if (typeValue == null)
+        {
+            var graphicsValue = collection.Get("graphics");
+            if (graphicsValue != null)
+            {
+                return AppendBounds(measure, graphicsValue, transform, ref accumulator);
+            }
+
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: expected graphics object (missing 'type' or 'graphics')");
+        }
+
+        var typeText = typeValue.ToString() ?? string.Empty;
+        var type = typeText.Trim().ToLowerInvariant();
+        if (type == "transofrm")
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: unknown primitive type 'transofrm' (did you mean 'transform'?)");
+        }
+
+        return type switch
+        {
+            "line" => AppendLineBounds(collection, transform, ref accumulator),
+            "rect" or "rectangle" => AppendRectBounds(collection, transform, ref accumulator),
+            "circle" => AppendCircleBounds(collection, transform, ref accumulator),
+            "ellipse" => AppendEllipseBounds(collection, transform, ref accumulator),
+            "polygon" => AppendPointsBounds(collection, "polygon", transform, ref accumulator),
+            "polyline" => AppendPointsBounds(collection, "polyline", transform, ref accumulator),
+            "text" => AppendTextBounds(measure, collection, transform, ref accumulator),
+            "debug" => null,
+            "path" => new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: 'path' is not supported yet"),
+            "transform" => AppendTransformBounds(measure, collection, transform, ref accumulator),
+            _ => AppendUnknownBounds(measure, collection, typeText, transform, ref accumulator)
+        };
+    }
+
+    private static FsError? AppendTransformBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var matrixValue = collection.Get("matrix");
+        if (matrixValue == null)
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: transform missing 'matrix'");
+        }
+
+        if (!TryReadMatrix(matrixValue, out var localMatrix))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: transform.matrix must be [a, b, c, d, e, f]");
+        }
+
+        var graphicsValue = collection.Get("graphics");
+        if (graphicsValue == null)
+        {
+            return null;
+        }
+
+        return AppendBounds(measure, graphicsValue, transform.Multiply(localMatrix), ref accumulator);
+    }
+
+    private static FsError? AppendUnknownBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, string typeText, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var graphicsValue = collection.Get("graphics");
+        if (graphicsValue != null)
+        {
+            return AppendBounds(measure, graphicsValue, transform, ref accumulator);
+        }
+
+        var trimmed = typeText.Trim();
+        return new FsError(FsError.ERROR_TYPE_MISMATCH, $"fd.boundingbox: unsupported primitive type '{trimmed}'");
+    }
+
+    private static FsError? AppendLineBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var fromValue = collection.Get("from");
+        if (fromValue == null || !TryReadPoint(fromValue, out var from))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: line.from must be [x, y]");
+        }
+
+        var toValue = collection.Get("to");
+        if (toValue == null || !TryReadPoint(toValue, out var to))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: line.to must be [x, y]");
+        }
+
+        accumulator.Include(transform.Transform(from));
+        accumulator.Include(transform.Transform(to));
+        ExpandStrokeBounds(collection, transform, ref accumulator);
+        return null;
+    }
+
+    private static FsError? AppendRectBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var positionValue = collection.Get("position");
+        if (positionValue == null || !TryReadPoint(positionValue, out var position))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: rect.position must be [x, y]");
+        }
+
+        var sizeValue = collection.Get("size");
+        if (sizeValue == null || !TryReadPoint(sizeValue, out var size))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: rect.size must be [width, height]");
+        }
+
+        var x = position.X;
+        var y = position.Y;
+        var w = size.X;
+        var h = size.Y;
+        accumulator.Include(transform.Transform(new Point(x, y)));
+        accumulator.Include(transform.Transform(new Point(x + w, y)));
+        accumulator.Include(transform.Transform(new Point(x + w, y + h)));
+        accumulator.Include(transform.Transform(new Point(x, y + h)));
+        ExpandStrokeBounds(collection, transform, ref accumulator);
+        return null;
+    }
+
+    private static FsError? AppendCircleBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var centerValue = collection.Get("center");
+        if (centerValue == null || !TryReadPoint(centerValue, out var center))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: circle.center must be [x, y]");
+        }
+
+        var radiusValue = collection.Get("radius");
+        var radius = NormalizeNumber(radiusValue);
+        if (double.IsNaN(radius))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: circle.radius must be a number");
+        }
+
+        var worldCenter = transform.Transform(center);
+        var dx = Math.Abs(radius) * Math.Sqrt(transform.A * transform.A + transform.C * transform.C);
+        var dy = Math.Abs(radius) * Math.Sqrt(transform.B * transform.B + transform.D * transform.D);
+        accumulator.Include(worldCenter.X - dx, worldCenter.Y - dy, worldCenter.X + dx, worldCenter.Y + dy);
+        ExpandStrokeBounds(collection, transform, ref accumulator);
+        return null;
+    }
+
+    private static FsError? AppendEllipseBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var centerValue = collection.Get("center");
+        if (centerValue == null || !TryReadPoint(centerValue, out var center))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: ellipse.center must be [x, y]");
+        }
+
+        var rawRx = collection.Get("radiusx") ?? collection.Get("rx");
+        var rawRy = collection.Get("radiusy") ?? collection.Get("ry");
+        var rx = NormalizeNumber(rawRx);
+        var ry = NormalizeNumber(rawRy);
+        if (double.IsNaN(rx) || double.IsNaN(ry))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: ellipse.radiusX/radiusY must be numbers");
+        }
+
+        var worldCenter = transform.Transform(center);
+        var dx = Math.Sqrt(Math.Pow(transform.A * rx, 2) + Math.Pow(transform.C * ry, 2));
+        var dy = Math.Sqrt(Math.Pow(transform.B * rx, 2) + Math.Pow(transform.D * ry, 2));
+        accumulator.Include(worldCenter.X - dx, worldCenter.Y - dy, worldCenter.X + dx, worldCenter.Y + dy);
+        ExpandStrokeBounds(collection, transform, ref accumulator);
+        return null;
+    }
+
+    private static FsError? AppendPointsBounds(KeyValueCollection collection, string kind, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var pointsValue = collection.Get("points");
+        if (pointsValue is not IEnumerable points)
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, $"fd.boundingbox: {kind}.points must be a list of [x, y]");
+        }
+
+        var foundAny = false;
+        foreach (var pointValue in points)
+        {
+            if (!TryReadPoint(pointValue, out var point))
+            {
+                return new FsError(FsError.ERROR_TYPE_MISMATCH, $"fd.boundingbox: {kind}.points must be a list of [x, y]");
+            }
+
+            accumulator.Include(transform.Transform(point));
+            foundAny = true;
+        }
+
+        if (!foundAny)
+        {
+            return null;
+        }
+
+        ExpandStrokeBounds(collection, transform, ref accumulator);
+        return null;
+    }
+
+    private static FsError? AppendTextBounds(Func<string, double, Metrics> measure, KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var positionValue = collection.Get("position");
+        if (positionValue == null || !TryReadPoint(positionValue, out var position))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.boundingbox: text.position must be [x, y]");
+        }
+
+        var rawText = collection.Get("text");
+        var text = rawText?.ToString() ?? string.Empty;
+        var fontSize = NormalizeFontSize(collection.Get("fontsize"));
+
+        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+        if (lines.Length == 0)
+        {
+            return null;
+        }
+
+        var lineMetrics = measure(lines[0], fontSize);
+        var lineHeight = lineMetrics.Height;
+        var ascent = lineMetrics.Ascent;
+        var descent = lineMetrics.Descent;
+
+        var maxWidth = 0d;
+        foreach (var line in lines)
+        {
+            var metrics = measure(line, fontSize);
+            maxWidth = Math.Max(maxWidth, metrics.Width);
+        }
+
+        var align = (collection.Get("align")?.ToString() ?? "left").Trim().ToLowerInvariant();
+        var left = align switch
+        {
+            "center" => position.X - maxWidth / 2,
+            "right" => position.X - maxWidth,
+            _ => position.X
+        };
+        var right = align switch
+        {
+            "center" => position.X + maxWidth / 2,
+            "right" => position.X,
+            _ => position.X + maxWidth
+        };
+
+        var top = position.Y + ascent;
+        var bottom = position.Y - descent - (lines.Length - 1) * lineHeight;
+
+        accumulator.Include(transform.Transform(new Point(left, bottom)));
+        accumulator.Include(transform.Transform(new Point(right, bottom)));
+        accumulator.Include(transform.Transform(new Point(right, top)));
+        accumulator.Include(transform.Transform(new Point(left, top)));
+        return null;
+    }
+
+    private static void ExpandStrokeBounds(KeyValueCollection collection, Matrix transform, ref BoundsAccumulator accumulator)
+    {
+        var rawWidth = collection.Get("width");
+        var width = rawWidth == null ? 0.25 : NormalizeNumber(rawWidth);
+        if (double.IsNaN(width) || width == 0)
+        {
+            return;
+        }
+
+        var radius = Math.Abs(width) / 2;
+        var dx = radius * Math.Sqrt(transform.A * transform.A + transform.C * transform.C);
+        var dy = radius * Math.Sqrt(transform.B * transform.B + transform.D * transform.D);
+        accumulator.Expand(dx, dy);
+    }
+
+    private static bool TryReadMatrix(object raw, out Matrix matrix)
+    {
+        if (raw is IEnumerable list && raw is not string && raw is not byte[])
+        {
+            var items = new List<object?>();
+            foreach (var item in list)
+            {
+                items.Add(item);
+            }
+
+            if (items.Count == 6)
+            {
+                var a = NormalizeNumber(items[0]);
+                var b = NormalizeNumber(items[1]);
+                var c = NormalizeNumber(items[2]);
+                var d = NormalizeNumber(items[3]);
+                var e = NormalizeNumber(items[4]);
+                var f = NormalizeNumber(items[5]);
+                if (!double.IsNaN(a) && !double.IsNaN(b) && !double.IsNaN(c) && !double.IsNaN(d) && !double.IsNaN(e) && !double.IsNaN(f))
+                {
+                    matrix = new Matrix(a, b, c, d, e, f);
+                    return true;
+                }
+            }
+        }
+
+        matrix = default;
+        return false;
+    }
+
+    private static object CreateTransform(object graphics, ArrayFsList matrix)
+    {
+        return new SimpleKeyValueCollection(null, new[]
+        {
+            KeyValuePair.Create("type", (object)"transform"),
+            KeyValuePair.Create("matrix", (object)matrix),
+            KeyValuePair.Create("graphics", graphics)
+        });
+    }
+
+    private static bool TryReadPoint(object value, out Point point)
+    {
+        if (value is IEnumerable<object> list)
+        {
+            var items = list.ToArray();
+            if (items.Length >= 2)
+            {
+                var x = NormalizeNumber(items[0]);
+                var y = NormalizeNumber(items[1]);
+                if (!double.IsNaN(x) && !double.IsNaN(y))
+                {
+                    point = new Point(x, y);
+                    return true;
+                }
+            }
+        }
+
+        point = default;
+        return false;
+    }
+
+    private static double NormalizeNumber(object? raw)
+    {
+        return raw switch
+        {
+            null => double.NaN,
+            double d when !double.IsNaN(d) => d,
+            int i => i,
+            long l => l,
+            _ => double.TryParse(raw.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : double.NaN
+        };
     }
 
     private static double NormalizeFontSize(object raw)
@@ -759,7 +1305,7 @@ internal sealed class SceneInterpretation
 internal static class GraphicsInterpreter
 {
     private static readonly HashSet<string> BuiltInTypes =
-        new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path", "text", "debug" }, StringComparer.OrdinalIgnoreCase);
+        new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path", "text", "debug", "transform" }, StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> StrokedTypes =
         new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path" }, StringComparer.OrdinalIgnoreCase);
@@ -895,6 +1441,11 @@ internal static class GraphicsInterpreter
         }
 
         var typeText = converter.ToPlain(typeEntry.Value)?.ToString() ?? string.Empty;
+        if (string.Equals(typeText, "transofrm", StringComparison.OrdinalIgnoreCase))
+        {
+            warnings.Add("Unknown primitive type 'transofrm' (did you mean 'transform'?)");
+            return null;
+        }
         if (string.IsNullOrWhiteSpace(typeText))
         {
             warnings.Add("Skipping primitive with empty type");
@@ -1025,9 +1576,23 @@ internal static class SvgRenderer
             "polyline" => RenderPolyline(map),
             "path" => RenderPath(map),
             "text" => RenderText(map),
+            "transform" => RenderTransform(map, viewBox, depth),
             "custom" => RenderCustom(map, viewBox, depth),
             _ => string.Empty
         };
+    }
+
+    private static string RenderTransform(IDictionary<string, object?> map, ViewBox viewBox, int depth)
+    {
+        if (!map.TryGetValue("graphics", out var graphics) || graphics == null)
+        {
+            return string.Empty;
+        }
+
+        var matrix = ReadMatrix(Get(map, "matrix"));
+        var formatted = string.Join(' ', matrix.Select(value => value.ToString(CultureInfo.InvariantCulture)));
+        var inner = RenderNode(graphics, viewBox, depth + 1);
+        return $"<g transform=\"matrix({formatted})\">{inner}</g>";
     }
 
     private static string RenderCustom(IDictionary<string, object?> map, ViewBox viewBox, int depth)
@@ -1155,6 +1720,34 @@ internal static class SvgRenderer
     private static object? Get(IDictionary<string, object?> map, string key)
     {
         return map.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static double[] ReadMatrix(object? value)
+    {
+        if (value is not IEnumerable<object> list)
+        {
+            throw new InvalidOperationException("transform.matrix must be [a, b, c, d, e, f]");
+        }
+
+        var items = list.ToArray();
+        if (items.Length != 6)
+        {
+            throw new InvalidOperationException("transform.matrix must be [a, b, c, d, e, f]");
+        }
+
+        var matrix = new double[6];
+        for (var i = 0; i < matrix.Length; i++)
+        {
+            var parsed = ToDouble(items[i], double.NaN);
+            if (double.IsNaN(parsed))
+            {
+                throw new InvalidOperationException("transform.matrix must contain only numbers");
+            }
+
+            matrix[i] = parsed;
+        }
+
+        return matrix;
     }
 
     private static ViewBox ResolveViewBox(object? view)

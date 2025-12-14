@@ -18,6 +18,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
     private static long _globalEvaluationCount = 0;
     private static long _globalStepCallCount = 0;
     private const string MEASURE_STRING_FUNCTION_NAME = "measurestring";
+    private const string FD_CONTEXT_NAME = "fd";
+    private readonly KeyValueCollection _fdContext = FdContext.Create(null);
     private IEnumerable<(string Name, Func< object> Hook)> Hooks=>hooks;
     private object MeasureStringFunction => FuncScript.Engine.NormalizeDataType(measureStringFunction);
     private PackageLoader.PackageLoaderTraceDelegate? ExitTrace => exitTrace;
@@ -31,6 +33,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
             var lowerKey = key.ToLower();
             if (lowerKey == MEASURE_STRING_FUNCTION_NAME)
                 return service.MeasureStringFunction;
+            if (lowerKey == FD_CONTEXT_NAME)
+                return service._fdContext;
             var h = service.Hooks.FirstOrDefault(x => x.Name.ToLower().Equals(lowerKey));
             if (h.Hook != null)
                 return Engine.NormalizeDataType(h.Hook());
@@ -42,6 +46,8 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
             var lowerKey = key.ToLower();
 
             if (lowerKey == MEASURE_STRING_FUNCTION_NAME)
+                return true;
+            if (lowerKey == FD_CONTEXT_NAME)
                 return true;
             if (service.Hooks.Any(x => x.Name.ToLower().Equals(lowerKey)))
                 return true;
@@ -57,7 +63,7 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
 
         public virtual IList<string> GetAllKeys()
         {
-            return new[] { MEASURE_STRING_FUNCTION_NAME }.Concat(service.Hooks.Select(x => x.Name)).ToList();
+            return new[] { MEASURE_STRING_FUNCTION_NAME, FD_CONTEXT_NAME }.Concat(service.Hooks.Select(x => x.Name)).ToList();
         }
 
         public KeyValueCollection ParentProvider => _parent;

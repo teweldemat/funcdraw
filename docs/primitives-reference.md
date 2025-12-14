@@ -79,6 +79,14 @@ You can override `fd.measureText` entirely (for example to clamp to integer widt
 - `fontSize`: default `1` (world units).
 - `align`: `left` (default), `center`, or `right`.
 
+### `transform`
+`transform` applies an affine transform matrix to nested graphics.
+
+- `matrix`: required affine matrix `[a, b, c, d, e, f]` where:
+  - `x' = a*x + c*y + e`
+  - `y' = b*x + d*y + f`
+- `graphics`: a primitive, list of primitives, or nested layers to transform.
+
 ### `debug`
 `debug` entries don’t draw shapes—they emit overlays so you can inspect intermediate values while iterating.
 
@@ -118,6 +126,21 @@ The function returns an object containing any mix of `width`, `lineHeight`, `hei
 When calling `loadGraphics` you may pass `{ fd: { measureText: customImpl } }` to override the built-in glyph math or feed the helper with extra properties through `{ fd: { expose: { ... } } }`.
 
 SVG output uses the same font and measurement helper to convert every text primitive into glyph paths, keeping layout consistent between raw data and exported vectors.
+
+## `fd.rotate` / `fd.translate` / `fd.scale`
+
+FuncDraw exposes lightweight transform helpers that return a `transform` primitive.
+
+- `fd.translate(graphics, dx, dy)` – Wrap `graphics` in a translation transform.
+- `fd.rotate(graphics, origin, angleRadians)` – Wrap `graphics` in a rotation around `origin` (`[x, y]`).
+- `fd.scale(graphics, origin, scaleX, scaleY)` – Wrap `graphics` in a scale transform around `origin` (`[x, y]`).
+- `fd.traslate(...)` is a typo and will error; use `fd.translate`.
+
+## `fd.boundingbox`
+
+Returns the axis-aligned bounding box of a graphics value (primitive, list, nested layers, or custom nodes with a `graphics` payload), including any nested `transform` matrices.
+
+The result is `{ left, bottom, right, top, width, height }` or `null` when no drawable primitives are found. For stroked primitives the box includes the stroke width.
 
 ## Layered output
 

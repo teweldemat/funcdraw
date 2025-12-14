@@ -30,19 +30,19 @@
 
   stepper: (event) =>
   {
-    inside: isInside(event.point);
-    eval if event.type != "pointer" or !inside then null else
+    eval if event.type != "pointer" then null else
     {
-    nextHovered: inside;
-    clicked: event.action == "down" and inside;
-    events: if clicked then [{ type: "ui"; action: "click"; }] else [];
+      inside: isInside(event.point);
+      nextHovered: inside;
+      clicked: event.action == "down" and inside;
+      events: if clicked then [{ type: "ui"; action: "click"; }] else [];
 
-    eval if nextHovered != hovered or clicked then
-    {
-      state: { hovered: nextHovered; };
-      events;
-    }
-    else null;
+      eval if nextHovered != hovered or clicked then
+      {
+        state: { hovered: nextHovered; };
+        events;
+      }
+      else null;
     };
   };
 

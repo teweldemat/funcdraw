@@ -241,10 +241,20 @@
       const drawnHeight = height * scale;
       const offsetX = (canvas.width - drawnWidth) / 2;
       const offsetY = (canvas.height - drawnHeight) / 2;
+      const matrix = [
+        scale,
+        0,
+        0,
+        -scale,
+        offsetX - viewBox.left * scale,
+        offsetY + viewBox.top * scale
+      ];
       return {
         scale,
         offsetX,
         offsetY,
+        matrix,
+        inverseMatrix: invertMatrix(matrix),
         projectPoint(point) {
           const [mx, my] = toPoint(point);
           const x = offsetX + (mx - viewBox.left) * scale;
@@ -305,11 +315,16 @@
         }
         return;
       }
+      const type = (nodes.type || '').toLowerCase();
+      if (type === 'transform') {
+        drawTransform(nodes);
+        return;
+      }
       if (nodes.graphics) {
         drawNodes(nodes.graphics);
         return;
       }
-      switch ((nodes.type || '').toLowerCase()) {
+      switch (type) {
         case 'line':
           drawLine(nodes);
           break;
@@ -337,6 +352,66 @@
           }
           break;
       }
+    }
+
+    function drawTransform(node) {
+      const worldMatrix = normalizeMatrix(node.matrix);
+      const pixelMatrix = multiplyMatrix(
+        multiplyMatrix(projector.matrix, worldMatrix),
+        projector.inverseMatrix
+      );
+      ctx.save();
+      ctx.transform(
+        pixelMatrix[0],
+        pixelMatrix[1],
+        pixelMatrix[2],
+        pixelMatrix[3],
+        pixelMatrix[4],
+        pixelMatrix[5]
+      );
+      drawNodes(node.graphics);
+      ctx.restore();
+    }
+
+    function normalizeMatrix(value) {
+      if (!Array.isArray(value) || value.length !== 6) {
+        throw new Error('transform.matrix must be [a, b, c, d, e, f]');
+      }
+      const matrix = value.map((entry) => Number(entry));
+      if (!matrix.every(Number.isFinite)) {
+        throw new Error('transform.matrix must contain only numbers');
+      }
+      return matrix;
+    }
+
+    function multiplyMatrix(m1, m2) {
+      const [a1, b1, c1, d1, e1, f1] = m1;
+      const [a2, b2, c2, d2, e2, f2] = m2;
+      return [
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1
+      ];
+    }
+
+    function invertMatrix(matrix) {
+      const [a, b, c, d, e, f] = matrix;
+      const det = a * d - b * c;
+      if (!Number.isFinite(det) || det === 0) {
+        throw new Error('transform.matrix is not invertible');
+      }
+      const invDet = 1 / det;
+      return [
+        d * invDet,
+        -b * invDet,
+        -c * invDet,
+        a * invDet,
+        (c * f - d * e) * invDet,
+        (b * e - a * f) * invDet
+      ];
     }
 
     function drawLine(node) {

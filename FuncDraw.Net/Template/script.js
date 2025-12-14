@@ -31,6 +31,10 @@
     let latestScene = null;
     let projector = null;
     const pointerState = { down: new Set(), captured: new Set() };
+    const pointerDispatch = {
+      inFlight: false,
+      queue: []
+    };
 
     logInfo('Booting FuncDraw Play browser client');
 
@@ -717,6 +721,54 @@
       };
     }
 
+    function isMoveLikePointerEvent(payload) {
+      return (
+        payload &&
+        payload.type === 'pointer' &&
+        (payload.action === 'move' || payload.action === 'rawupdate') &&
+        payload.pointer &&
+        typeof payload.pointer.id === 'number'
+      );
+    }
+
+    function enqueuePointerPayload(payload) {
+      const queue = pointerDispatch.queue;
+      const tail = queue.length > 0 ? queue[queue.length - 1] : null;
+      if (
+        tail &&
+        isMoveLikePointerEvent(tail) &&
+        isMoveLikePointerEvent(payload) &&
+        tail.pointer.id === payload.pointer.id
+      ) {
+        queue[queue.length - 1] = payload;
+        return;
+      }
+      queue.push(payload);
+    }
+
+    async function flushPointerQueue() {
+      if (pointerDispatch.inFlight) {
+        return;
+      }
+      if (pointerDispatch.queue.length === 0) {
+        return;
+      }
+
+      pointerDispatch.inFlight = true;
+      const batch = pointerDispatch.queue.splice(0, pointerDispatch.queue.length);
+      try {
+        await loadScene('pointer-batch', {
+          events: batch,
+          params: { time: formatTimeParam(animationState.time) }
+        });
+      } finally {
+        pointerDispatch.inFlight = false;
+        if (pointerDispatch.queue.length > 0) {
+          queueMicrotask(flushPointerQueue);
+        }
+      }
+    }
+
     function sendPointerEvent(action, event) {
       if (action === 'up' || action === 'cancel') {
         pointerState.down.delete(event.pointerId);
@@ -750,12 +802,11 @@
         canvas.setPointerCapture(event.pointerId);
         pointerState.captured.add(event.pointerId);
       }
-      const payload = buildPointerEvent(action, event);
+      const normalizedAction = action === 'rawupdate' ? 'move' : action;
+      const payload = buildPointerEvent(normalizedAction, event);
       logInfo('Pointer event', payload);
-      loadScene('pointer-' + action, {
-        events: [payload],
-        params: { time: formatTimeParam(animationState.time) }
-      });
+      enqueuePointerPayload(payload);
+      flushPointerQueue();
     }
 
     function startAnimation() {

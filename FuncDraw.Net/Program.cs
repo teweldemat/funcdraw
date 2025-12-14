@@ -14,7 +14,7 @@ var options = CliParser.Parse(args);
 var root = Path.GetFullPath(options.Root ?? Environment.CurrentDirectory);
 if (options.Test)
 {
-    Environment.ExitCode = PackageTestCli.Run(root);
+    Environment.ExitCode = PackageTestCli.Run(root, options.ExpressionOverride);
     return;
 }
 

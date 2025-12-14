@@ -2,7 +2,8 @@
 {
   position: options.position;
   size: options.size;
-  label: options.label;
+  label: options?.label;
+  graphics: options?.graphics;
 
   baseFill: "#1e293b";
   hoverFill: "#334155";
@@ -12,6 +13,8 @@
   hoverWidth: 0.6;
   textColor: "#e2e8f0";
   fontSize: 2.4;
+  graphicsSize: fontSize;
+  gap: fontSize * 0.6;
 
   hovered: if state == null then false else state.hovered;
 
@@ -27,6 +30,35 @@
   };
 
   center: [position[0] + size[0] / 2, position[1] + size[1] / 2];
+
+  labelMetrics: if graphics == null or label == null then null else fd.measureText(label, fontSize);
+  labelWidth: if labelMetrics == null then 0 else labelMetrics.width;
+
+  groupWidth: if graphics == null then labelWidth else if label == null then graphicsSize else graphicsSize + gap + labelWidth;
+  groupLeft: center[0] - groupWidth / 2;
+  iconCenterX: groupLeft + graphicsSize / 2;
+  labelLeftX: if graphics == null or label == null then center[0] else groupLeft + graphicsSize + gap;
+
+  iconTransform: if graphics == null then null else
+  {
+    type: "transform";
+    matrix: [graphicsSize, 0, 0, graphicsSize, if label == null then center[0] else iconCenterX, center[1]];
+    graphics;
+  };
+  textNode: if label == null then null else
+  {
+    type: "text";
+    text: label;
+    position: [if graphics == null then center[0] else labelLeftX, center[1]];
+    fontSize;
+    align: if graphics == null then "center" else "left";
+    color: textColor;
+  };
+
+  content: if iconTransform == null and textNode == null then error("ui/button: expected options.label or graphics")
+    else if iconTransform == null then [textNode]
+    else if textNode == null then [iconTransform]
+    else [iconTransform, textNode];
 
   stepper: (event) =>
   {
@@ -57,16 +89,8 @@
         fill: if hovered then hoverFill else baseFill;
         stroke: if hovered then hoverStroke else baseStroke;
         width: if hovered then hoverWidth else baseWidth;
-      },
-      {
-        type: "text";
-        text: label;
-        position: center;
-        fontSize;
-        align: "center";
-        color: textColor;
       }
-    ];
+    ] + content;
     step: stepper;
   };
 }

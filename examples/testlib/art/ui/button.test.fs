@@ -6,6 +6,25 @@
     label: "Click";
   };
 
+  icon:
+  {
+    type: "circle";
+    center: [0, 0];
+    radius: 0.5;
+    fill: "#22c55e";
+    stroke: "#22c55e";
+    width: 0.2;
+  };
+
+  optionsWithIcon: options + { graphics: icon; };
+
+  optionsIconOnly:
+  {
+    position: [-8, -4];
+    size: [16, 8];
+    graphics: icon;
+  };
+
   moveInside:
   {
     type: "pointer";
@@ -135,6 +154,60 @@
         eval
         [
           assert.isnull(initial.step(nonPointer))
+        ];
+      };
+    }
+    ,
+    {
+      name: "renders optional icon beside label";
+      test: (button) =>
+      {
+        initial: button(optionsWithIcon, null);
+        icon: initial.graphics[1];
+        label: initial.graphics[2];
+
+        fontSize: 2.4;
+        gap: fontSize * 0.6;
+        center: [options.position[0] + options.size[0] / 2, options.position[1] + options.size[1] / 2];
+        metrics: fd.measureText(options.label, fontSize);
+        groupWidth: fontSize + gap + metrics.width;
+        groupLeft: center[0] - groupWidth / 2;
+        iconCenterX: groupLeft + fontSize / 2;
+        labelLeftX: groupLeft + fontSize + gap;
+
+        eval
+        [
+          assert.equal(icon.type, "transform"),
+          assert.equal(icon.graphics.type, "circle"),
+          assert.equal(label.text, options.label),
+          assert.equal(label.align, "left"),
+          assert.approx(icon.matrix[0], fontSize, 0.0001),
+          assert.approx(icon.matrix[3], fontSize, 0.0001),
+          assert.approx(icon.matrix[4], iconCenterX, 0.0001),
+          assert.approx(icon.matrix[5], center[1], 0.0001),
+          assert.approx(label.position[0], labelLeftX, 0.0001),
+          assert.approx(label.position[1], center[1], 0.0001)
+        ];
+      };
+    },
+    {
+      name: "renders graphics-only button";
+      test: (button) =>
+      {
+        initial: button(optionsIconOnly, null);
+        icon: initial.graphics[1];
+
+        fontSize: 2.4;
+        center: [optionsIconOnly.position[0] + optionsIconOnly.size[0] / 2, optionsIconOnly.position[1] + optionsIconOnly.size[1] / 2];
+
+        eval
+        [
+          assert.equal(Len(initial.graphics), 2),
+          assert.equal(icon.type, "transform"),
+          assert.approx(icon.matrix[0], fontSize, 0.0001),
+          assert.approx(icon.matrix[3], fontSize, 0.0001),
+          assert.approx(icon.matrix[4], center[0], 0.0001),
+          assert.approx(icon.matrix[5], center[1], 0.0001)
         ];
       };
     }

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using FuncScript.Package;
 using FuncScript.Model;
+using FuncScript.Core;
 using global::FuncScript;
 
 namespace FuncDraw.Net;
@@ -14,15 +15,24 @@ internal static class PackageTestCli
 {
     private const int MaxFailuresToShow = 10;
 
-    public static int Run(string projectRoot)
+    public static int Run(string projectRoot, string? targetExpression)
     {
-        Console.WriteLine("FuncDraw.Net test mode");
+        var targetPath = ParseTargetPath(targetExpression);
+        Console.WriteLine(targetPath.Length == 0
+            ? "FuncDraw.Net test mode"
+            : $"FuncDraw.Net test mode (target: {string.Join('/', targetPath)})");
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
             var resolver = new ArtResolver(projectRoot);
-            var result = PackageTestRunner.TestPackage(resolver);
+            var baseProvider = new DefaultFsDataProvider();
+            var bindings = new SimpleKeyValueCollection(null, new[]
+            {
+                KeyValuePair.Create("fd", Engine.NormalizeDataType(FdContext.Create()))
+            });
+            var provider = new KvcProvider(bindings, baseProvider);
+            var result = PackageTestRunner.TestPackage(resolver, targetPath, provider);
             var summary = result.Summary;
 
             DumpDebug(result, resolver);
@@ -70,6 +80,26 @@ internal static class PackageTestCli
             }
             return 1;
         }
+    }
+
+    private static string[] ParseTargetPath(string? targetExpression)
+    {
+        if (string.IsNullOrWhiteSpace(targetExpression))
+        {
+            return Array.Empty<string>();
+        }
+
+        var segments = targetExpression
+            .Trim()
+            .Split(new[] { '.', '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return string.Equals(segments[0], "art", StringComparison.OrdinalIgnoreCase)
+            ? segments.Skip(1).ToArray()
+            : segments;
     }
 
     private static List<TestFailure> CollectTestFailures(IReadOnlyList<PackageTestRunner.PackageTestEntry> tests)

@@ -132,25 +132,28 @@ internal sealed class FontCatalog
         var scale = fontSize / typeface.UnitsPerEm;
         var lines = (text ?? string.Empty).Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
+        var lineWidths = new double[lines.Length];
         var maxWidth = 0d;
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
             var width = 0d;
-            foreach (var rune in line.EnumerateRunes())
+            foreach (var rune in lines[i].EnumerateRunes())
             {
                 var glyphIndex = mapper.Lookup(rune.Value);
                 var advance = typeface.GetHAdvanceWidthFromGlyphIndex(glyphIndex);
                 width += advance * scale;
             }
 
+            lineWidths[i] = width;
             maxWidth = Math.Max(maxWidth, width);
         }
 
         var ascent = typeface.Ascender * scale;
         var descent = -typeface.Descender * scale;
         var lineHeight = (ascent + descent) * 1.2;
-        var avgCharWidth = lines.Length > 0 && lines[0].Length > 0 ? maxWidth / lines[0].Length : maxWidth;
-        return new Metrics(maxWidth, lineHeight, ascent, descent, ascent, avgCharWidth);
+        var height = lineHeight * (lines.Length == 0 ? 1 : lines.Length);
+        var avgCharWidth = typeface.UnitsPerEm * 0.6 * scale;
+        return new Metrics(maxWidth, height, lineHeight, lineWidths, ascent, descent, ascent, avgCharWidth);
     }
 
     public TextPathResult BuildTextPath(string text, double fontSize, string? requestedFont, string align, double x, double y)
@@ -219,7 +222,10 @@ internal sealed class FontCatalog
             }
         }
 
-        return new TextPathResult(builder.ToString(), bounds, new Metrics(lineWidths.Length > 0 ? lineWidths.Max() : 0d, lineHeight, ascent, descent, ascent, 0d));
+        var maxWidth = lineWidths.Length > 0 ? lineWidths.Max() : 0d;
+        var height = lineHeight * (lines.Length == 0 ? 1 : lines.Length);
+        var avgCharWidth = typeface.UnitsPerEm * 0.6 * scale;
+        return new TextPathResult(builder.ToString(), bounds, new Metrics(maxWidth, height, lineHeight, lineWidths, ascent, descent, ascent, avgCharWidth));
     }
 
     public TextBoundsResult ComputeTextBounds(string text, double fontSize, string? requestedFont, string align, double x, double y)
@@ -234,10 +240,12 @@ internal sealed class FontCatalog
         var normalizedAlign = (align ?? "left").Trim().ToLowerInvariant();
 
         var bounds = new BoundsAccumulator();
+        var lineWidths = new double[lines.Length];
         for (var i = 0; i < lines.Length; i++)
         {
             var glyphIndices = lines[i].EnumerateRunes().Select(r => mapper.Lookup(r.Value)).ToArray();
             var lineWidth = glyphIndices.Sum(g => typeface.GetHAdvanceWidthFromGlyphIndex(g) * scale);
+            lineWidths[i] = lineWidth;
             var penX = normalizedAlign switch
             {
                 "center" => x - lineWidth / 2,
@@ -262,7 +270,10 @@ internal sealed class FontCatalog
             }
         }
 
-        return new TextBoundsResult(bounds, new Metrics(lines.Length > 0 ? lines.Max(line => line.EnumerateRunes().Sum(r => typeface.GetHAdvanceWidthFromGlyphIndex(mapper.Lookup(r.Value)) * scale)) : 0d, lineHeight, ascent, descent, ascent, 0d));
+        var maxWidth = lineWidths.Length > 0 ? lineWidths.Max() : 0d;
+        var height = lineHeight * (lines.Length == 0 ? 1 : lines.Length);
+        var avgCharWidth = typeface.UnitsPerEm * 0.6 * scale;
+        return new TextBoundsResult(bounds, new Metrics(maxWidth, height, lineHeight, lineWidths, ascent, descent, ascent, avgCharWidth));
     }
 
     internal readonly record struct TextPathResult(string PathData, BoundsAccumulator Bounds, Metrics Metrics);
@@ -417,4 +428,3 @@ internal sealed class FontCatalog
         }
     }
 }
-

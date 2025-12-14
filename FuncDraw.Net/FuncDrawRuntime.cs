@@ -928,6 +928,8 @@ internal static class FdContext
 internal sealed record Metrics(
     double Width,
     double Height,
+    double LineHeight,
+    double[] Lines,
     double Ascent,
     double Descent,
     double Baseline,
@@ -939,7 +941,8 @@ internal sealed record Metrics(
         {
             KeyValuePair.Create("width", (object)Width),
             KeyValuePair.Create("height", (object)Height),
-            KeyValuePair.Create("lineHeight", (object)Height),
+            KeyValuePair.Create("lineHeight", (object)LineHeight),
+            KeyValuePair.Create("lines", (object)new ArrayFsList(Lines.Select(line => (object)line).ToArray())),
             KeyValuePair.Create("ascent", (object)Ascent),
             KeyValuePair.Create("descent", (object)Descent),
             KeyValuePair.Create("baseline", (object)Baseline),

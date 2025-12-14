@@ -84,18 +84,9 @@
   buttonSize: [9, 4];
   buttonGap: 0.75;
   buttonMargin: 1.25;
-  buttonX: view.right - buttonMargin - buttonSize[0];
+  selectorX: view.left + buttonMargin;
   stickButtonY: view.top - buttonMargin - buttonSize[1];
   polyButtonY: stickButtonY - buttonSize[1] - buttonGap;
-
-  stickButton:
-    button(
-      { position: [buttonX, stickButtonY]; size: buttonSize; label: "stick"; },
-      stickButtonState);
-  polyButton:
-    button(
-      { position: [buttonX, polyButtonY]; size: buttonSize; label: "poly"; },
-      polyButtonState);
 
   arrowStroke: "#e2e8f0";
   arrowWidth: 0.14;
@@ -129,7 +120,7 @@
   dirPadWidth: dirButtonSize[0] * 3 + dirGap * 2;
   dirPadRight: view.right - buttonMargin;
   dirPadLeft: dirPadRight - dirPadWidth;
-  dirPadTop: polyButtonY - buttonGap;
+  dirPadTop: view.top - buttonMargin;
 
   dirRowTopY: dirPadTop - dirButtonSize[1];
   dirRowMidY: dirRowTopY - dirButtonSize[1] - dirGap;
@@ -156,10 +147,19 @@
       { position: [dirColMidX, dirRowBotY]; size: dirButtonSize; graphics: downArrow; },
       downButtonState);
 
+  stickButton:
+    button(
+      { position: [selectorX, stickButtonY]; size: buttonSize; label: "stick"; },
+      stickButtonState);
+  polyButton:
+    button(
+      { position: [selectorX, polyButtonY]; size: buttonSize; label: "poly"; },
+      polyButtonState);
+
   selectionOutline:
   {
     type: "rect";
-    position: if skinName == "stick" then [buttonX, stickButtonY] else [buttonX, polyButtonY];
+    position: if skinName == "stick" then [selectorX, stickButtonY] else [selectorX, polyButtonY];
     size: buttonSize;
     fill: "#00000000";
     stroke: "#fbbf24";
@@ -185,7 +185,7 @@
   {
     type: "text";
     text: "direction: " + directionName;
-    position: [dirPadLeft, dirPadTop + 1.1];
+    position: [dirPadLeft, dirRowBotY - 1.2];
     fontSize: 1.2;
     color: "#94a3b8";
   };

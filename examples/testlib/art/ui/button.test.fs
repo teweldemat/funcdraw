@@ -68,6 +68,11 @@
         initial: button(options, null);
         rect: initial.graphics[0];
         label: initial.graphics[1];
+        fontSize: 2.4;
+        center: [options.position[0] + options.size[0] / 2, options.position[1] + options.size[1] / 2];
+        metrics: fd.measureText(options.label, fontSize);
+        lineCount: Len(metrics.lines);
+        baselineY: center[1] - (metrics.ascent - metrics.descent - metrics.lineHeight * (lineCount - 1)) / 2;
         eval
         [
           assert.equal(rect.fill, "#1e293b"),
@@ -75,7 +80,7 @@
           assert.equal(rect.width, 0.35),
           assert.equal(label.text, "Click"),
           assert.equal(label.position[0], 0),
-          assert.equal(label.position[1], 0),
+          assert.approx(label.position[1], baselineY, 0.0001),
           assert.equal(label.align, "center"),
           assert.equal(label.color, "#e2e8f0"),
           assert.equal(label.fontSize, 2.4)
@@ -170,6 +175,8 @@
         gap: fontSize * 0.6;
         center: [options.position[0] + options.size[0] / 2, options.position[1] + options.size[1] / 2];
         metrics: fd.measureText(options.label, fontSize);
+        lineCount: Len(metrics.lines);
+        baselineY: center[1] - (metrics.ascent - metrics.descent - metrics.lineHeight * (lineCount - 1)) / 2;
         groupWidth: fontSize + gap + metrics.width;
         groupLeft: center[0] - groupWidth / 2;
         iconCenterX: groupLeft + fontSize / 2;
@@ -186,7 +193,7 @@
           assert.approx(icon.matrix[4], iconCenterX, 0.0001),
           assert.approx(icon.matrix[5], center[1], 0.0001),
           assert.approx(label.position[0], labelLeftX, 0.0001),
-          assert.approx(label.position[1], center[1], 0.0001)
+          assert.approx(label.position[1], baselineY, 0.0001)
         ];
       };
     },

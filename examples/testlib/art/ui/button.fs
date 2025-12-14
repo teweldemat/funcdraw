@@ -31,25 +31,45 @@
 
   center: [position[0] + size[0] / 2, position[1] + size[1] / 2];
 
-  labelMetrics: if graphics == null or label == null then null else fd.measureText(label, fontSize);
+  labelMetrics: if label == null then null else fd.measureText(label, fontSize);
   labelWidth: if labelMetrics == null then 0 else labelMetrics.width;
+
+  labelLineCount: if labelMetrics == null then 1 else Len(labelMetrics.lines);
+  labelVerticalOffset:
+    if labelMetrics == null then 0
+    else (labelMetrics.ascent - labelMetrics.descent - labelMetrics.lineHeight * (labelLineCount - 1)) / 2;
+  labelBaselineY: center[1] - labelVerticalOffset;
 
   groupWidth: if graphics == null then labelWidth else if label == null then graphicsSize else graphicsSize + gap + labelWidth;
   groupLeft: center[0] - groupWidth / 2;
   iconCenterX: groupLeft + graphicsSize / 2;
   labelLeftX: if graphics == null or label == null then center[0] else groupLeft + graphicsSize + gap;
 
+  iconBox: if graphics == null then null else fd.boundingbox(graphics);
+  iconCenter:
+    if graphics == null then null
+    else if iconBox == null then error("ui/button: expected graphics bounds")
+    else [iconBox.left + iconBox.width / 2, iconBox.bottom + iconBox.height / 2];
+
   iconTransform: if graphics == null then null else
   {
     type: "transform";
-    matrix: [graphicsSize, 0, 0, graphicsSize, if label == null then center[0] else iconCenterX, center[1]];
+    matrix:
+      [
+        graphicsSize,
+        0,
+        0,
+        graphicsSize,
+        (if label == null then center[0] else iconCenterX) - graphicsSize * iconCenter[0],
+        center[1] - graphicsSize * iconCenter[1]
+      ];
     graphics;
   };
   textNode: if label == null then null else
   {
     type: "text";
     text: label;
-    position: [if graphics == null then center[0] else labelLeftX, center[1]];
+    position: [if graphics == null then center[0] else labelLeftX, labelBaselineY];
     fontSize;
     align: if graphics == null then "center" else "left";
     color: textColor;

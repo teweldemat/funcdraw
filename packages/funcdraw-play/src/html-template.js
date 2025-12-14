@@ -8,6 +8,13 @@ function createHtmlTemplate() {
   <title>FuncDraw Play</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
+    @font-face {
+      font-family: 'Inter';
+      src: url('/__funcdraw/assets/fonts/Inter-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
     :root {
       color-scheme: dark;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -109,8 +116,10 @@ function createHtmlTemplate() {
   <main id="fd-stage">
     <canvas id="fd-canvas" width="640" height="360"></canvas>
   </main>
+  <script src="/__funcdraw/runtime.js"></script>
   <script>
-    const API = '/__funcdraw/scene';
+    const BOOTSTRAP_URL = '/__funcdraw/bootstrap';
+    const FONT_URL = '/__funcdraw/assets/fonts/Inter-Regular.ttf';
     const canvas = document.getElementById('fd-canvas');
     const ctx = canvas.getContext('2d');
     const stats = document.getElementById('fd-stats');
@@ -141,66 +150,65 @@ function createHtmlTemplate() {
     const logWarn = (...args) => console.warn(logPrefix, ...args);
     const logError = (...args) => console.error(logPrefix, ...args);
     let latestScene = null;
+    let runtime = null;
     let projector = null;
     const pointerState = { down: new Set(), captured: new Set() };
 
     logInfo('Booting FuncDraw Play browser client');
 
+    async function ensureRuntime() {
+      if (runtime) {
+        return runtime;
+      }
+      if (!window.FuncDrawPlayRuntime || typeof window.FuncDrawPlayRuntime.createBrowserRuntime !== 'function') {
+        throw new Error('FuncDraw runtime did not load (missing createBrowserRuntime)');
+      }
+
+      const bootstrapResponse = await fetch(BOOTSTRAP_URL + '?_ts=' + Date.now().toString());
+      if (!bootstrapResponse.ok) {
+        throw new Error('Failed to load FuncDraw bootstrap payload');
+      }
+      const bootstrap = await bootstrapResponse.json();
+
+      const fontResponse = await fetch(FONT_URL + '?_ts=' + Date.now().toString());
+      if (!fontResponse.ok) {
+        throw new Error('Failed to load FuncDraw font payload');
+      }
+      const fontBuffer = await fontResponse.arrayBuffer();
+
+      runtime = window.FuncDrawPlayRuntime.createBrowserRuntime({
+        bootstrap,
+        fontBuffer
+      });
+      return runtime;
+    }
+
     async function loadScene(reason = 'manual', loadOptions = {}) {
-      const params = new URLSearchParams();
       const events = Array.isArray(loadOptions.events) ? loadOptions.events : [];
       const resetState = Boolean(loadOptions.resetState);
-      let hasCustomTimeParam = false;
-      if (loadOptions.params && typeof loadOptions.params === 'object') {
-        for (const [key, rawValue] of Object.entries(loadOptions.params)) {
-          if (rawValue === undefined || rawValue === null) {
-            continue;
-          }
-          params.append(key, String(rawValue));
-          if (key === 'time') {
-            hasCustomTimeParam = true;
-          }
-        }
-      }
+      const params = loadOptions.params && typeof loadOptions.params === 'object' ? loadOptions.params : {};
+      const hasCustomTimeParam = Object.prototype.hasOwnProperty.call(params, 'time');
       const timeValue = hasCustomTimeParam
-        ? loadOptions.params.time
+        ? params.time
         : animationState.enabled
           ? animationState.time
           : undefined;
-      if (timeValue !== undefined) {
-        params.set('time', formatTimeParam(timeValue));
-      }
-      addCanvasSizeParams(params);
-      if (resetState) {
-        params.set('resetState', 'true');
-      }
-      params.set('_ts', Date.now().toString());
-      const requestUrl = API + '?' + params.toString();
-      const requestInit =
-        events && events.length
-          ? {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                events,
-                time: timeValue,
-                canvasWidth: canvas.width,
-                canvasHeight: canvas.height,
-                resetState
-              })
-            }
-          : undefined;
-      logInfo('Requesting scene', { reason, requestUrl, method: requestInit ? 'POST' : 'GET' });
+      const runtimeInstance = await ensureRuntime();
+      logInfo('Evaluating scene (browser runtime)', { reason, resetState, eventCount: events.length });
       if (events.length > 0) {
         logInfo('Sending events', events);
       }
       try {
-        const response = await fetch(requestUrl, requestInit);
-        logDebug('Scene HTTP response', { status: response.status, ok: response.ok });
-        if (!response.ok) {
-          throw new Error('Failed to load scene');
-        }
-        const payload = await response.json();
+        const payload = runtimeInstance.evaluateScene({
+          includeSvg: false,
+          query: {
+            time: timeValue,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height
+          },
+          events,
+          resetState
+        });
         logDebug('Scene payload received', payload);
         if (payload === null) {
           logInfo('Scene ignored events (null payload)', { reason, eventCount: events.length });
@@ -630,6 +638,7 @@ function createHtmlTemplate() {
 
     refreshButton.addEventListener('click', () => {
       logInfo('Refresh button clicked');
+      runtime = null;
       loadScene('button');
     });
     window.addEventListener('keydown', (event) => {
@@ -699,6 +708,7 @@ function createHtmlTemplate() {
     events.addEventListener('reload', () => {
       logInfo('Reload event received from server');
       stopAnimation();
+      runtime = null;
       loadScene('server-reload');
     });
     events.addEventListener('open', () => {

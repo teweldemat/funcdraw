@@ -4,7 +4,15 @@ const express = require('express');
 const picocolors = require('picocolors');
 const { createHtmlTemplate } = require('./html-template');
 
-async function startServer({ evaluateScene, host = '127.0.0.1', port, openBrowser = true }) {
+async function startServer({
+  evaluateScene,
+  getBootstrap,
+  runtimeSource,
+  fontPath,
+  host = '127.0.0.1',
+  port,
+  openBrowser = true
+}) {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
   const clients = new Set();
@@ -13,7 +21,34 @@ async function startServer({ evaluateScene, host = '127.0.0.1', port, openBrowse
     res.send(createHtmlTemplate());
   });
 
+  if (typeof runtimeSource === 'string' && runtimeSource.length > 0) {
+    app.get('/__funcdraw/runtime.js', (_req, res) => {
+      res.set('Content-Type', 'application/javascript; charset=utf-8');
+      res.set('Cache-Control', 'no-store');
+      res.send(runtimeSource);
+    });
+  }
+
+  if (typeof fontPath === 'string' && fontPath.length > 0) {
+    app.get('/__funcdraw/assets/fonts/Inter-Regular.ttf', (_req, res) => {
+      res.set('Cache-Control', 'no-store');
+      res.sendFile(fontPath);
+    });
+  }
+
+  if (typeof getBootstrap === 'function') {
+    app.get('/__funcdraw/bootstrap', (_req, res) => {
+      const payload = getBootstrap();
+      res.set('Cache-Control', 'no-store');
+      res.json(payload);
+    });
+  }
+
   const handleSceneRequest = async (req, res) => {
+    if (typeof evaluateScene !== 'function') {
+      res.status(404).json({ error: 'Server-side evaluation is disabled (browser runtime mode)' });
+      return;
+    }
     const requestId = `http-${Date.now().toString(36)}`;
     const includeSvg = Boolean(req.query.svg || (req.body && req.body.svg));
     const resetState = Boolean(req.query.resetState || (req.body && req.body.resetState));

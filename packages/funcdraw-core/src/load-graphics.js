@@ -1,12 +1,19 @@
 'use strict';
 
-const funcscript = require('@tewelde/funcscript');
 const { createFdContext } = require('./fd-context');
 const { createValueConverter } = require('./typed-value');
 const { interpretGraphics } = require('./graphics/interpreter');
 const { loadFont } = require('./glyphs/font-loader');
 const { createFontMeasure } = require('./glyphs/text-metrics');
 const { renderSvg } = require('./output/svg-renderer');
+
+function loadDefaultEngine() {
+  if (typeof require !== 'function') {
+    throw new Error('FuncDraw requires an engine; provide options.engine in browser mode');
+  }
+  const moduleName = ['@tewelde', 'funcscript'].join('/');
+  return require(moduleName);
+}
 
 function createParameterListClass(ParameterList) {
   return class InlineParameterList extends ParameterList {
@@ -53,7 +60,7 @@ function createFdValue(engine, context) {
 }
 
 function loadGraphics(resolver, options = {}) {
-  const engine = options.engine || funcscript;
+  const engine = options.engine || loadDefaultEngine();
   ensureResolver(resolver);
   const outputs = resolveOutputs(options.output);
   const fontInput = options.font || (options.fd ? options.fd.font : null);

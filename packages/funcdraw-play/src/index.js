@@ -9,6 +9,8 @@ const funcscript = require('@tewelde/funcscript');
 const { FuncScriptParser, DefaultFsDataProvider } = funcscript;
 const { createExpression: createFuncDrawExpression } = require('@funcdraw/core');
 const { loadUserConfig } = require('./config');
+const { buildBootstrapPayload } = require('./package-snapshot');
+const { bundleBrowserRuntime } = require('./runtime-bundler');
 const { startServer } = require('./server');
 
 async function startPlayer(cwd, argvInput) {
@@ -102,6 +104,11 @@ async function startPlayer(cwd, argvInput) {
   }
 
   let currentExpression = buildExpression(config);
+  let bootstrapPayload = buildBootstrapPayload({
+    resolver: config.resolver,
+    sourceDescription: config.sourceDescription
+  });
+  const runtimeSource = await bundleBrowserRuntime();
   const timelineState = {
     value: 0
   };
@@ -350,6 +357,9 @@ async function startPlayer(cwd, argvInput) {
 
   const server = await startServer({
     evaluateScene,
+    getBootstrap: () => bootstrapPayload,
+    runtimeSource,
+    fontPath: resolveInterFontPath(),
     host: argv.host,
     port: argv.port,
     openBrowser: argv.open
@@ -360,8 +370,13 @@ async function startPlayer(cwd, argvInput) {
       const updated = await loadUserConfig(cwd, { expression: expressionOverride });
       config = updated;
       currentExpression = buildExpression(config);
+      bootstrapPayload = buildBootstrapPayload({
+        resolver: config.resolver,
+        sourceDescription: config.sourceDescription
+      });
       resetTimeline();
       modelState = null;
+      retainedStepFn = null;
       console.log(picocolors.green('FuncDraw scene reloaded'));
       const nextWatchPaths = Array.isArray(config.watchPaths) ? config.watchPaths : [];
       if (!pathsEqual(nextWatchPaths, watchedPaths)) {
@@ -521,6 +536,10 @@ function normalizeSvgOption(raw, cwd) {
   }
   const outputPath = raw === '' ? null : path.resolve(cwd, String(raw));
   return { enabled: true, outputPath };
+}
+
+function resolveInterFontPath() {
+  return require.resolve('@funcdraw/core/assets/fonts/Inter-Regular.ttf');
 }
 
 async function runPackageTests(config) {

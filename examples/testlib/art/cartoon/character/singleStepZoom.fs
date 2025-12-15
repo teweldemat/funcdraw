@@ -83,15 +83,10 @@
     updatedRightLeg: scaleLimbToEnd(scaled.rightLeg, rightEnd);
 
     legDiffY: updatedLeftLeg.end[1] - updatedRightLeg.end[1];
-    legDiffStart: m.leftLeg.end[1] - m.rightLeg.end[1];
 
-    handSwingScale: 0.6;
-    restLeftHandY: m.leftHand.end[1] + handSwingScale * legDiffStart;
-    restRightHandY: m.rightHand.end[1] - handSwingScale * legDiffStart;
-    baseLeftHandY: restLeftHandY * scale;
-    baseRightHandY: restRightHandY * scale;
-    leftHandEndY: baseLeftHandY - handSwingScale * legDiffY;
-    rightHandEndY: baseRightHandY + handSwingScale * legDiffY;
+    baseHandY: ((m.leftHand.end[1] + m.rightHand.end[1]) / 2) * scale;
+    leftHandEndY: baseHandY - legDiffY / 2;
+    rightHandEndY: baseHandY + legDiffY / 2;
 
     updatedLeftHand: scaleLimbToEnd(scaled.leftHand, [0, leftHandEndY]);
     updatedRightHand: scaleLimbToEnd(scaled.rightHand, [0, rightHandEndY]);

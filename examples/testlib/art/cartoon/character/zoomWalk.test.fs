@@ -82,5 +82,29 @@
         ];
       };
     }
+    ,
+    {
+      name: "keeps legs vertical and straight";
+      test: (fn) =>
+      {
+        start: [0, 0];
+        distance: -24;
+        stride: 6;
+        zoom: 0.05;
+        profile0: fn(start, {}, distance, stride, 0, zoom);
+        profile1: fn(start, {}, distance, stride, 1, zoom);
+        eval
+        [
+          assert.equal(profile0.leftLeg.end[0], 0),
+          assert.equal(profile0.rightLeg.end[0], 0),
+          assert.approx(profile0.leftLeg.upper + profile0.leftLeg.lower, math.Abs(profile0.leftLeg.end[1]), 0.0001),
+          assert.approx(profile0.rightLeg.upper + profile0.rightLeg.lower, math.Abs(profile0.rightLeg.end[1]), 0.0001),
+          assert.equal(profile1.leftLeg.end[0], 0),
+          assert.equal(profile1.rightLeg.end[0], 0),
+          assert.approx(profile1.leftLeg.upper + profile1.leftLeg.lower, math.Abs(profile1.leftLeg.end[1]), 0.0001),
+          assert.approx(profile1.rightLeg.upper + profile1.rightLeg.lower, math.Abs(profile1.rightLeg.end[1]), 0.0001)
+        ];
+      };
+    }
   ];
 }

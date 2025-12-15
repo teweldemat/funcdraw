@@ -566,7 +566,8 @@ async function runPackageTests(config) {
       return 1;
     }
 
-    const result = funcscript.testPackage(config.resolver);
+    const provider = createTestProvider();
+    const result = funcscript.testPackage(config.resolver, provider);
     const summary = normalizeTestSummary(result && result.summary);
     const failures = collectTestFailures(result && result.tests);
 
@@ -611,6 +612,39 @@ async function runPackageTests(config) {
     }
     return 1;
   }
+}
+
+function createTestProvider() {
+  const { createFdContext } = require('@funcdraw/core/src/fd-context');
+  const measureText = (text, fontSizeInput) => {
+    const fontSize = Number(fontSizeInput);
+    const normalizedSize = Number.isFinite(fontSize) ? fontSize : 12;
+    const content = text == null ? '' : String(text);
+    const lines = content.split(/\r?\n/);
+    const avgCharWidth = normalizedSize * 0.6;
+    const lineWidths = lines.map((line) => line.length * avgCharWidth);
+    const width = lineWidths.reduce((max, val) => Math.max(max, val), 0);
+    const ascent = normalizedSize * 0.8;
+    const descent = normalizedSize * 0.2;
+    const lineHeight = (ascent + descent) * 1.2;
+    const height = lineHeight * (lineWidths.length || 1);
+    return {
+      width,
+      height,
+      lineHeight,
+      lines: lineWidths,
+      ascent,
+      descent,
+      baseline: ascent,
+      avgCharWidth
+    };
+  };
+
+  const fdContext = createFdContext({ engine: funcscript, measureText });
+  const entries = Object.entries(fdContext).map(([key, value]) => [key, funcscript.normalize(value)]);
+  const collection = new funcscript.SimpleKeyValueCollection(null, entries);
+  const typedFd = funcscript.normalize(collection);
+  return new DefaultFsDataProvider({ fd: typedFd });
 }
 
 function normalizeTestSummary(summary) {

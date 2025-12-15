@@ -90,6 +90,28 @@
       };
     },
     {
+      name: "mirrors hand extension against leg extension";
+      test: (fn) =>
+      {
+        anchor: [0, 0];
+        base:
+        {
+          direction: "front";
+          leftLeg: { end: [-3, -11]; };
+          rightLeg: { end: [3, -17]; };
+        };
+        targetY: -22;
+        progress: 0.5;
+        zoom: 0.05;
+        profile: fn(anchor, base, "left", targetY, progress, zoom);
+        eval
+        [
+          assert.approx(profile.leftHand.end[1] - profile.rightHand.end[1], profile.rightLeg.end[1] - profile.leftLeg.end[1], 0.0001),
+          assert.approx((profile.leftHand.end[1] + profile.rightHand.end[1]) / 2, defaultMeasurements.leftHand.end[1] * (profile.height / defaultMeasurements.height), 0.0001)
+        ];
+      };
+    },
+    {
       name: "requires a positive zoomFactor";
       test: (fn) =>
       {

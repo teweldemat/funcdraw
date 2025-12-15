@@ -7,11 +7,7 @@
     limb: "#fbbf24";
   };
 
-  defaults: character.skeleton.defaults+{leftHand: {sign:1};
-    rightHand: {sign:1};
-    leftLeg: {sign:1};
-    rightLeg: {sign:1};
-};
+  defaults: character.skeleton.defaults;
 
   horizontalDistance: 24;
   strideLength: 6;
@@ -22,10 +18,16 @@
   angle: localT / cycleDuration * 2 * math.Pi;
   progress: (1 - math.Cos(angle)) / 2;
 
-  profile: character.profileWalk(startAnchor, {direction:'right', leftHand: {sign:-1};
-    rightHand: {sign:-1};
-    leftLeg: {sign:1};
-    rightLeg: {sign:1};}, horizontalDistance, strideLength, progress);
+  walkBase:
+  {
+    direction: "right";
+    leftLeg: { sign: 1; };
+    rightLeg: { sign: 1; };
+    leftHand: { sign: -1; };
+    rightHand: { sign: -1; };
+  };
+
+  profile: character.profileWalk(startAnchor, walkBase, horizontalDistance, strideLength, progress);
   actor: character.static(profile.anchor, profile, palette);
 
   groundY: startAnchor[1] + defaults.leftLeg.end[1];
@@ -106,4 +108,3 @@
     graphics: [background, ground, anchorPath, strideMarks, cursor, actor, label];
   };
 }
-

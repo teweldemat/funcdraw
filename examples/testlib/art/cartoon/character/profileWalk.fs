@@ -39,20 +39,20 @@
     remainder: distanceAbs - fullSteps * strideAbs;
 
     traveled: distanceAbs * progress;
-    stepIndex: if progress == 1 and remainder == 0 then fullSteps else math.Floor(traveled / strideAbs);
+    stepIndex: math.Floor(traveled / strideAbs);
 
     completed:
       Range(0, stepIndex) reduce (state, k) =>
         stepOnce(state, k)
       ~ seed;
 
-    eval if progress == 1 and remainder == 0 then completed.profile else
+    eval if remainder == 0 and stepIndex == fullSteps then completed.profile else
     {
       stepAdvance: if stepIndex < fullSteps then strideAbs else remainder;
       localDistance: traveled - stepIndex * strideAbs;
       localProgress: localDistance / stepAdvance;
 
-      isEvenStep: (stepIndex div 2) * 2 == stepIndex;
+      isEvenStep: math.Floor(stepIndex / 2) * 2 == stepIndex;
       movingNow: if isEvenStep then "left" else "right";
       movingLegNow: if movingNow == "left" then completed.profile.leftLeg else completed.profile.rightLeg;
       startWorldNow: [completed.anchor[0] + movingLegNow.end[0], completed.anchor[1] + movingLegNow.end[1]];
@@ -62,4 +62,3 @@
     };
   };
 }
-

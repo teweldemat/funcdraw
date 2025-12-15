@@ -47,6 +47,36 @@
       };
     },
     {
+      name: "starts by moving the left leg";
+      test: (fn) =>
+      {
+        start: [0, 0];
+        distance: 24;
+        stride: 6;
+        progress: 0.1;
+        base:
+        {
+          direction: "right";
+          leftLeg: { sign: 1; };
+          rightLeg: { sign: 1; };
+        };
+        profile: fn(start, base, distance, stride, progress);
+
+        traveled: distance * progress;
+        localProgress: traveled / stride;
+        dx: 2 * stride;
+        anchorShift: dx * localProgress * 0.5;
+        expectedLeftX: defaultMeasurements.leftLeg.end[0] + dx * localProgress - anchorShift;
+        expectedRightX: defaultMeasurements.rightLeg.end[0] - anchorShift;
+
+        eval
+        [
+          assert.approx(profile.leftLeg.end[0], expectedLeftX, 0.0001),
+          assert.approx(profile.rightLeg.end[0], expectedRightX, 0.0001)
+        ];
+      };
+    },
+    {
       name: "moves left for negative distances";
       test: (fn) =>
       {
@@ -64,4 +94,3 @@
     }
   ];
 }
-

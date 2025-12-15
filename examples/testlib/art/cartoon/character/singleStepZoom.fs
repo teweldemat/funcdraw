@@ -62,12 +62,8 @@
 
     desiredLeftY: if movingFeet == "left" then movingFootWorldY else baseLeftWorldY;
     desiredRightY: if movingFeet == "right" then movingFootWorldY else baseRightWorldY;
-
-    desiredAvgY: (desiredLeftY + desiredRightY) / 2;
-    desiredAvgZoomedY: shiftedAnchor[1] + (desiredAvgY - shiftedAnchor[1]) * scale;
-    avgShiftY: desiredAvgZoomedY - desiredAvgY;
-    desiredLeftZoomedY: desiredLeftY + avgShiftY;
-    desiredRightZoomedY: desiredRightY + avgShiftY;
+    desiredLeftZoomedY: desiredLeftY;
+    desiredRightZoomedY: desiredRightY;
 
     thighSpreadScaled: scaled.thighWidth * spread;
     leftAttach: [shiftedAnchor[0] + perpendicular[0] * thighSpreadScaled, shiftedAnchor[1] + perpendicular[1] * thighSpreadScaled];

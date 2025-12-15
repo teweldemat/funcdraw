@@ -19,14 +19,8 @@
         startLeftWorldY: anchor[1] + base.leftLeg.end[1];
         dy: targetY - startLeftWorldY;
         expectedAnchorY: anchor[1] + dy * progress * 0.5;
-        scale: 1 - (expectedAnchorY - anchor[1]) * zoom;
-        expectedMovingWorldYBase: startLeftWorldY + dy * progress;
-        expectedRightWorldYBase: anchor[1] + base.rightLeg.end[1];
-        expectedAvgYBase: (expectedMovingWorldYBase + expectedRightWorldYBase) / 2;
-        expectedAvgZoomedY: expectedAnchorY + (expectedAvgYBase - expectedAnchorY) * scale;
-        avgShiftY: expectedAvgZoomedY - expectedAvgYBase;
-        expectedMovingWorldY: expectedMovingWorldYBase + avgShiftY;
-        expectedRightWorldY: expectedRightWorldYBase + avgShiftY;
+        expectedMovingWorldY: startLeftWorldY + dy * progress;
+        expectedRightWorldY: anchor[1] + base.rightLeg.end[1];
 
         eval
         [

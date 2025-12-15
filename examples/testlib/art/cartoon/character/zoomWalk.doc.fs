@@ -12,10 +12,11 @@ travel implies scale change.
 
 1. Merge `measurements` over `defaultMeasurements` (deep-merge limb records).
 2. Normalize step parameters: `strideAbs = Abs(strideLength)`, `sign = Sign(verticalDistance)`.
-3. Seed the gait with a symmetric leg phase so progress starts from a stable pose.
-4. Apply all fully completed steps via `Range(...) reduce stepOnce`.
-5. Apply the current partial step with `singleStepZoom(..., localProgress, zoomFactor)`.
-6. Return the current profile (including the updated `anchor`).
+3. Seed the gait by offsetting the feet by `strideAbs` and normalize the pose via `singleStepZoom(..., progress=0)`.
+4. March forward by applying repeated `singleStepZoom` steps until the desired traveled distance is reached.
+5. The effective stride (foot separation) scales with zoom so step size stays proportional as the character grows/shrinks.
+6. At `progress == 1`, reset limbs to equal size (neutral stance).
+7. Return the current profile (including the updated `anchor`).
 
 ## Inputs
 
@@ -35,6 +36,7 @@ Notes:
 - Scale compounds step-to-step because each `singleStepZoom` call scales the incoming profile.
 - `direction` inside `measurements` controls hip spread ("front"/"back" spread; "left"/"right" no spread).
 - Limb straightness is enforced by `singleStepZoom` (vertical `end[0]=0` and segment rescale to reach the end).
+- `strideLength` is the base stride size at legScale=1; the gait seed scales it by the current leg size and zoom scaling adapts it over time to avoid giant steps when zoomed out.
 
 ## Outputs
 

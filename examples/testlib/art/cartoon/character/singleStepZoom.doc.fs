@@ -20,7 +20,7 @@ while the body scales.
 2. Compute hip attachment points from `anchor`, `bodyAngle`, `thighWidth`, and `direction` spread.
 3. Drive the selected foot toward `targetFeetY` (world-space) and shift the anchor by `0.5 * dy`.
 4. Compute `scale = 1 - bodyShiftY * zoomFactor` and scale body dimensions + limb segment lengths.
-5. Adjust both feet so their *average* world-space Y remains consistent after scaling, then compute
+5. Keep the non-moving foot planted (no sliding) while the moving foot advances, then compute
    vertical leg `end` vectors and rescale the leg segments to reach them (straight legs).
 6. Mirror hand extension against leg extension, then rescale the hand segments to reach the mirrored
    vertical ends (straight hands).

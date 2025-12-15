@@ -40,16 +40,6 @@
     else error("expected whichFeet left|right");
   };
 
-  stepOnce: (state, k) =>
-  {
-    isEven: (k div 2) * 2 == k;
-    moving: if isEven then "left" else "right";
-    startY: footWorldY(state.anchor, state.profile, moving);
-    targetY: startY + 2 * strideAbs * sign;
-    nextProfile: singleStepZoom(state.anchor, state.profile, moving, targetY, 1, zoomFactor);
-    eval { anchor: nextProfile.anchor; profile: nextProfile; };
-  };
-
   eval if strideAbs <= 0 then error("expected strideLength > 0") else
   if progress < 0 or progress > 1 then error("expected progress 0..1") else
   if zoomFactor <= 0 then error("expected zoomFactor > 0") else
@@ -61,7 +51,10 @@
       leftY0: attach0.left + m0.leftLeg.end[1];
       rightY0: attach0.right + m0.rightLeg.end[1];
       midY: (leftY0 + rightY0) / 2;
-      diff: strideAbs * sign;
+      legTotal0: (m0.leftLeg.upper + m0.leftLeg.lower + m0.rightLeg.upper + m0.rightLeg.lower) / 2;
+      defaultLegTotal: (defaultMeasurements.leftLeg.upper + defaultMeasurements.leftLeg.lower + defaultMeasurements.rightLeg.upper + defaultMeasurements.rightLeg.lower) / 2;
+      legScale0: legTotal0 / defaultLegTotal;
+      diff: strideAbs * legScale0 * sign;
       desiredLeftY: midY - diff / 2;
       desiredRightY: midY + diff / 2;
       leftEndY: desiredLeftY - attach0.left;
@@ -70,38 +63,94 @@
         m0 + {
           leftLeg: m0.leftLeg + { end: [0, leftEndY]; };
           rightLeg: m0.rightLeg + { end: [0, rightEndY]; };
-        };
+      };
     };
-
-    seed:
-    {
-      anchor: position;
-      profile: gaitSeedProfile;
-    };
-
-    fullSteps: math.Floor(distanceAbs / strideAbs);
-    remainder: distanceAbs - fullSteps * strideAbs;
 
     traveled: distanceAbs * progress;
-    stepIndex: math.Floor(traveled / strideAbs);
 
-    completed:
-      Range(0, stepIndex) reduce (state, k) =>
-        stepOnce(state, k)
-      ~ seed;
+    otherFeet: (feet) =>
+      if feet == "left" then "right"
+      else if feet == "right" then "left"
+      else error("expected feet left|right");
 
-    eval if remainder == 0 and stepIndex == fullSteps then completed.profile else
+    stepParams: (state, moving) =>
     {
-      stepAdvance: if stepIndex < fullSteps then strideAbs else remainder;
-      localDistance: traveled - stepIndex * strideAbs;
-      localProgress: localDistance / stepAdvance;
+      fixed: otherFeet(moving);
+      movingY: footWorldY(state.anchor, state.profile, moving);
+      fixedY: footWorldY(state.anchor, state.profile, fixed);
+      diff: math.Abs(fixedY - movingY);
 
-      isEvenStep: math.Floor(stepIndex / 2) * 2 == stepIndex;
-      movingNow: if isEvenStep then "left" else "right";
-      startY: footWorldY(completed.anchor, completed.profile, movingNow);
-      targetY: startY + 2 * stepAdvance * sign;
+      a: sign * diff * zoomFactor / 2;
+      stepScale: (1 - a) / (1 + a);
+      nextDiff: diff * stepScale;
+      targetY: fixedY + nextDiff * sign;
+      stepAdvance: (diff + nextDiff) / 2;
 
-      eval singleStepZoom(completed.anchor, completed.profile, movingNow, targetY, localProgress, zoomFactor);
+      eval { targetY; stepAdvance; };
     };
+
+    seedProfile: singleStepZoom(position, gaitSeedProfile, "left", 0, 0, zoomFactor);
+    seed:
+    {
+      anchor: seedProfile.anchor;
+      profile: seedProfile;
+    };
+
+    maxSteps: math.Ceiling(distanceAbs / strideAbs) * 20 + 20;
+    walked:
+      Range(0, maxSteps) reduce (acc, k) =>
+      {
+        eval if acc.remaining == 0 then acc else
+        {
+          isEven: (k div 2) * 2 == k;
+          moving: if isEven then "left" else "right";
+          params: stepParams(acc.state, moving);
+
+          eval if acc.remaining >= params.stepAdvance then
+          {
+            nextProfile: singleStepZoom(acc.state.anchor, acc.state.profile, moving, params.targetY, 1, zoomFactor);
+            eval
+            {
+              state: { anchor: nextProfile.anchor; profile: nextProfile; };
+              remaining: acc.remaining - params.stepAdvance;
+            };
+          }
+          else
+          {
+            localProgress: acc.remaining / params.stepAdvance;
+            partialProfile: singleStepZoom(acc.state.anchor, acc.state.profile, moving, params.targetY, localProgress, zoomFactor);
+            eval
+            {
+              state: { anchor: partialProfile.anchor; profile: partialProfile; };
+              remaining: 0;
+            };
+          };
+        };
+      }
+      ~ { state: seed; remaining: traveled; };
+
+    finalProfile: walked.state.profile;
+
+    eval if progress == 1 then
+    {
+      scaleLimbToEnd: (limb, end) =>
+      {
+        total: limb.upper + limb.lower;
+        distance: math.Sqrt(end[0] * end[0] + end[1] * end[1]);
+        factor: distance / total;
+        eval limb + { end: end; upper: limb.upper * factor; lower: limb.lower * factor; };
+      };
+
+      legEndY: (finalProfile.leftLeg.end[1] + finalProfile.rightLeg.end[1]) / 2;
+      handEndY: (finalProfile.leftHand.end[1] + finalProfile.rightHand.end[1]) / 2;
+
+      eval finalProfile + {
+        leftLeg: scaleLimbToEnd(finalProfile.leftLeg, [0, legEndY]);
+        rightLeg: scaleLimbToEnd(finalProfile.rightLeg, [0, legEndY]);
+        leftHand: scaleLimbToEnd(finalProfile.leftHand, [0, handEndY]);
+        rightHand: scaleLimbToEnd(finalProfile.rightHand, [0, handEndY]);
+      };
+    }
+    else finalProfile;
   };
 }

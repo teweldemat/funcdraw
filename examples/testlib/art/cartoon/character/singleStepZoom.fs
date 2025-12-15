@@ -12,6 +12,14 @@
 
   eval if zoomFactor <= 0 then error("expected zoomFactor > 0") else
   {
+    scaleLimbToEnd: (limb, end) =>
+    {
+      total: limb.upper + limb.lower;
+      distance: math.Sqrt(end[0] * end[0] + end[1] * end[1]);
+      factor: distance / total;
+      eval limb + { end: end; upper: limb.upper * factor; lower: limb.lower * factor; };
+    };
+
     bodyDir: [math.Cos(m.bodyAngle), math.Sin(m.bodyAngle)];
     perpendicular: [-bodyDir[1], bodyDir[0]];
     spread: if m.direction == "front" then 1
@@ -65,28 +73,8 @@
     leftEnd: [0, leftEndY];
     rightEnd: [0, rightEndY];
 
-    leftLegBaseTotal: scaled.leftLeg.upper + scaled.leftLeg.lower;
-    leftLegUpper: math.Abs(leftEndY) * scaled.leftLeg.upper / leftLegBaseTotal;
-    leftLegLower: math.Abs(leftEndY) - leftLegUpper;
-
-    rightLegBaseTotal: scaled.rightLeg.upper + scaled.rightLeg.lower;
-    rightLegUpper: math.Abs(rightEndY) * scaled.rightLeg.upper / rightLegBaseTotal;
-    rightLegLower: math.Abs(rightEndY) - rightLegUpper;
-
-    updatedLeftLeg:
-    {
-      end: leftEnd;
-      upper: leftLegUpper;
-      lower: leftLegLower;
-      sign: scaled.leftLeg.sign;
-    };
-    updatedRightLeg:
-    {
-      end: rightEnd;
-      upper: rightLegUpper;
-      lower: rightLegLower;
-      sign: scaled.rightLeg.sign;
-    };
+    updatedLeftLeg: scaleLimbToEnd(scaled.leftLeg, leftEnd);
+    updatedRightLeg: scaleLimbToEnd(scaled.rightLeg, rightEnd);
 
     legDiffY: updatedLeftLeg.end[1] - updatedRightLeg.end[1];
     legDiffStart: m.leftLeg.end[1] - m.rightLeg.end[1];
@@ -99,28 +87,8 @@
     leftHandEndY: baseLeftHandY - handSwingScale * legDiffY;
     rightHandEndY: baseRightHandY + handSwingScale * legDiffY;
 
-    leftHandBaseTotal: scaled.leftHand.upper + scaled.leftHand.lower;
-    leftHandUpper: math.Abs(leftHandEndY) * scaled.leftHand.upper / leftHandBaseTotal;
-    leftHandLower: math.Abs(leftHandEndY) - leftHandUpper;
-
-    rightHandBaseTotal: scaled.rightHand.upper + scaled.rightHand.lower;
-    rightHandUpper: math.Abs(rightHandEndY) * scaled.rightHand.upper / rightHandBaseTotal;
-    rightHandLower: math.Abs(rightHandEndY) - rightHandUpper;
-
-    updatedLeftHand:
-    {
-      end: [0, leftHandEndY];
-      upper: leftHandUpper;
-      lower: leftHandLower;
-      sign: scaled.leftHand.sign;
-    };
-    updatedRightHand:
-    {
-      end: [0, rightHandEndY];
-      upper: rightHandUpper;
-      lower: rightHandLower;
-      sign: scaled.rightHand.sign;
-    };
+    updatedLeftHand: scaleLimbToEnd(scaled.leftHand, [0, leftHandEndY]);
+    updatedRightHand: scaleLimbToEnd(scaled.rightHand, [0, rightHandEndY]);
 
     eval scaled + {
       anchor: shiftedAnchor;

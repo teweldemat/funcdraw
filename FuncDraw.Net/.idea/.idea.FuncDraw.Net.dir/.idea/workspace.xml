@@ -8,9 +8,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b84dc29f-7bce-452e-85bd-78794323eb6a" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/profileWalk.fs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/profileWalk.test.fs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../examples/testcompose/art/zoomStepDemo.fs" beforeDir="false" afterPath="$PROJECT_DIR$/../examples/testcompose/art/zoomStepDemo.fs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../examples/testcompose/art/zoomWalkDemo.fs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/zoomWalk.fs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/zoomWalk.test.fs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.FuncDraw.Net.dir/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.FuncDraw.Net.dir/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/eval.fs" beforeDir="false" afterPath="$PROJECT_DIR$/../examples/testlib/art/cartoon/character/eval.fs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../funcscript" beforeDir="false" afterPath="$PROJECT_DIR$/../funcscript" afterDir="false" />
     </list>
@@ -85,7 +86,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1765537303535</updated>
-      <workItem from="1765537304627" duration="8014000" />
+      <workItem from="1765537304627" duration="8018000" />
     </task>
     <servers />
   </component>

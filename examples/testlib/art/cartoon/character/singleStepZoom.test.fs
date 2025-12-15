@@ -57,15 +57,23 @@
           assert.approx(profile.headRadius, defaultMeasurements.headRadius * scale, 0.0001),
           assert.approx(profile.neckLength, defaultMeasurements.neckLength * scale, 0.0001),
           assert.approx(profile.shoulderWidth, defaultMeasurements.shoulderWidth * scale, 0.0001),
-          assert.approx(profile.thighWidth, defaultMeasurements.thighWidth * scale, 0.0001)
+          assert.approx(profile.thighWidth, defaultMeasurements.thighWidth * scale, 0.0001),
+          assert.approx(profile.leftLeg.upper + profile.leftLeg.lower, math.Abs(profile.leftLeg.end[1]), 0.0001),
+          assert.approx(profile.rightLeg.upper + profile.rightLeg.lower, math.Abs(profile.rightLeg.end[1]), 0.0001),
+          assert.approx(profile.leftHand.upper + profile.leftHand.lower, math.Abs(profile.leftHand.end[1]), 0.0001),
+          assert.approx(profile.rightHand.upper + profile.rightHand.lower, math.Abs(profile.rightHand.end[1]), 0.0001)
         ];
       };
     },
     {
-      name: "keeps hands straight and vertical";
+      name: "keeps hands vertical and straight";
       test: (fn) =>
       {
-        profile: fn([0, 0], {}, "left", -12, 0.5, 0.05);
+        anchor: [0, 0];
+        targetY: -12;
+        progress: 0.5;
+        zoom: 0.05;
+        profile: fn(anchor, {}, "left", targetY, progress, zoom);
         eval
         [
           assert.equal(profile.leftHand.end[0], 0),

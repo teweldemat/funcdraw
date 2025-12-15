@@ -7,8 +7,6 @@
     limb: "#fbbf24";
   };
 
-  defaults: character.skeleton.defaults;
-
   verticalDistance: -24;
   strideLength: 6;
   zoomFactor: 0.05;
@@ -28,6 +26,17 @@
     rightHand: { sign: 1; };
   };
 
+  startProfile: character.zoomWalk(startAnchor, walkBase, verticalDistance, strideLength, 0, zoomFactor);
+  endProfile: character.zoomWalk(startAnchor, walkBase, verticalDistance, strideLength, 1, zoomFactor);
+
+  startFootMinY: math.Min(startProfile.anchor[1] + startProfile.leftLeg.end[1], startProfile.anchor[1] + startProfile.rightLeg.end[1]);
+  endFootMinY: math.Min(endProfile.anchor[1] + endProfile.leftLeg.end[1], endProfile.anchor[1] + endProfile.rightLeg.end[1]);
+  minFootY: math.Min(startFootMinY, endFootMinY);
+
+  startHeadMaxY: startProfile.anchor[1] + startProfile.height + startProfile.neckLength + startProfile.headRadius;
+  endHeadMaxY: endProfile.anchor[1] + endProfile.height + endProfile.neckLength + endProfile.headRadius;
+  maxHeadY: math.Max(startHeadMaxY, endHeadMaxY);
+
   profile: character.zoomWalk(startAnchor, walkBase, verticalDistance, strideLength, progress, zoomFactor);
   geometry: character.skeleton.build(profile.anchor, profile);
   actor: character.static(profile.anchor, profile, palette);
@@ -44,9 +53,9 @@
   view:
   {
     left: -22;
-    bottom: minAnchorY + defaults.leftLeg.end[1] - 20;
+    bottom: math.Min(minAnchorY, minFootY) - 20;
     right: 22;
-    top: maxAnchorY + defaults.height + defaults.neckLength + defaults.headRadius + 12;
+    top: math.Max(maxAnchorY, maxHeadY) + 12;
   };
 
   background:
@@ -122,4 +131,3 @@
     graphics: [background, anchorPath, strideMarks, cursor, anchorMarker, label] + feetMarkers + actor;
   };
 }
-

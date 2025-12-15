@@ -68,10 +68,10 @@
       profile: nextProfile;
     };
   };
-  advanceSteps: (state, k, remaining) =>
-    if remaining <= 0 then state else advanceSteps(stepOnce(state, k), k + 1, remaining - 1);
-
-  completed: advanceSteps(seed, 0, stepIndex);
+  completed:
+    Range(0, stepIndex) reduce (state, k) =>
+      stepOnce(state, k)
+    ~ seed;
 
   isEvenStep: math.Floor(stepIndex / 2) * 2 == stepIndex;
   movingNow: if isEvenStep then "left" else "right";

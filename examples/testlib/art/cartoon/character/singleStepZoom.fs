@@ -62,12 +62,16 @@
 
     desiredLeftY: if movingFeet == "left" then movingFootWorldY else baseLeftWorldY;
     desiredRightY: if movingFeet == "right" then movingFootWorldY else baseRightWorldY;
+    fixedFootWorldY: if movingFeet == "left" then baseRightWorldY
+      else if movingFeet == "right" then baseLeftWorldY
+      else error("expected movingFeet left|right");
+    zoomedAnchor: [shiftedAnchor[0], fixedFootWorldY + (shiftedAnchor[1] - fixedFootWorldY) * scale];
     desiredLeftZoomedY: desiredLeftY;
     desiredRightZoomedY: desiredRightY;
 
     thighSpreadScaled: scaled.thighWidth * spread;
-    leftAttach: [shiftedAnchor[0] + perpendicular[0] * thighSpreadScaled, shiftedAnchor[1] + perpendicular[1] * thighSpreadScaled];
-    rightAttach: [shiftedAnchor[0] - perpendicular[0] * thighSpreadScaled, shiftedAnchor[1] - perpendicular[1] * thighSpreadScaled];
+    leftAttach: [zoomedAnchor[0] + perpendicular[0] * thighSpreadScaled, zoomedAnchor[1] + perpendicular[1] * thighSpreadScaled];
+    rightAttach: [zoomedAnchor[0] - perpendicular[0] * thighSpreadScaled, zoomedAnchor[1] - perpendicular[1] * thighSpreadScaled];
 
     leftEndY: desiredLeftZoomedY - leftAttach[1];
     rightEndY: desiredRightZoomedY - rightAttach[1];
@@ -88,7 +92,7 @@
     updatedRightHand: scaleLimbToEnd(scaled.rightHand, [0, rightHandEndY]);
 
     eval scaled + {
-      anchor: shiftedAnchor;
+      anchor: zoomedAnchor;
       leftLeg: updatedLeftLeg;
       rightLeg: updatedRightLeg;
       leftHand: updatedLeftHand;

@@ -19,12 +19,16 @@
         startLeftWorldY: anchor[1] + base.leftLeg.end[1];
         dy: targetY - startLeftWorldY;
         expectedAnchorY: anchor[1] + dy * progress * 0.5;
+        fixedFootWorldY: anchor[1] + base.rightLeg.end[1];
+        shiftedAnchorY: expectedAnchorY;
+        scale: 1 - (shiftedAnchorY - anchor[1]) * zoom;
+        expectedZoomedAnchorY: fixedFootWorldY + (shiftedAnchorY - fixedFootWorldY) * scale;
         expectedMovingWorldY: startLeftWorldY + dy * progress;
         expectedRightWorldY: anchor[1] + base.rightLeg.end[1];
 
         eval
         [
-          assert.approx(profile.anchor[1], expectedAnchorY, 0.0001),
+          assert.approx(profile.anchor[1], expectedZoomedAnchorY, 0.0001),
           assert.approx(profile.leftLeg.end[1] + profile.anchor[1], expectedMovingWorldY, 0.0001),
           assert.approx(profile.rightLeg.end[1] + profile.anchor[1], expectedRightWorldY, 0.0001),
           assert.equal(profile.leftLeg.end[0], 0),
@@ -49,10 +53,13 @@
         dy: targetY - startWorldY;
         bodyShift: dy * progress * 0.5;
         scale: 1 - bodyShift * zoom;
+        fixedFootWorldY: anchor[1] + defaultMeasurements.leftLeg.end[1];
+        shiftedAnchorY: anchor[1] + bodyShift;
+        expectedZoomedAnchorY: fixedFootWorldY + (shiftedAnchorY - fixedFootWorldY) * scale;
 
         eval
         [
-          assert.approx(profile.anchor[1], anchor[1] + bodyShift, 0.0001),
+          assert.approx(profile.anchor[1], expectedZoomedAnchorY, 0.0001),
           assert.approx(profile.height, defaultMeasurements.height * scale, 0.0001),
           assert.approx(profile.headRadius, defaultMeasurements.headRadius * scale, 0.0001),
           assert.approx(profile.neckLength, defaultMeasurements.neckLength * scale, 0.0001),

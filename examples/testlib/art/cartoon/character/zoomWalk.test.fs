@@ -1,7 +1,7 @@
 {
   eval [
     {
-      name: "moves anchor linearly with progress";
+      name: "moves feet midpoint linearly with progress";
       test: (fn) =>
       {
         start: [2, -1];
@@ -9,27 +9,33 @@
         stride: 6;
         zoom: 0.05;
         p: 0.25;
+        profile0: fn(start, {}, distance, stride, 0, zoom);
         profile: fn(start, {}, distance, stride, p, zoom);
+        mid0: (profile0.anchor[1] + profile0.leftLeg.end[1] + profile0.anchor[1] + profile0.rightLeg.end[1]) / 2;
+        mid: (profile.anchor[1] + profile.leftLeg.end[1] + profile.anchor[1] + profile.rightLeg.end[1]) / 2;
         eval
         [
           assert.equal(profile.anchor[0], start[0]),
-          assert.approx(profile.anchor[1], start[1] + distance * p, 0.0001)
+          assert.approx(mid, mid0 + distance * p, 0.0001)
         ];
       };
     },
     {
-      name: "reaches end anchor at progress 1";
+      name: "reaches end feet midpoint at progress 1";
       test: (fn) =>
       {
         start: [0, 0];
         distance: 18;
         stride: 6;
         zoom: 0.05;
+        profile0: fn(start, {}, distance, stride, 0, zoom);
         profile: fn(start, {}, distance, stride, 1, zoom);
+        mid0: (profile0.anchor[1] + profile0.leftLeg.end[1] + profile0.anchor[1] + profile0.rightLeg.end[1]) / 2;
+        mid: (profile.anchor[1] + profile.leftLeg.end[1] + profile.anchor[1] + profile.rightLeg.end[1]) / 2;
         eval
         [
           assert.equal(profile.anchor[0], start[0]),
-          assert.approx(profile.anchor[1], start[1] + distance, 0.0001)
+          assert.approx(mid, mid0 + distance, 0.0001)
         ];
       };
     },
@@ -42,11 +48,14 @@
         stride: 6;
         zoom: 0.05;
         p: 0.5;
+        profile0: fn(start, {}, distance, stride, 0, zoom);
         profile: fn(start, {}, distance, stride, p, zoom);
+        mid0: (profile0.anchor[1] + profile0.leftLeg.end[1] + profile0.anchor[1] + profile0.rightLeg.end[1]) / 2;
+        mid: (profile.anchor[1] + profile.leftLeg.end[1] + profile.anchor[1] + profile.rightLeg.end[1]) / 2;
         eval
         [
           assert.equal(profile.anchor[0], start[0]),
-          assert.approx(profile.anchor[1], start[1] + distance * p, 0.0001)
+          assert.approx(mid, mid0 + distance * p, 0.0001)
         ];
       };
     },

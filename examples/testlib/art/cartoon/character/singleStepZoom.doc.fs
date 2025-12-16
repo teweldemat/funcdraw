@@ -5,9 +5,10 @@
 (anchor + scaled body measurements + limb definitions) suitable for `cartoon.character.static` and
 for chaining in `zoomWalk`.
 
-The step moves one foot toward a target world-space Y, shifts the body anchor by half that delta,
-and scales the body so the character appears to grow/shrink as it moves along the Y axis. Hands
-mirror the current leg extension difference for a consistent silhouette.
+The step moves one foot toward a target world-space Y, computes a raw body shift (half the foot
+delta), then applies a zoom around the planted foot (to keep it planted) while scaling the body so
+the character appears to grow/shrink as it moves along the Y axis. Hands mirror the current leg
+extension difference for a consistent silhouette.
 
 This step intentionally keeps legs and hands straight (no bend): the limb `end` vectors are forced
 vertical (`end[0]=0`) and the limb segment lengths are rescaled so `upper+lower == Abs(end[1])`.
@@ -18,13 +19,15 @@ while the body scales.
 
 1. Merge `measurements` over `defaultMeasurements` and deep-merge the limb records.
 2. Compute hip attachment points from `anchor`, `bodyAngle`, `thighWidth`, and `direction` spread.
-3. Drive the selected foot toward `targetFeetY` (world-space) and shift the anchor by `0.5 * dy`.
+3. Drive the selected foot toward `targetFeetY` (world-space) and compute a raw anchor shift of `0.5 * dy`.
 4. Compute `scale = 1 - bodyShiftY * zoomFactor` and scale body dimensions + limb segment lengths.
-5. Keep the non-moving foot planted (no sliding) while the moving foot advances, then compute
+5. Apply the zoom around the planted foot so it stays planted under scaling:
+   `anchor = fixedFootY + (shiftedAnchorY - fixedFootY) * scale`.
+6. Keep the non-moving foot planted (no sliding) while the moving foot advances, then compute
    vertical leg `end` vectors and rescale the leg segments to reach them (straight legs).
-6. Mirror hand extension against leg extension, then rescale the hand segments to reach the mirrored
+7. Mirror hand extension against leg extension, then rescale the hand segments to reach the mirrored
    vertical ends (straight hands).
-7. Return the updated profile with `anchor`.
+8. Return the updated profile with `anchor`.
 
 ## Inputs
 

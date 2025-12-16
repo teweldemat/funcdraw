@@ -32,8 +32,9 @@ zoomWalk(
 ```
 
 Notes:
-- `progress` maps linearly to anchor motion: `anchor[1] = position[1] + verticalDistance * progress`.
-- Scale compounds step-to-step because each `singleStepZoom` call scales the incoming profile.
+- `progress` maps linearly to the feet midpoint (average foot world Y), not the anchor.
+- Scale compounds step-to-step because each `singleStepZoom` call scales the incoming profile and
+  applies the zoom around the planted foot.
 - `direction` inside `measurements` controls hip spread ("front"/"back" spread; "left"/"right" no spread).
 - Limb straightness is enforced by `singleStepZoom` (vertical `end[0]=0` and segment rescale to reach the end).
 - `strideLength` is the base stride size at legScale=1; the gait seed scales it by the current leg size and zoom scaling adapts it over time to avoid giant steps when zoomed out.

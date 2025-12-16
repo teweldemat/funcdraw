@@ -8,21 +8,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..&#x2F;funcscript&#x2F;FuncScript&#x2F;FuncScript.csproj" />
+    <ProjectReference Include="../funcscript/FuncScript/FuncScript.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Template&#x2F;head.html" LogicalName="FuncDraw.Net.Template.head.html" />
-    <EmbeddedResource Include="Template&#x2F;script.js" LogicalName="FuncDraw.Net.Template.script.js" />
-    <EmbeddedResource Include="Template&#x2F;tail.html" LogicalName="FuncDraw.Net.Template.tail.html" />
+    <EmbeddedResource Include="Template/head.html" LogicalName="FuncDraw.Net.Template.head.html" />
+    <EmbeddedResource Include="Template/script.js" LogicalName="FuncDraw.Net.Template.script.js" />
+    <EmbeddedResource Include="Template/tail.html" LogicalName="FuncDraw.Net.Template.tail.html" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+    <PackageReference Include="Svg.Skia" Version="3.2.1" />
     <PackageReference Include="Typography.OpenFont" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="fonts&#x2F;**&#x2F;*.*">
+    <Content Include="fonts/**/*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

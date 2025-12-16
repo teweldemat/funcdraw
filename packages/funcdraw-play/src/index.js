@@ -5,6 +5,7 @@ const path = require('path');
 const picocolors = require('picocolors');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
+const sharp = require('sharp');
 const funcscript = require('@tewelde/funcscript');
 const { FuncScriptParser, DefaultFsDataProvider } = funcscript;
 const { createExpression: createFuncDrawExpression } = require('@funcdraw/core');
@@ -48,6 +49,10 @@ async function startPlayer(cwd, argvInput) {
       type: 'string',
       describe: 'Include SVG output when running in dump mode; optionally pass a file path to write it'
     })
+    .option('png-out', {
+      type: 'string',
+      describe: 'Render evaluated SVG output to a PNG file (implies dump mode)'
+    })
     .option('t', {
       type: 'number',
       describe: 'Initial time hook value (seconds)'
@@ -76,8 +81,10 @@ async function startPlayer(cwd, argvInput) {
   const traceFile = typeof argv['trace-file'] === 'string' ? argv['trace-file'] : null;
   const traceOutputPath = traceFile ? path.resolve(cwd, traceFile) : null;
   const svgOption = normalizeSvgOption(argv.svg, cwd);
+  const pngOut = typeof argv['png-out'] === 'string' ? argv['png-out'] : null;
+  const pngOutputPath = pngOut ? path.resolve(cwd, pngOut) : null;
   const traceRequested = Boolean(traceOptions && traceOptions.enabled) || Boolean(traceOutputPath);
-  const dumpMode = Boolean(argv.dump);
+  const dumpMode = Boolean(argv.dump) || Boolean(pngOutputPath);
   const traceOnlyMode = traceRequested && !dumpMode;
   const debugEnabled = !traceOnlyMode && Boolean(argv.debug || dumpMode);
   const dumpLoggingEnabled = dumpMode;
@@ -120,9 +127,12 @@ async function startPlayer(cwd, argvInput) {
   let retainedStepFn = null;
   setTimelineValue(argv.t);
   if (Array.isArray(argv.canvas) && argv.canvas.length > 0) {
+    if (argv.canvas.length < 2) {
+      throw new Error('expected --canvas <width> <height>');
+    }
     setCanvasSize({
       width: argv.canvas[0],
-      height: argv.canvas.length > 1 ? argv.canvas[1] : undefined
+      height: argv.canvas[1]
     });
   }
   function setTimelineValue(input) {
@@ -193,6 +203,7 @@ async function startPlayer(cwd, argvInput) {
         trace: traceOptions || traceEnabled,
         dumpLogger,
         stateArg: modelState,
+        canvas: { width: canvasState.width, height: canvasState.height },
         valueHooks: {
           t: () => timelineState.value,
           canvas: () => ({
@@ -319,15 +330,19 @@ async function startPlayer(cwd, argvInput) {
     }
   };
 
-  if (argv.dump) {
+  if (dumpMode) {
     console.log(picocolors.cyan('FuncDraw Play dump mode'));
     try {
+      const includeSvg = svgOption.enabled || Boolean(pngOutputPath);
       const dumpResult = await evaluateScene({
-        includeSvg: svgOption.enabled,
+        includeSvg,
         requestId: 'dump-mode'
       });
       if (svgOption.outputPath) {
         writeSvgToFile(dumpResult.svg, svgOption.outputPath, cwd);
+      }
+      if (pngOutputPath) {
+        await writePngToFile(dumpResult.svg, pngOutputPath, cwd);
       }
       if (traceEnabled) {
         printTraceEntries(dumpResult && dumpResult.trace);
@@ -360,6 +375,7 @@ async function startPlayer(cwd, argvInput) {
     getBootstrap: () => bootstrapPayload,
     runtimeSource,
     fontPath: resolveInterFontPath(),
+    initialTime: parseFloatValue(argv.t),
     host: argv.host,
     port: argv.port,
     openBrowser: argv.open
@@ -876,6 +892,17 @@ function writeSvgToFile(svg, targetPath, cwd) {
   const relative = path.relative(cwd, targetPath);
   const displayPath = relative && relative !== '' ? relative : targetPath;
   console.log(picocolors.gray(`[funcdraw-play] SVG written to ${displayPath}`));
+}
+
+async function writePngToFile(svg, targetPath, cwd) {
+  if (typeof svg !== 'string') {
+    throw new Error('expected SVG output when --png-out is provided');
+  }
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  await sharp(Buffer.from(svg, 'utf8')).png().toFile(targetPath);
+  const relative = path.relative(cwd, targetPath);
+  const displayPath = relative && relative !== '' ? relative : targetPath;
+  console.log(picocolors.gray(`[funcdraw-play] PNG written to ${displayPath}`));
 }
 
 function writeTraceToFile(entries, targetPath, cwd) {

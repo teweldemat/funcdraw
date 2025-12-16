@@ -103,7 +103,7 @@ function loadGraphics(resolver, options = {}) {
     result.raw = interpretation;
   }
   if (outputs.has('svg')) {
-    result.svg = renderSvg(interpretation, { font, measureText });
+    result.svg = renderSvg(interpretation, { font, measureText, canvas: options.canvas });
   }
   if (valueHookEntries) {
     result.valueHooks = summarizeValueHookUsage(valueHookEntries);

@@ -20,6 +20,8 @@ internal sealed class FuncDrawOptions
     public TraceOptions? Trace { get; init; }
     public string? ExpressionOverride { get; init; }
     public object? StateArg { get; init; }
+    public double? CanvasWidth { get; init; }
+    public double? CanvasHeight { get; init; }
 }
 
 internal sealed class TraceOptions
@@ -117,7 +119,7 @@ internal static class FuncDrawRuntime
 
         var interpretation = GraphicsInterpreter.Interpret(typedRoot, converter);
         TextToGlyphConverter.Convert(interpretation);
-        var svg = options.IncludeSvg ? SvgRenderer.Render(interpretation) : null;
+        var svg = options.IncludeSvg ? SvgRenderer.Render(interpretation, options.CanvasWidth, options.CanvasHeight) : null;
         return new SceneResult(
             interpretation.Graphics,
             interpretation.View,
@@ -1804,7 +1806,7 @@ internal static class SvgRenderer
         return $" style=\"mix-blend-mode: {EncodeAttribute(blendMode)};\"";
     }
 
-    public static string Render(SceneInterpretation scene)
+    public static string Render(SceneInterpretation scene, double? canvasWidth = null, double? canvasHeight = null)
     {
         if (scene.Graphics == null)
         {
@@ -1812,10 +1814,12 @@ internal static class SvgRenderer
         }
 
         var viewBox = ResolveViewBox(scene.View);
+        var outputWidth = canvasWidth ?? viewBox.Width;
+        var outputHeight = canvasHeight ?? viewBox.Height;
         var body = string.Concat(scene.Graphics.Select(node => RenderNode(node, viewBox, 0)));
         var transform = FormatRootTransform(viewBox);
         var content = transform.Length > 0 ? $"<g transform=\"{transform}\">{body}</g>" : body;
-        return $"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{viewBox.Width}\" height=\"{viewBox.Height}\" viewBox=\"0 0 {viewBox.Width} {viewBox.Height}\" fill=\"none\">{content}</svg>";
+        return $"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{outputWidth}\" height=\"{outputHeight}\" viewBox=\"0 0 {viewBox.Width} {viewBox.Height}\" fill=\"none\">{content}</svg>";
     }
 
     private static string RenderNode(object node, ViewBox viewBox, int depth)

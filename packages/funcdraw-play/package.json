@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "start": "node bin/funcdraw-play.js",
-    "test": "node --test --test-name-pattern=\"^$\""
+    "test": "node --test"
   },
   "keywords": [
     "funcdraw",
@@ -36,6 +36,7 @@
     "get-port": "^7.0.0",
     "open": "^10.1.0",
     "picocolors": "^1.0.0",
+    "sharp": "^0.34.3",
     "yargs": "^17.7.2"
   }
 }

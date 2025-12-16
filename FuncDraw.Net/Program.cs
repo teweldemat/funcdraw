@@ -21,24 +21,50 @@ if (options.Test)
 var traceRequested = (options.Trace != null && options.Trace.Enabled) || !string.IsNullOrWhiteSpace(options.TraceFile);
 var traceOptions = traceRequested ? options.Trace ?? new TraceOptions { Enabled = true, StepInto = false, Filter = null } : null;
 var traceOutputPath = ResolveTracePath(options.TraceFile, root);
-var traceOnly = traceRequested && !options.Dump;
+var pngOutputPath = ResolveOutputPath(options.PngOut, root);
+var dumpMode = options.Dump || pngOutputPath != null;
+var traceOnly = traceRequested && !dumpMode;
 var initialState = ParseJsonArgument(options.StateJson);
 var eventPayload = ParseJsonArgument(options.EventJson);
+var canvasWidth = options.CanvasWidth;
+var canvasHeight = options.CanvasHeight;
 
-if (options.Dump)
+if (dumpMode)
 {
-    using var dumpServer = await FuncDrawServer.CreateHeadlessAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    using var dumpServer = await FuncDrawServer.CreateHeadlessAsync(
+        root,
+        options.Host,
+        options.Port,
+        HtmlTemplate.Content,
+        options.ExpressionOverride,
+        options.Time,
+        canvasWidth,
+        canvasHeight,
+        traceOptions);
     if (initialState != null)
     {
         dumpServer.SetState(initialState);
     }
+    var includeSvg = options.IncludeSvg || pngOutputPath != null;
     ScenePayload? payload = eventPayload != null
-        ? dumpServer.PushEvents(new object?[] { eventPayload }, options.IncludeSvg, options.Time, null, null)
-        : dumpServer.Evaluate(options.IncludeSvg, options.Time, null, null);
+        ? dumpServer.PushEvents(new object?[] { eventPayload }, includeSvg, options.Time, canvasWidth, canvasHeight)
+        : dumpServer.Evaluate(includeSvg, options.Time, canvasWidth, canvasHeight);
     WriteTraceToFile(payload?.Trace, traceOutputPath, root);
     if (traceRequested)
     {
         PrintTraceEntries(payload?.Trace);
+    }
+    if (pngOutputPath != null)
+    {
+        if (payload == null)
+        {
+            throw new InvalidOperationException("Expected a scene payload when writing PNG output.");
+        }
+        PngRenderer.WriteSvgToPng(payload.Svg, pngOutputPath);
+    }
+    if (!options.Dump)
+    {
+        return;
     }
     var jsonOptions = new JsonSerializerOptions
     {
@@ -52,14 +78,23 @@ if (options.Dump)
 
 if (traceOnly)
 {
-    using var traceServer = await FuncDrawServer.CreateHeadlessAsync(root, options.Host, options.Port, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    using var traceServer = await FuncDrawServer.CreateHeadlessAsync(
+        root,
+        options.Host,
+        options.Port,
+        HtmlTemplate.Content,
+        options.ExpressionOverride,
+        options.Time,
+        canvasWidth,
+        canvasHeight,
+        traceOptions);
     if (initialState != null)
     {
         traceServer.SetState(initialState);
     }
     ScenePayload? payload = eventPayload != null
-        ? traceServer.PushEvents(new object?[] { eventPayload }, options.IncludeSvg, options.Time, null, null)
-        : traceServer.Evaluate(options.IncludeSvg, options.Time, null, null);
+        ? traceServer.PushEvents(new object?[] { eventPayload }, options.IncludeSvg, options.Time, canvasWidth, canvasHeight)
+        : traceServer.Evaluate(options.IncludeSvg, options.Time, canvasWidth, canvasHeight);
     WriteTraceToFile(payload?.Trace, traceOutputPath, root);
     PrintTraceEntries(payload?.Trace);
     return;
@@ -69,13 +104,31 @@ var serverPort = options.Port;
 FuncDrawServer server;
 try
 {
-    server = await FuncDrawServer.StartAsync(root, options.Host, serverPort, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    server = await FuncDrawServer.StartAsync(
+        root,
+        options.Host,
+        serverPort,
+        HtmlTemplate.Content,
+        options.ExpressionOverride,
+        options.Time,
+        canvasWidth,
+        canvasHeight,
+        traceOptions);
 }
 catch (HttpListenerException ex) when (IsAddressInUse(ex))
 {
     serverPort = FindAvailablePort(options.Host);
     Console.WriteLine($"[funcdraw.net] Port {options.Port} already in use; falling back to {serverPort}.");
-    server = await FuncDrawServer.StartAsync(root, options.Host, serverPort, HtmlTemplate.Content, options.ExpressionOverride, options.Time, traceOptions);
+    server = await FuncDrawServer.StartAsync(
+        root,
+        options.Host,
+        serverPort,
+        HtmlTemplate.Content,
+        options.ExpressionOverride,
+        options.Time,
+        canvasWidth,
+        canvasHeight,
+        traceOptions);
 }
 
 using var serverHandle = server;
@@ -138,6 +191,16 @@ static string? ResolveTracePath(string? traceFile, string root)
     }
 
     return Path.IsPathRooted(traceFile) ? traceFile : Path.Combine(root, traceFile);
+}
+
+static string? ResolveOutputPath(string? file, string root)
+{
+    if (string.IsNullOrWhiteSpace(file))
+    {
+        return null;
+    }
+
+    return Path.IsPathRooted(file) ? file : Path.Combine(root, file);
 }
 
 static bool IsAddressInUse(HttpListenerException ex)
@@ -368,8 +431,11 @@ internal sealed record CliOptions(
     string Root,
     TraceOptions? Trace,
     string? TraceFile,
+    string? PngOut,
     string? ExpressionOverride,
     double? Time,
+    double? CanvasWidth,
+    double? CanvasHeight,
     string? StateJson,
     string? EventJson);
 
@@ -385,8 +451,11 @@ internal static class CliParser
         var root = Environment.CurrentDirectory;
         TraceOptions? trace = null;
         string? traceFile = null;
+        string? pngOut = null;
         string? expressionOverride = null;
         double? time = null;
+        double? canvasWidth = null;
+        double? canvasHeight = null;
         string? stateJson = null;
         string? eventJson = null;
 
@@ -426,9 +495,16 @@ internal static class CliParser
                 case "--trace-file":
                     traceFile = RequireNext(args, ref i, "--trace-file");
                     break;
+                case "--png-out":
+                    pngOut = RequireNext(args, ref i, "--png-out");
+                    break;
                 case "--t":
                 case "--time":
                     time = ParseDouble(RequireNext(args, ref i, current));
+                    break;
+                case "--canvas":
+                    canvasWidth = ParseDouble(RequireNext(args, ref i, "--canvas"));
+                    canvasHeight = ParseDouble(RequireNext(args, ref i, "--canvas"));
                     break;
                 case "--state":
                     stateJson = RequireNext(args, ref i, "--state");
@@ -446,7 +522,22 @@ internal static class CliParser
             }
         }
 
-        return new CliOptions(host, port, dump, includeSvg, test, root, trace, traceFile, expressionOverride, time, stateJson, eventJson);
+        return new CliOptions(
+            host,
+            port,
+            dump,
+            includeSvg,
+            test,
+            root,
+            trace,
+            traceFile,
+            pngOut,
+            expressionOverride,
+            time,
+            canvasWidth,
+            canvasHeight,
+            stateJson,
+            eventJson);
     }
 
     private static string RequireNext(string[] args, ref int index, string option)
@@ -516,7 +607,7 @@ internal static class CliParser
         Console.WriteLine("FuncDraw.Net");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  funcdraw.net [--host <host>] [--port <port>] [--root <path>] [--dump] [--test] [--svg] [--trace [step-into [filter]]] [--trace-file <path>]");
+        Console.WriteLine("  funcdraw.net [--host <host>] [--port <port>] [--root <path>] [--dump] [--test] [--svg] [--png-out <file>] [--canvas <width> <height>] [--trace [step-into [filter]]] [--trace-file <path>]");
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --host     Host interface to bind (default 127.0.0.1)");
@@ -525,6 +616,8 @@ internal static class CliParser
         Console.WriteLine("  --dump     Evaluate once and print the payload to stdout");
         Console.WriteLine("  --test     Run FuncScript package tests and exit (no server)");
         Console.WriteLine("  --svg      Include SVG output when dumping");
+        Console.WriteLine("  --png-out  Render the evaluated SVG output to a PNG file (implies a headless run)");
+        Console.WriteLine("  --canvas   Provide initial canvas size in pixels (width height)");
         Console.WriteLine("  --trace    Emit FuncScript trace output; optionally pass 'step-into' and a substring filter");
         Console.WriteLine("  --trace-file  Write FuncScript trace output to the given JSON file");
         Console.WriteLine("  --help     Show this help text");

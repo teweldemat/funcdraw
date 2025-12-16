@@ -54,7 +54,7 @@ Key points:
 - As expressions grow with added detail, convert them into modules and break the work into smaller expressions; aim to keep individual expressions under ~200 lines (shorter is better). Name folders/files to hint at how the art is decomposed.
 - For each expression, write a `.test.fs` (simple sanity for small pieces, richer validation for complex ones) and keep `npm run nplay -- --test` passing as you iterate; prefer fast, deterministic tests over visual checks. If you’re authoring a library, put the test composition in a separate package that depends on the library so you exercise the real consumer path.
 - Assume inputs are already validated; keep functions pure (no module-level mutation) so reruns are stable. If an input should never be missing, prefer `error("expected ...")` over silent fallbacks.
-- Once a model is complete, add it to the test composition and verify with `--dump`; use `--trace` (and `--trace step-into` when needed) to chase resolver/evaluation issues.
+- Once a model is complete, add it to the test composition and verify with `--dump`; use `--trace` (and `--trace step-into` when needed) to chase resolver/evaluation issues. Also verify it with --png-out and see output samples at different times
 - Keep docs in sync: update the model’s `.doc.md` after interfaces change, and record construction steps and inputs/outputs concisely.
 - When multiple helpers share behaviour, refactor to shared collections to avoid duplication; keep palettes and constants near their consumers unless reused broadly.
 

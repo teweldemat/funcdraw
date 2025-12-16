@@ -65,6 +65,9 @@ function renderSvg(scene, options) {
     return '';
   }
   const viewBox = resolveViewBox(scene.view);
+  const canvasSize = resolveCanvasSize(options && options.canvas);
+  const outputWidth = canvasSize ? canvasSize.width : viewBox.width;
+  const outputHeight = canvasSize ? canvasSize.height : viewBox.height;
   const layers = toArray(scene.graphics);
   const parts = layers
     .map((node, index) => renderNode(node, { ...options, layer: index, depth: 0 }))
@@ -72,10 +75,33 @@ function renderSvg(scene, options) {
   const transform = formatRootTransform(viewBox);
   const body = transform ? `<g transform="${transform}">${parts}</g>` : parts;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${viewBox.width}" height="${viewBox.height}" viewBox="0 0 ${viewBox.width} ${viewBox.height}" fill="none">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${outputWidth}" height="${outputHeight}" viewBox="0 0 ${viewBox.width} ${viewBox.height}" fill="none">`,
     body,
     '</svg>'
   ].join('');
+}
+
+function resolveCanvasSize(canvas) {
+  if (canvas === null || canvas === undefined) {
+    return null;
+  }
+  if (Array.isArray(canvas) && canvas.length >= 2) {
+    const width = Number(canvas[0]);
+    const height = Number(canvas[1]);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      throw new Error('FuncDraw svg renderer expects canvas width/height to be finite numbers');
+    }
+    return { width, height };
+  }
+  if (canvas && typeof canvas === 'object') {
+    const width = Number(canvas.width);
+    const height = Number(canvas.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      throw new Error('FuncDraw svg renderer expects canvas width/height to be finite numbers');
+    }
+    return { width, height };
+  }
+  throw new Error('FuncDraw svg renderer expects canvas to be {width,height} or [width,height]');
 }
 
 function resolveViewBox(view) {

@@ -134,7 +134,7 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
     }
     
     
-    internal SceneResult Evaluate(bool includeSvg=false)
+    internal SceneResult Evaluate(bool includeSvg = false, double? canvasWidth = null, double? canvasHeight = null)
     {
         var evaluationNumber = Interlocked.Increment(ref _globalEvaluationCount);
         Console.WriteLine($"[funcdraw.net] Eval #{evaluationNumber}");
@@ -166,10 +166,10 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
         else
             _stepFunction=null;
         _hasEvaluated = true;
-        return InterprateGraphics(typedRoot, includeSvg, converter, traceCollector);
+        return InterprateGraphics(typedRoot, includeSvg, canvasWidth, canvasHeight, converter, traceCollector);
     }
 
-    internal SceneResult? PushEvent(object? e,bool includeSvg=false)
+    internal SceneResult? PushEvent(object? e, bool includeSvg = false, double? canvasWidth = null, double? canvasHeight = null)
     {
         var queue = new Queue<object?>();
         queue.Enqueue(e);
@@ -224,20 +224,20 @@ internal class FuncDrawEvalService(IFsPackageResolver package,string?artExpressi
                 }
             }
             var last = queue.Count == 0;
-            res=Evaluate(includeSvg && last);
+            res = Evaluate(includeSvg && last, canvasWidth, canvasHeight);
         }
         if (res != null && includeSvg && res.Svg == null)
         {
-            res = Evaluate(true);
+            res = Evaluate(true, canvasWidth, canvasHeight);
         }
         return res;
     }
         
-    SceneResult InterprateGraphics(object value,bool includeSvg,ValueConverter converter,TraceCollector? traceCollector)
+    SceneResult InterprateGraphics(object value,bool includeSvg,double? canvasWidth,double? canvasHeight,ValueConverter converter,TraceCollector? traceCollector)
     {
         var interpretation = GraphicsInterpreter.Interpret(value, converter);
         TextToGlyphConverter.Convert(interpretation);
-        var svg = includeSvg ? SvgRenderer.Render(interpretation) : null;
+        var svg = includeSvg ? SvgRenderer.Render(interpretation, canvasWidth, canvasHeight) : null;
         return new SceneResult(
             interpretation.Graphics,
             interpretation.View,

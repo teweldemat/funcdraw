@@ -94,15 +94,25 @@ internal sealed class FuncDrawServer : IDisposable
     private double _canvasWidth;
     private double _canvasHeight;
 
-    private FuncDrawServer(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions, bool enableHttpListener)
+    private FuncDrawServer(
+        string projectRoot,
+        string host,
+        int port,
+        string html,
+        string? expressionOverride,
+        double? initialTime,
+        double? initialCanvasWidth,
+        double? initialCanvasHeight,
+        TraceOptions? traceOptions,
+        bool enableHttpListener)
     {
         _projectRoot = Path.GetFullPath(projectRoot ?? throw new ArgumentNullException(nameof(projectRoot)));
         _expressionOverride = NormalizeExpressionOverride(expressionOverride);
         _traceOptions = traceOptions;
         _customHooks = new Dictionary<string, Func<object?>>(StringComparer.OrdinalIgnoreCase);
         _timeline = initialTime ?? 0;
-        _canvasWidth = 40;
-        _canvasHeight = 30;
+        _canvasWidth = initialCanvasWidth ?? 40;
+        _canvasHeight = initialCanvasHeight ?? 30;
         _resolver = new ArtResolver(_projectRoot);
         _service = CreateService();
 
@@ -122,17 +132,55 @@ internal sealed class FuncDrawServer : IDisposable
 
     public string WatchPath => _resolver.WatchPath;
 
-    public static async Task<FuncDrawServer> StartAsync(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
+    public static async Task<FuncDrawServer> StartAsync(
+        string projectRoot,
+        string host,
+        int port,
+        string html,
+        string? expressionOverride,
+        double? initialTime,
+        double? initialCanvasWidth,
+        double? initialCanvasHeight,
+        TraceOptions? traceOptions)
     {
-        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions, enableHttpListener: true);
+        var server = new FuncDrawServer(
+            projectRoot,
+            host,
+            port,
+            html,
+            expressionOverride,
+            initialTime,
+            initialCanvasWidth,
+            initialCanvasHeight,
+            traceOptions,
+            enableHttpListener: true);
         server.Start();
         await Task.CompletedTask;
         return server;
     }
 
-    public static async Task<FuncDrawServer> CreateHeadlessAsync(string projectRoot, string host, int port, string html, string? expressionOverride, double? initialTime, TraceOptions? traceOptions)
+    public static async Task<FuncDrawServer> CreateHeadlessAsync(
+        string projectRoot,
+        string host,
+        int port,
+        string html,
+        string? expressionOverride,
+        double? initialTime,
+        double? initialCanvasWidth,
+        double? initialCanvasHeight,
+        TraceOptions? traceOptions)
     {
-        var server = new FuncDrawServer(projectRoot, host, port, html, expressionOverride, initialTime, traceOptions, enableHttpListener: false);
+        var server = new FuncDrawServer(
+            projectRoot,
+            host,
+            port,
+            html,
+            expressionOverride,
+            initialTime,
+            initialCanvasWidth,
+            initialCanvasHeight,
+            traceOptions,
+            enableHttpListener: false);
         await Task.CompletedTask;
         return server;
     }
@@ -339,7 +387,7 @@ internal sealed class FuncDrawServer : IDisposable
         {
             ApplyRequestOverrides(time, canvasWidth, canvasHeight);
             _hookTracker.ResetUsage();
-            var result = _service.Evaluate(includeSvg);
+            var result = _service.Evaluate(includeSvg, _canvasWidth, _canvasHeight);
             var plainState = _service.State == null ? null : _converter.ToPlain(_service.State);
             return new ScenePayload(result, _timeline, includeSvg, plainState, _hookTracker.Summarize());
         }
@@ -364,7 +412,7 @@ internal sealed class FuncDrawServer : IDisposable
             {
                 if (!_service.HasEvaluated)
                 {
-                    _service.Evaluate(false);
+                    _service.Evaluate(false, _canvasWidth, _canvasHeight);
                 }
 
                 if (!_service.HasStepFunction)
@@ -376,7 +424,7 @@ internal sealed class FuncDrawServer : IDisposable
             for (var i = 0; i < events.Count; i++)
             {
                 var last = i == events.Count - 1;
-                var pushed = _service.PushEvent(events[i], includeSvg && last);
+                var pushed = _service.PushEvent(events[i], includeSvg && last, _canvasWidth, _canvasHeight);
                 if (pushed != null)
                 {
                     result = pushed;

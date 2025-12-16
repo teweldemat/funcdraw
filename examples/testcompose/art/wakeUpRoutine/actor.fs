@@ -13,19 +13,25 @@
       lower: limb.lower * s;
       sign: limb.sign;
     };
+    straightLimb: (limb) =>
+    {
+      scaled: scaleLimb(limb);
+      total: scaled.upper + scaled.lower;
+      eval scaled + { end: [0, -total]; };
+    };
     eval
     {
       height: defaults.height * s;
-      leftHand: scaleLimb(defaults.leftHand);
-      rightHand: scaleLimb(defaults.rightHand);
-      leftLeg: scaleLimb(defaults.leftLeg);
-      rightLeg: scaleLimb(defaults.rightLeg);
+      leftHand: straightLimb(defaults.leftHand);
+      rightHand: straightLimb(defaults.rightHand);
+      leftLeg: straightLimb(defaults.leftLeg);
+      rightLeg: straightLimb(defaults.rightLeg);
       neckLength: defaults.neckLength * s;
       headRadius: defaults.headRadius * s;
       bodyAngle: defaults.bodyAngle;
       neckAngle: defaults.neckAngle;
       handPhaseOffset: defaults.handPhaseOffset;
-      shoulderWidth: defaults.shoulderWidth * s;
+      shoulderWidth: defaults.shoulderWidth * s * 1.45;
       thighWidth: defaults.thighWidth * s;
     };
   };

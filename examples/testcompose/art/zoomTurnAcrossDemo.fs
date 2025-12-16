@@ -53,7 +53,11 @@
   turnProgress: if localT < zoomDuration then 0
     else if localT < zoomDuration + turnDuration then ease01((localT - zoomDuration) / turnDuration)
     else 1;
-  acrossProgress: if localT < zoomDuration + turnDuration then 0 else ease01((localT - zoomDuration - turnDuration) / acrossDuration);
+  acrossT: localT - zoomDuration - turnDuration;
+  acrossProgress:
+    if acrossT < 0 then 0
+    else if acrossT > acrossDuration then 1
+    else acrossT / acrossDuration;
 
   startAnchor: [-18, 22];
   verticalDistance: -30;
@@ -183,4 +187,3 @@
     graphics: [background, approachPath, acrossPath, pivot, stageLabel] + actor;
   };
 }
-

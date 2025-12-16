@@ -9,7 +9,9 @@
     top: 90;
   };
 
-  resolveView: () =>
+  baseCenterX: (baseView.left + baseView.right) / 2;
+
+  resolveViewAt: (centerX) =>
   {
     baseW: baseView.right - baseView.left;
     baseH: baseView.top - baseView.bottom;
@@ -17,11 +19,12 @@
     desiredW: baseH * ratio;
     width: if desiredW >= baseW then desiredW else baseW;
     height: if desiredW >= baseW then baseH else baseW / ratio;
-    centerX: (baseView.left + baseView.right) / 2;
     left: centerX - width / 2;
     bottom: baseView.bottom;
     eval { left; bottom; right: left + width; top: bottom + height; };
   };
+
+  resolveView: () => resolveViewAt(baseCenterX);
 
   roadBottomY: -60;
   roadTopY: -44;
@@ -37,13 +40,45 @@
 
   walkToRoadDuration: 4;
   turnDuration: 1.5;
-  acrossDuration: 7;
-  endDuration: 2;
-  scene3Duration: walkToRoadDuration + turnDuration + acrossDuration + endDuration;
+  walkToStopDuration: 9;
+  scene3Duration: walkToRoadDuration + turnDuration + walkToStopDuration;
 
-  cycleDuration: scene1Duration + scene2Duration + scene3Duration;
+  waitForBusDuration: 2.5;
+  busArriveDuration: 4.5;
+  busDoorOpenDuration: 1.4;
+  scene4Duration: waitForBusDuration + busArriveDuration + busDoorOpenDuration;
+
+  enterBusDuration: 1.2;
+  walkToSeatDuration: 3.5;
+  settleDuration: 1;
+  endDuration: 2.8;
+  scene5Duration: enterBusDuration + walkToSeatDuration + settleDuration + endDuration;
+
+  totalDuration: scene1Duration + scene2Duration + scene3Duration + scene4Duration + scene5Duration;
 
   ease01: (p) => (1 - math.Cos(p * math.Pi)) / 2;
+
+  followLookAhead: 40;
+  busStopX: 85;
+
+  busStopSign:
+  {
+    base: [busStopX - 14, sidewalkTopY];
+    poleHeight: 18;
+    signSize: [12, 8];
+    fill: "#e2e8f0";
+    stroke: "#0f172a";
+    width: 0.35;
+    textColor: "#0f172a";
+  };
+
+  bus:
+  {
+    size: [92, 24];
+    fill: "#f97316";
+    stroke: "#0f172a";
+    width: 0.35;
+  };
 
   houseLayout: (anchor, width, stories) =>
   {

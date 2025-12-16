@@ -462,56 +462,128 @@ function createHtmlTemplate() {
         }
         return;
       }
-      if ((nodes.type || '').toLowerCase() === 'transform') {
+      const type = (nodes.type || '').toLowerCase();
+      if (type === 'transform') {
         drawTransform(nodes);
         return;
       }
-      if (nodes.graphics) {
-        drawNodes(nodes.graphics);
+      if (type === 'group') {
+        drawGroup(nodes);
         return;
       }
-      switch ((nodes.type || '').toLowerCase()) {
-        case 'line':
-          drawLine(nodes);
-          break;
-        case 'rect':
-        case 'rectangle':
-          drawRect(nodes);
-          break;
-        case 'circle':
-          drawCircle(nodes);
-          break;
-        case 'ellipse':
-          drawEllipse(nodes);
-          break;
-        case 'polygon':
-          drawPolygon(nodes);
-          break;
-        case 'text':
-          drawText(nodes);
-          break;
-        default:
-          if (nodes && nodes.type) {
-            logWarn('Unsupported node type skipped', nodes.type);
-          } else {
-            logWarn('Skipped node without a type definition', nodes);
-          }
-          break;
+      if (nodes.graphics) {
+        drawWithComposite(nodes, () => drawNodes(nodes.graphics));
+        return;
       }
+
+      drawWithComposite(nodes, () => {
+        switch (type) {
+          case 'line':
+            drawLine(nodes);
+            break;
+          case 'rect':
+          case 'rectangle':
+            drawRect(nodes);
+            break;
+          case 'circle':
+            drawCircle(nodes);
+            break;
+          case 'ellipse':
+            drawEllipse(nodes);
+            break;
+          case 'polygon':
+            drawPolygon(nodes);
+            break;
+          case 'text':
+            drawText(nodes);
+            break;
+          default:
+            if (nodes && nodes.type) {
+              logWarn('Unsupported node type skipped', nodes.type);
+            } else {
+              logWarn('Skipped node without a type definition', nodes);
+            }
+            break;
+        }
+      });
     }
 
     function drawTransform(node) {
       const matrix = projector.projectMatrix(node.matrix);
       ctx.save();
       ctx.transform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
-      drawNodes(node.graphics);
+      drawWithComposite(node, () => drawNodes(node.graphics));
       ctx.restore();
+    }
+
+    function drawGroup(node) {
+      drawWithComposite(node, () => drawNodes(node.graphics));
+    }
+
+    function drawWithComposite(node, draw) {
+      if (!node || typeof node !== 'object') {
+        draw();
+        return;
+      }
+      const hasOpacity = node.opacity !== undefined && node.opacity !== null;
+      const hasBlend = node.blendMode !== undefined && node.blendMode !== null;
+      if (!hasOpacity && !hasBlend) {
+        draw();
+        return;
+      }
+      ctx.save();
+      if (hasOpacity) {
+        const opacity = Number(node.opacity);
+        if (!Number.isFinite(opacity)) {
+          throw new Error('opacity must be a finite number');
+        }
+        ctx.globalAlpha *= opacity;
+      }
+      if (hasBlend) {
+        const blendMode = String(node.blendMode).trim();
+        if (blendMode) {
+          ctx.globalCompositeOperation = blendMode;
+        }
+      }
+      draw();
+      ctx.restore();
+    }
+
+    function paintToCss(value) {
+      if (value === undefined || value === null) {
+        return null;
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const type = String(value.type || '').toLowerCase();
+        if (type === 'color') {
+          const space = typeof value.space === 'string' ? value.space.toLowerCase() : '';
+          if (space !== 'srgb') {
+            throw new Error('Unsupported color space (expected srgb)');
+          }
+          const r = Number(value.r);
+          const g = Number(value.g);
+          const b = Number(value.b);
+          const a = Number(value.a);
+          if (![r, g, b, a].every(Number.isFinite)) {
+            throw new Error('Invalid srgb color value (expected numbers r,g,b,a)');
+          }
+          return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + a + ')';
+        }
+      }
+      throw new Error('Unsupported paint value');
     }
 
     function drawLine(node) {
       const from = projector.projectPoint(node.from);
       const to = projector.projectPoint(node.to);
-      ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke === 'none') {
+        return;
+      }
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.beginPath();
       ctx.moveTo(from[0], from[1]);
@@ -528,12 +600,16 @@ function createHtmlTemplate() {
       const height = projectedSize[1];
       const x = bottomLeft[0];
       const y = bottomLeft[1] - height;
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      const hasFill = Boolean(fill && fill !== 'none');
+      if (hasFill) {
+        ctx.fillStyle = fill;
         ctx.fillRect(x, y, width, height);
       }
-      if (node.stroke || !node.fill) {
-        ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke);
+      const hasStroke = Boolean(stroke && stroke !== 'none');
+      if (hasStroke || !hasFill) {
+        ctx.strokeStyle = hasStroke ? stroke : '#38bdf8';
         ctx.lineWidth = projectStrokeWidth(node.width);
         ctx.strokeRect(x, y, width, height);
       }
@@ -544,11 +620,16 @@ function createHtmlTemplate() {
       const radius = projector.projectScalarX(Math.abs(Number(node.radius) || 1));
       ctx.beginPath();
       ctx.arc(center[0], center[1], radius, 0, Math.PI * 2);
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && fill !== 'none') {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke === 'none') {
+        return;
+      }
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.stroke();
     }
@@ -559,11 +640,16 @@ function createHtmlTemplate() {
       const ry = projector.projectScalarY(Math.abs(Number(node.radiusY) || Number(node.ry) || 1));
       ctx.beginPath();
       ctx.ellipse(center[0], center[1], rx, ry, 0, 0, Math.PI * 2);
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && fill !== 'none') {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke === 'none') {
+        return;
+      }
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.stroke();
     }
@@ -582,11 +668,16 @@ function createHtmlTemplate() {
         }
       });
       ctx.closePath();
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && fill !== 'none') {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke === 'none') {
+        return;
+      }
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.stroke();
     }
@@ -596,7 +687,7 @@ function createHtmlTemplate() {
       const [x, yBase] = projector.projectPoint(pos);
       const fontSize = Math.abs(Number(node.fontSize) || 12);
       const fontSizePx = projector.projectScalarY(fontSize);
-      ctx.fillStyle = node.color || '#e2e8f0';
+      ctx.fillStyle = paintToCss(node.color) || paintToCss(node.fill) || '#e2e8f0';
       ctx.font = fontSizePx + 'px Inter, sans-serif';
       ctx.textAlign = (node.align || 'left').toLowerCase();
       ctx.textBaseline = 'alphabetic';

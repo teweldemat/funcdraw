@@ -11,12 +11,12 @@
   wallRight: common.houseAnchor[0] + common.houseWidth / 2 + roofOverhang;
   wallTop: common.houseAnchor[1] + layout.storyHeight * common.houseStories;
   roofTop: wallTop + roofHeight;
-  shadeFill: common.alphaHex("#020617", darknessAlpha);
+  shadeFill: fd.color.alpha("#020617", darknessAlpha);
 
   windowLights: (layout, lightColor) =>
   {
     pad: layout.storyHeight * 0.03;
-    glowFill: common.alphaHex(lightColor, 0.25);
+    glowFill: fd.color.alpha(lightColor, 0.25);
     eval
       layout.windows reduce (acc, w) =>
         acc

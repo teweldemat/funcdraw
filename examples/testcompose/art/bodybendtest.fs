@@ -2,7 +2,7 @@
   palette:
   {
     body: "#38bdf8";
-    limb: "#bd8c31ff";
+    limb: "#bd8c31";
   };
 
   bodyAngle: math.Pi / 2 + math.Sin(t) * 0.6;

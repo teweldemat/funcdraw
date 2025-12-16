@@ -5,12 +5,12 @@
   loop: (value, period) => value - math.Floor(value / period) * period;
   lerp: (a, b, p) => a + (b - a) * p;
   darknessAlpha: 0.95 * (1 - sunProgress);
-  darknessFill: common.alphaHex("#020617", darknessAlpha);
+  darknessFill: fd.color.alpha("#020617", darknessAlpha);
 
   starField: (sunProgress) =>
   {
     alpha: (1 - sunProgress) * 0.85;
-    fill: common.alphaHex("#e2e8f0", alpha);
+    fill: fd.color.alpha("#e2e8f0", alpha);
     w: view.right - view.left;
     h: view.top - view.bottom;
     count: 40;
@@ -41,7 +41,7 @@
     name: "sky-day";
     position: [view.left, view.bottom];
     size: [view.right - view.left, view.top - view.bottom];
-    fill: common.alphaHex("#93c5fd", sunProgress);
+    fill: fd.color.alpha("#93c5fd", sunProgress);
     stroke: "none";
     width: 0;
   };

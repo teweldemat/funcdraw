@@ -3,7 +3,7 @@
   palette:
   {
     body: "#38bdf8";
-    limb: "#bd8c31ff";
+    limb: "#bd8c31";
   };
 
   character: package("@funcdraw/testlib").cartoon.character;
@@ -161,7 +161,7 @@
     type: "rect";
     position: if skinName == "stick" then [selectorX, stickButtonY] else [selectorX, polyButtonY];
     size: buttonSize;
-    fill: "#00000000";
+    fill: fd.color.alpha("#000000", 0);
     stroke: "#fbbf24";
     width: 0.8;
   };
@@ -176,7 +176,7 @@
       else if directionName == "back" then [dirColMidX, dirRowTopY]
       else error("expected direction left|right|front|back");
     size: dirButtonSize;
-    fill: "#00000000";
+    fill: fd.color.alpha("#000000", 0);
     stroke: "#fbbf24";
     width: 0.8;
   };

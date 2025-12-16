@@ -15,6 +15,84 @@ function createFdContext(options = {}) {
     return Number.isFinite(number) ? number : NaN;
   };
 
+  const createColor = (r, g, b, a) => ({
+    type: 'color',
+    space: 'srgb',
+    r,
+    g,
+    b,
+    a
+  });
+
+  const isColorObject = (value) => {
+    return (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      String(value.type || '').toLowerCase() === 'color' &&
+      typeof value.space === 'string' &&
+      String(value.space).trim().toLowerCase() === 'srgb'
+    );
+  };
+
+  const parseHexColor = (value, functionName) => {
+    const raw = value == null ? '' : String(value).trim();
+    if (!raw.startsWith('#')) {
+      return new FsError(FsError.ERROR_TYPE_MISMATCH, `${functionName}: expected hex color string '#RRGGBB'`);
+    }
+    const hex = raw.slice(1);
+    const isHex = (text) => /^[0-9a-fA-F]+$/.test(text);
+    if (!isHex(hex) || ![3, 4, 6, 8].includes(hex.length)) {
+      return new FsError(FsError.ERROR_TYPE_MISMATCH, `${functionName}: expected hex color string '#RGB', '#RGBA', '#RRGGBB', or '#RRGGBBAA'`);
+    }
+
+    const expandNibble = (c) => Number.parseInt(c + c, 16);
+    const readPair = (start) => Number.parseInt(hex.slice(start, start + 2), 16);
+
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let a = 1;
+
+    if (hex.length === 3 || hex.length === 4) {
+      r = expandNibble(hex[0]);
+      g = expandNibble(hex[1]);
+      b = expandNibble(hex[2]);
+      if (hex.length === 4) {
+        a = expandNibble(hex[3]) / 255;
+      }
+      return createColor(r, g, b, a);
+    }
+
+    r = readPair(0);
+    g = readPair(2);
+    b = readPair(4);
+    if (hex.length === 8) {
+      a = readPair(6) / 255;
+    }
+    return createColor(r, g, b, a);
+  };
+
+  const parseColor = (value, functionName) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const type = String(value.type || '').toLowerCase();
+      if (type === 'color' && !isColorObject(value)) {
+        return new FsError(FsError.ERROR_TYPE_MISMATCH, `${functionName}: expected srgb color`);
+      }
+      if (isColorObject(value)) {
+        const r = normalizeNumber(value.r);
+        const g = normalizeNumber(value.g);
+        const b = normalizeNumber(value.b);
+        const a = normalizeNumber(value.a);
+        if (![r, g, b, a].every(Number.isFinite)) {
+          return new FsError(FsError.ERROR_TYPE_MISMATCH, `${functionName}: expected fd.color.* value`);
+        }
+        return createColor(r, g, b, a);
+      }
+    }
+    return parseHexColor(value, functionName);
+  };
+
   const readPoint = (value) => {
     if (!Array.isArray(value) || value.length < 2) {
       return null;
@@ -502,7 +580,52 @@ function createFdContext(options = {}) {
     translate,
     traslate,
     scale,
-    boundingBox
+    boundingBox,
+    color: {
+      rgb: (r, g, b) => {
+        const rr = normalizeNumber(r);
+        const gg = normalizeNumber(g);
+        const bb = normalizeNumber(b);
+        if (![rr, gg, bb].every(Number.isFinite)) {
+          return new FsError(FsError.ERROR_TYPE_MISMATCH, 'fd.color.rgb: expected numbers r, g, b');
+        }
+        return createColor(rr, gg, bb, 1);
+      },
+      rgba: (r, g, b, a) => {
+        const rr = normalizeNumber(r);
+        const gg = normalizeNumber(g);
+        const bb = normalizeNumber(b);
+        const aa = normalizeNumber(a);
+        if (![rr, gg, bb, aa].every(Number.isFinite)) {
+          return new FsError(FsError.ERROR_TYPE_MISMATCH, 'fd.color.rgba: expected numbers r, g, b, a');
+        }
+        return createColor(rr, gg, bb, aa);
+      },
+      hex: (hex) => parseHexColor(hex, 'fd.color.hex'),
+      parse: (value) => parseColor(value, 'fd.color.parse'),
+      alpha: (value, alphaValue) => {
+        const base = parseColor(value, 'fd.color.alpha');
+        if (isFsError(base)) {
+          return base;
+        }
+        const aa = normalizeNumber(alphaValue);
+        if (!Number.isFinite(aa)) {
+          return new FsError(FsError.ERROR_TYPE_MISMATCH, 'fd.color.alpha: expected alpha number');
+        }
+        return createColor(base.r, base.g, base.b, aa);
+      },
+      mulAlpha: (value, alphaValue) => {
+        const base = parseColor(value, 'fd.color.mulAlpha');
+        if (isFsError(base)) {
+          return base;
+        }
+        const factor = normalizeNumber(alphaValue);
+        if (!Number.isFinite(factor)) {
+          return new FsError(FsError.ERROR_TYPE_MISMATCH, 'fd.color.mulAlpha: expected alpha multiplier number');
+        }
+        return createColor(base.r, base.g, base.b, base.a * factor);
+      }
+    }
   };
 
   if (options.expose && typeof options.expose === 'object') {

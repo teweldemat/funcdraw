@@ -4,6 +4,62 @@ const { toArray } = require('../utils');
 
 const DEFAULT_VIEW_SIZE = [1920, 1080];
 
+function paintToCss(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const type = typeof value.type === 'string' ? value.type.toLowerCase() : '';
+    if (type === 'color') {
+      const space = typeof value.space === 'string' ? value.space.toLowerCase() : '';
+      if (space !== 'srgb') {
+        throw new Error('Unsupported color space (expected srgb)');
+      }
+      const r = Number(value.r);
+      const g = Number(value.g);
+      const b = Number(value.b);
+      const a = Number(value.a);
+      if (![r, g, b, a].every(Number.isFinite)) {
+        throw new Error('Invalid srgb color value (expected numbers r,g,b,a)');
+      }
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+  }
+  throw new Error('Unsupported paint value');
+}
+
+function formatOpacity(node) {
+  if (!node || typeof node !== 'object') {
+    return '';
+  }
+  if (node.opacity === null || node.opacity === undefined) {
+    return '';
+  }
+  const opacity = Number(node.opacity);
+  if (!Number.isFinite(opacity)) {
+    throw new Error('opacity must be a finite number');
+  }
+  return ` opacity="${opacity}"`;
+}
+
+function formatBlendMode(node) {
+  if (!node || typeof node !== 'object') {
+    return '';
+  }
+  const raw = node.blendMode;
+  if (raw === null || raw === undefined) {
+    return '';
+  }
+  const blendMode = String(raw).trim();
+  if (!blendMode || blendMode === 'source-over' || blendMode === 'normal') {
+    return '';
+  }
+  return ` style="mix-blend-mode: ${blendMode};"`;
+}
+
 function renderSvg(scene, options) {
   if (!scene || !Array.isArray(scene.graphics)) {
     return '';
@@ -77,6 +133,8 @@ function renderNode(node, context) {
   }
   const type = typeof node.type === 'string' ? node.type.toLowerCase() : '';
   switch (type) {
+    case 'group':
+      return renderGroup(node, context);
     case 'line':
       return renderLine(node);
     case 'rect':
@@ -106,7 +164,9 @@ function renderNode(node, context) {
           {
             name: node.type || 'custom',
             graphics: node.graphics,
-            props: node.props || {}
+            props: node.props || {},
+            opacity: node.opacity,
+            blendMode: node.blendMode
           },
           context
         );
@@ -118,39 +178,39 @@ function renderNode(node, context) {
 function renderLine(node) {
   const from = toPoint(node.from);
   const to = toPoint(node.to);
-  const stroke = node.stroke || '#38bdf8';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
   const dash =
     Array.isArray(node.dash) && node.dash.length > 0 ? ` stroke-dasharray="${node.dash.join(' ')}"` : '';
-  return `<line x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" stroke="${stroke}" stroke-width="${width}"${dash} />`;
+  return `<line x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" stroke="${stroke}" stroke-width="${width}"${dash}${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderRect(node) {
   const position = toPoint(node.position);
   const size = toPoint(node.size || [1, 1]);
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<rect x="${position[0]}" y="${position[1]}" width="${size[0]}" height="${size[1]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<rect x="${position[0]}" y="${position[1]}" width="${size[0]}" height="${size[1]}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderCircle(node) {
   const center = toPoint(node.center);
   const radius = Number(node.radius) || 1;
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<circle cx="${center[0]}" cy="${center[1]}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<circle cx="${center[0]}" cy="${center[1]}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderEllipse(node) {
   const center = toPoint(node.center);
   const rx = Number(node.radiusX) || Number(node.rx) || 1;
   const ry = Number(node.radiusY) || Number(node.ry) || 1;
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<ellipse cx="${center[0]}" cy="${center[1]}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<ellipse cx="${center[0]}" cy="${center[1]}" rx="${rx}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderPolygon(node) {
@@ -158,10 +218,10 @@ function renderPolygon(node) {
   if (!points) {
     return '';
   }
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderPolyline(node) {
@@ -169,20 +229,20 @@ function renderPolyline(node) {
   if (!points) {
     return '';
   }
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<polyline points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<polyline points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderPath(node) {
   if (!node.d) {
     return '';
   }
-  const fill = node.fill || 'none';
-  const stroke = node.stroke || '#38bdf8';
+  const fill = paintToCss(node.fill) || 'none';
+  const stroke = paintToCss(node.stroke) || '#38bdf8';
   const width = node.width || 0.25;
-  return `<path d="${node.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" />`;
+  return `<path d="${node.d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function renderCustom(node, context) {
@@ -191,7 +251,12 @@ function renderCustom(node, context) {
     .map(([key, value]) => ` data-${encodeAttribute(key)}="${encodeAttribute(value)}"`)
     .join('');
   const inner = renderNode(node.graphics, context);
-  return `<g data-custom="${encodeAttribute(node.name || 'custom')}"${attributes}>${inner}</g>`;
+  return `<g data-custom="${encodeAttribute(node.name || 'custom')}"${attributes}${formatOpacity(node)}${formatBlendMode(node)}>${inner}</g>`;
+}
+
+function renderGroup(node, context) {
+  const inner = renderNode(node.graphics, context);
+  return `<g${formatOpacity(node)}${formatBlendMode(node)}>${inner}</g>`;
 }
 
 function renderTransform(node, context) {
@@ -204,7 +269,7 @@ function renderTransform(node, context) {
     throw new Error('transform.matrix must be [a, b, c, d, e, f]');
   }
   const inner = renderNode(node.graphics, context);
-  return `<g transform="matrix(${numbers.join(' ')})">${inner}</g>`;
+  return `<g transform="matrix(${numbers.join(' ')})"${formatOpacity(node)}${formatBlendMode(node)}>${inner}</g>`;
 }
 
 function renderText(node, context) {
@@ -215,7 +280,7 @@ function renderText(node, context) {
   const position = toPoint(node.position);
   const align = typeof node.align === 'string' ? node.align.toLowerCase() : 'left';
   const fontSize = Number(node.fontSize) || 12;
-  const fill = node.color || node.fill || '#e2e8f0';
+  const fill = paintToCss(node.color) || paintToCss(node.fill) || '#e2e8f0';
   const measureText = context.measureText;
   if (typeof measureText !== 'function') {
     throw new Error('FuncDraw svg renderer requires a measureText helper');
@@ -247,7 +312,7 @@ function renderText(node, context) {
   if (pathSegments.length === 0) {
     return '';
   }
-  return `<path d="${pathSegments.join(' ')}" fill="${fill}" stroke="none" />`;
+  return `<path d="${pathSegments.join(' ')}" fill="${fill}" stroke="none"${formatOpacity(node)}${formatBlendMode(node)} />`;
 }
 
 function pathToData(path) {

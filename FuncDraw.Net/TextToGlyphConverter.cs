@@ -64,7 +64,7 @@ internal static class TextToGlyphConverter
         var position = ToPoint(Get(node, "position"));
         var align = Get(node, "align")?.ToString() ?? "left";
         var fontSize = ToDouble(Get(node, "fontSize"), 12);
-        var fill = Get(node, "color")?.ToString() ?? Get(node, "fill")?.ToString() ?? "#e2e8f0";
+        var fill = Get(node, "color") ?? Get(node, "fill") ?? "#e2e8f0";
         var font = Get(node, "font")?.ToString();
 
         var built = FontEngine.Default.BuildTextPath(text, fontSize, font, align, position.X, position.Y);
@@ -73,7 +73,7 @@ internal static class TextToGlyphConverter
             return null;
         }
 
-        return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        var path = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["type"] = "path",
             ["d"] = built.PathData,
@@ -81,6 +81,18 @@ internal static class TextToGlyphConverter
             ["stroke"] = "none",
             ["width"] = 0d
         };
+
+        if (node.TryGetValue("opacity", out var opacity) && opacity != null)
+        {
+            path["opacity"] = opacity;
+        }
+
+        if (node.TryGetValue("blendMode", out var blendMode) && blendMode != null)
+        {
+            path["blendMode"] = blendMode;
+        }
+
+        return path;
     }
 
     private static object? Get(IDictionary<string, object?> map, string key)

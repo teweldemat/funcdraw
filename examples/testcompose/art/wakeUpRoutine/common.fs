@@ -45,22 +45,6 @@
 
   ease01: (p) => (1 - math.Cos(p * math.Pi)) / 2;
 
-  hexDigits: "0123456789abcdef";
-
-  hex2: (value) =>
-  {
-    hi: value div 16;
-    lo: value % 16;
-    eval join([substring(hexDigits, hi, 1), substring(hexDigits, lo, 1)], "");
-  };
-
-  alphaHex: (color6, alpha01) =>
-  {
-    alphaText: format(alpha01 * 255, "0");
-    alpha: parse(alphaText, "l");
-    eval join([color6, hex2(alpha)], "");
-  };
-
   houseLayout: (anchor, width, stories) =>
   {
     storyHeight: width * 0.55;

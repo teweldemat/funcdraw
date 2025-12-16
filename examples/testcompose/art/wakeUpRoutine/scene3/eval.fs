@@ -74,7 +74,7 @@
     if endT < 0 then 0
     else if endT > common.endDuration then 1
     else common.ease01(endT / common.endDuration);
-  endFill: common.alphaHex("#0f172a", endAlpha);
+  endFill: fd.color.alpha("#0f172a", endAlpha);
   endCenterX: (view.left + view.right) / 2;
   endLabel:
     {

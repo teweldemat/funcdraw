@@ -15,14 +15,14 @@
 
   sectionBox:
   {
-    fill: "#0b122033";
+    fill: fd.color.alpha("#0b1220", 0.2);
     stroke: "#334155";
     width: 1;
   };
 
   bboxStyle:
   {
-    fill: "#00000000";
+    fill: fd.color.alpha("#000000", 0);
     stroke: "#a855f7";
     width: 2;
   };
@@ -30,9 +30,9 @@
   // Example A: transformed group
   baseA:
   [
-    { type: "rect"; position: [-40, -20]; size: [80, 40]; fill: "#0ea5e933"; stroke: "#0ea5e9"; width: 3; },
-    { type: "circle"; center: [20, 10]; radius: 14; fill: "#22c55e33"; stroke: "#22c55e"; width: 2; },
-    { type: "polygon"; points: [[-35, -15], [0, 30], [35, -15]]; fill: "#fbbf2433"; stroke: "#fbbf24"; width: 2; },
+    { type: "rect"; position: [-40, -20]; size: [80, 40]; fill: fd.color.alpha("#0ea5e9", 0.2); stroke: "#0ea5e9"; width: 3; },
+    { type: "circle"; center: [20, 10]; radius: 14; fill: fd.color.alpha("#22c55e", 0.2); stroke: "#22c55e"; width: 2; },
+    { type: "polygon"; points: [[-35, -15], [0, 30], [35, -15]]; fill: fd.color.alpha("#fbbf24", 0.2); stroke: "#fbbf24"; width: 2; },
     { type: "line"; from: [-40, -20]; to: [40, 20]; stroke: "#e11d48"; width: 2; }
   ];
 

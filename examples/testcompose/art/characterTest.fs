@@ -2,7 +2,7 @@
   palette:
   {
     body: "#38bdf8";
-    limb: "#bd8c31ff";
+    limb: "#bd8c31";
   };
 
   character: package("@funcdraw/testlib").cartoon.character.static([0, 0], {}, palette);

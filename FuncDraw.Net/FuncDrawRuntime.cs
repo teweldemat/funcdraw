@@ -411,6 +411,22 @@ internal static class FdContext
         var scaleDelegate = new Func<object, object, object, object, object>(Scale);
         var traslateDelegate = new Func<object, object, object, object>(Traslate);
         var boundingBoxDelegate = new Func<object, object?>(BoundingBox);
+        var colorRgbDelegate = new Func<object, object, object, object>(ColorRgb);
+        var colorRgbaDelegate = new Func<object, object, object, object, object>(ColorRgba);
+        var colorHexDelegate = new Func<object, object>(ColorHex);
+        var colorParseDelegate = new Func<object, object>(ColorParse);
+        var colorAlphaDelegate = new Func<object, object, object>(ColorAlpha);
+        var colorMulAlphaDelegate = new Func<object, object, object>(ColorMulAlpha);
+        var colorEntries = new[]
+        {
+            KeyValuePair.Create("rgb", (object)Engine.NormalizeDataType(colorRgbDelegate)),
+            KeyValuePair.Create("rgba", (object)Engine.NormalizeDataType(colorRgbaDelegate)),
+            KeyValuePair.Create("hex", (object)Engine.NormalizeDataType(colorHexDelegate)),
+            KeyValuePair.Create("parse", (object)Engine.NormalizeDataType(colorParseDelegate)),
+            KeyValuePair.Create("alpha", (object)Engine.NormalizeDataType(colorAlphaDelegate)),
+            KeyValuePair.Create("mulAlpha", (object)Engine.NormalizeDataType(colorMulAlphaDelegate)),
+        };
+        var colorCollection = new SimpleKeyValueCollection(null, colorEntries);
         var fdEntries = new[]
         {
             KeyValuePair.Create("measureText", (object)Engine.NormalizeDataType(measureDelegate)),
@@ -419,6 +435,7 @@ internal static class FdContext
             KeyValuePair.Create("traslate", (object)Engine.NormalizeDataType(traslateDelegate)),
             KeyValuePair.Create("scale", (object)Engine.NormalizeDataType(scaleDelegate)),
             KeyValuePair.Create("boundingBox", (object)Engine.NormalizeDataType(boundingBoxDelegate)),
+            KeyValuePair.Create("color", (object)Engine.NormalizeDataType(colorCollection)),
         };
         return new SimpleKeyValueCollection(null, fdEntries);
     }
@@ -499,6 +516,176 @@ internal static class FdContext
         var f = origin.Y * (1 - sy);
         var matrix = new ArrayFsList(new object[] { sx, 0d, 0d, sy, e, f });
         return CreateTransform(graphics, matrix);
+    }
+
+    private static object CreateColor(double r, double g, double b, double a)
+    {
+        var entries = new[]
+        {
+            KeyValuePair.Create("type", (object)"color"),
+            KeyValuePair.Create("space", (object)"srgb"),
+            KeyValuePair.Create("r", (object)r),
+            KeyValuePair.Create("g", (object)g),
+            KeyValuePair.Create("b", (object)b),
+            KeyValuePair.Create("a", (object)a),
+        };
+        return new SimpleKeyValueCollection(null, entries);
+    }
+
+    private static object ColorRgb(object rawR, object rawG, object rawB)
+    {
+        var r = NormalizeNumber(rawR);
+        var g = NormalizeNumber(rawG);
+        var b = NormalizeNumber(rawB);
+        if (double.IsNaN(r) || double.IsNaN(g) || double.IsNaN(b))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.color.rgb: expected numbers r, g, b");
+        }
+
+        return CreateColor(r, g, b, 1);
+    }
+
+    private static object ColorRgba(object rawR, object rawG, object rawB, object rawA)
+    {
+        var r = NormalizeNumber(rawR);
+        var g = NormalizeNumber(rawG);
+        var b = NormalizeNumber(rawB);
+        var a = NormalizeNumber(rawA);
+        if (double.IsNaN(r) || double.IsNaN(g) || double.IsNaN(b) || double.IsNaN(a))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.color.rgba: expected numbers r, g, b, a");
+        }
+
+        return CreateColor(r, g, b, a);
+    }
+
+    private static object ColorHex(object rawHex)
+    {
+        var parsed = ParseColor(rawHex, "fd.color.hex");
+        return parsed;
+    }
+
+    private static object ColorParse(object rawValue)
+    {
+        return ParseColor(rawValue, "fd.color.parse");
+    }
+
+    private static object ColorAlpha(object rawValue, object rawAlpha)
+    {
+        var parsed = ParseColor(rawValue, "fd.color.alpha");
+        if (parsed is FsError)
+        {
+            return parsed;
+        }
+
+        var alpha = NormalizeNumber(rawAlpha);
+        if (double.IsNaN(alpha))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.color.alpha: expected alpha number");
+        }
+
+        var color = (KeyValueCollection)parsed;
+        var r = NormalizeNumber(color.Get("r"));
+        var g = NormalizeNumber(color.Get("g"));
+        var b = NormalizeNumber(color.Get("b"));
+        return CreateColor(r, g, b, alpha);
+    }
+
+    private static object ColorMulAlpha(object rawValue, object rawAlpha)
+    {
+        var parsed = ParseColor(rawValue, "fd.color.mulAlpha");
+        if (parsed is FsError)
+        {
+            return parsed;
+        }
+
+        var factor = NormalizeNumber(rawAlpha);
+        if (double.IsNaN(factor))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, "fd.color.mulAlpha: expected alpha multiplier number");
+        }
+
+        var color = (KeyValueCollection)parsed;
+        var r = NormalizeNumber(color.Get("r"));
+        var g = NormalizeNumber(color.Get("g"));
+        var b = NormalizeNumber(color.Get("b"));
+        var a = NormalizeNumber(color.Get("a"));
+        return CreateColor(r, g, b, a * factor);
+    }
+
+    private static object ParseColor(object raw, string functionName)
+    {
+        if (raw is KeyValueCollection collection)
+        {
+            var type = collection.Get("type")?.ToString()?.Trim();
+            if (string.Equals(type, "color", StringComparison.OrdinalIgnoreCase))
+            {
+                var space = collection.Get("space")?.ToString()?.Trim();
+                if (!string.Equals(space, "srgb", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new FsError(FsError.ERROR_TYPE_MISMATCH, $"{functionName}: expected srgb color");
+                }
+
+                var r = NormalizeNumber(collection.Get("r"));
+                var g = NormalizeNumber(collection.Get("g"));
+                var b = NormalizeNumber(collection.Get("b"));
+                var a = NormalizeNumber(collection.Get("a"));
+                if (double.IsNaN(r) || double.IsNaN(g) || double.IsNaN(b) || double.IsNaN(a))
+                {
+                    return new FsError(FsError.ERROR_TYPE_MISMATCH, $"{functionName}: expected fd.color.* value");
+                }
+
+                return CreateColor(r, g, b, a);
+            }
+        }
+
+        var text = raw?.ToString()?.Trim() ?? string.Empty;
+        if (!text.StartsWith("#", StringComparison.Ordinal))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, $"{functionName}: expected hex color string '#RRGGBB'");
+        }
+
+        var hex = text.Substring(1);
+        if (hex.Length is not (3 or 4 or 6 or 8))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, $"{functionName}: expected hex color string '#RGB', '#RGBA', '#RRGGBB', or '#RRGGBBAA'");
+        }
+
+        if (!hex.All(IsHexDigit))
+        {
+            return new FsError(FsError.ERROR_TYPE_MISMATCH, $"{functionName}: expected hex color string '#RGB', '#RGBA', '#RRGGBB', or '#RRGGBBAA'");
+        }
+
+        if (hex.Length == 3 || hex.Length == 4)
+        {
+            var r = ExpandNibble(hex[0]);
+            var g = ExpandNibble(hex[1]);
+            var b = ExpandNibble(hex[2]);
+            var a = hex.Length == 4 ? ExpandNibble(hex[3]) / 255d : 1d;
+            return CreateColor(r, g, b, a);
+        }
+
+        var rr = ReadPair(hex, 0);
+        var gg = ReadPair(hex, 2);
+        var bb = ReadPair(hex, 4);
+        var aa = hex.Length == 8 ? ReadPair(hex, 6) / 255d : 1d;
+        return CreateColor(rr, gg, bb, aa);
+    }
+
+    private static bool IsHexDigit(char c)
+    {
+        return c is >= '0' and <= '9' || c is >= 'a' and <= 'f' || c is >= 'A' and <= 'F';
+    }
+
+    private static double ExpandNibble(char c)
+    {
+        var value = Convert.ToInt32(c.ToString(), 16);
+        return value * 17d;
+    }
+
+    private static double ReadPair(string hex, int start)
+    {
+        return Convert.ToInt32(hex.Substring(start, 2), 16);
     }
 
     
@@ -1302,7 +1489,7 @@ internal sealed class SceneInterpretation
 internal static class GraphicsInterpreter
 {
     private static readonly HashSet<string> BuiltInTypes =
-        new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path", "text", "debug", "transform" }, StringComparer.OrdinalIgnoreCase);
+        new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path", "text", "debug", "transform", "group" }, StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> StrokedTypes =
         new(new[] { "line", "rect", "rectangle", "circle", "ellipse", "polygon", "polyline", "path" }, StringComparer.OrdinalIgnoreCase);
@@ -1477,14 +1664,27 @@ internal static class GraphicsInterpreter
         }
 
         var customProps = CollectProperties(entries, converter, path, "type", "graphics");
+        var hasOpacity = customProps.Remove("opacity", out var opacity);
+        var hasBlendMode = customProps.Remove("blendMode", out var blendMode);
         var graphicsList = normalizedGraphics is List<object> list ? list : new List<object> { normalizedGraphics };
-        return new Dictionary<string, object?>
+        var custom = new Dictionary<string, object?>
         {
             ["type"] = "custom",
             ["name"] = typeText,
             ["graphics"] = graphicsList,
             ["props"] = customProps
         };
+        if (hasOpacity)
+        {
+            custom["opacity"] = opacity;
+        }
+
+        if (hasBlendMode)
+        {
+            custom["blendMode"] = blendMode;
+        }
+
+        return custom;
     }
 
     private static Dictionary<string, object?> CollectProperties(
@@ -1530,6 +1730,80 @@ internal static class SvgRenderer
 {
     private static readonly double[] DefaultViewSize = { 1920, 1080 };
 
+    private static string? PaintToCss(object? value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        if (value is string text)
+        {
+            return text;
+        }
+
+        if (value is IDictionary<string, object?> map)
+        {
+            var type = Get(map, "type")?.ToString()?.Trim() ?? string.Empty;
+            if (string.Equals(type, "color", StringComparison.OrdinalIgnoreCase))
+            {
+                var space = Get(map, "space")?.ToString()?.Trim();
+                if (!string.Equals(space, "srgb", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Unsupported color space (expected srgb)");
+                }
+
+                var r = ToDouble(Get(map, "r"), double.NaN);
+                var g = ToDouble(Get(map, "g"), double.NaN);
+                var b = ToDouble(Get(map, "b"), double.NaN);
+                var a = ToDouble(Get(map, "a"), double.NaN);
+                if (double.IsNaN(r) || double.IsNaN(g) || double.IsNaN(b) || double.IsNaN(a))
+                {
+                    throw new InvalidOperationException("Invalid srgb color value (expected numbers r,g,b,a)");
+                }
+
+                return FormattableString.Invariant($"rgba({r}, {g}, {b}, {a})");
+            }
+        }
+
+        throw new InvalidOperationException("Unsupported paint value");
+    }
+
+    private static string FormatOpacity(IDictionary<string, object?> node)
+    {
+        var raw = Get(node, "opacity");
+        if (raw == null)
+        {
+            return string.Empty;
+        }
+
+        var opacity = ToDouble(raw, double.NaN);
+        if (double.IsNaN(opacity))
+        {
+            throw new InvalidOperationException("opacity must be a finite number");
+        }
+
+        return FormattableString.Invariant($" opacity=\"{opacity}\"");
+    }
+
+    private static string FormatBlendMode(IDictionary<string, object?> node)
+    {
+        var raw = Get(node, "blendMode");
+        if (raw == null)
+        {
+            return string.Empty;
+        }
+
+        var blendMode = raw.ToString()?.Trim() ?? string.Empty;
+        if (blendMode.Length == 0 || string.Equals(blendMode, "source-over", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(blendMode, "normal", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return $" style=\"mix-blend-mode: {EncodeAttribute(blendMode)};\"";
+    }
+
     public static string Render(SceneInterpretation scene)
     {
         if (scene.Graphics == null)
@@ -1565,6 +1839,7 @@ internal static class SvgRenderer
         var type = Get(map, "type")?.ToString()?.ToLowerInvariant() ?? string.Empty;
         return type switch
         {
+            "group" => RenderGroup(map, viewBox, depth),
             "line" => RenderLine(map),
             "rect" or "rectangle" => RenderRect(map),
             "circle" => RenderCircle(map),
@@ -1579,6 +1854,17 @@ internal static class SvgRenderer
         };
     }
 
+    private static string RenderGroup(IDictionary<string, object?> map, ViewBox viewBox, int depth)
+    {
+        if (!map.TryGetValue("graphics", out var graphics) || graphics == null)
+        {
+            return string.Empty;
+        }
+
+        var inner = RenderNode(graphics, viewBox, depth + 1);
+        return $"<g{FormatOpacity(map)}{FormatBlendMode(map)}>{inner}</g>";
+    }
+
     private static string RenderTransform(IDictionary<string, object?> map, ViewBox viewBox, int depth)
     {
         if (!map.TryGetValue("graphics", out var graphics) || graphics == null)
@@ -1589,7 +1875,7 @@ internal static class SvgRenderer
         var matrix = ReadMatrix(Get(map, "matrix"));
         var formatted = string.Join(' ', matrix.Select(value => value.ToString(CultureInfo.InvariantCulture)));
         var inner = RenderNode(graphics, viewBox, depth + 1);
-        return $"<g transform=\"matrix({formatted})\">{inner}</g>";
+        return $"<g transform=\"matrix({formatted})\"{FormatOpacity(map)}{FormatBlendMode(map)}>{inner}</g>";
     }
 
     private static string RenderCustom(IDictionary<string, object?> map, ViewBox viewBox, int depth)
@@ -1603,18 +1889,18 @@ internal static class SvgRenderer
         var props = Get(map, "props") as IDictionary<string, object?> ?? new Dictionary<string, object?>();
         var attributes = string.Concat(props.Select(kv => $" data-{EncodeAttribute(kv.Key)}=\"{EncodeAttribute(kv.Value)}\""));
         var inner = RenderNode(graphics, viewBox, depth + 1);
-        return $"<g data-custom=\"{EncodeAttribute(name)}\"{attributes}>{inner}</g>";
+        return $"<g data-custom=\"{EncodeAttribute(name)}\"{attributes}{FormatOpacity(map)}{FormatBlendMode(map)}>{inner}</g>";
     }
 
     private static string RenderLine(IDictionary<string, object?> node)
     {
         var from = ToPoint(Get(node, "from"));
         var to = ToPoint(Get(node, "to"));
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
         var dash = Get(node, "dash") as IEnumerable<object>;
         var dashAttr = dash != null ? $" stroke-dasharray=\"{string.Join(' ', dash)}\"" : string.Empty;
-        return $"<line x1=\"{from.X}\" y1=\"{from.Y}\" x2=\"{to.X}\" y2=\"{to.Y}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{dashAttr} />";
+        return $"<line x1=\"{from.X}\" y1=\"{from.Y}\" x2=\"{to.X}\" y2=\"{to.Y}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{dashAttr}{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderRect(IDictionary<string, object?> node)
@@ -1625,20 +1911,20 @@ internal static class SvgRenderer
         {
             size = new Point(1, 1);
         }
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<rect x=\"{position.X}\" y=\"{position.Y}\" width=\"{size.X}\" height=\"{size.Y}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<rect x=\"{position.X}\" y=\"{position.Y}\" width=\"{size.X}\" height=\"{size.Y}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderCircle(IDictionary<string, object?> node)
     {
         var center = ToPoint(Get(node, "center"));
         var radius = ToDouble(Get(node, "radius"), 1);
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<circle cx=\"{center.X}\" cy=\"{center.Y}\" r=\"{radius}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<circle cx=\"{center.X}\" cy=\"{center.Y}\" r=\"{radius}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderEllipse(IDictionary<string, object?> node)
@@ -1646,10 +1932,10 @@ internal static class SvgRenderer
         var center = ToPoint(Get(node, "center"));
         var rx = ToDouble(Get(node, "radiusX") ?? Get(node, "rx"), 1);
         var ry = ToDouble(Get(node, "radiusY") ?? Get(node, "ry"), 1);
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<ellipse cx=\"{center.X}\" cy=\"{center.Y}\" rx=\"{rx}\" ry=\"{ry}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<ellipse cx=\"{center.X}\" cy=\"{center.Y}\" rx=\"{rx}\" ry=\"{ry}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderPolygon(IDictionary<string, object?> node)
@@ -1660,10 +1946,10 @@ internal static class SvgRenderer
         }
 
         var formatted = string.Join(' ', points.Select(p => ToPoint(p)).Select(p => $"{p.X},{p.Y}"));
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<polygon points=\"{formatted}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<polygon points=\"{formatted}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderPolyline(IDictionary<string, object?> node)
@@ -1674,10 +1960,10 @@ internal static class SvgRenderer
         }
 
         var formatted = string.Join(' ', points.Select(p => ToPoint(p)).Select(p => $"{p.X},{p.Y}"));
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<polyline points=\"{formatted}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<polyline points=\"{formatted}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderPath(IDictionary<string, object?> node)
@@ -1687,10 +1973,10 @@ internal static class SvgRenderer
             return string.Empty;
         }
 
-        var fill = Get(node, "fill")?.ToString() ?? "none";
-        var stroke = Get(node, "stroke")?.ToString() ?? "#38bdf8";
+        var fill = PaintToCss(Get(node, "fill")) ?? "none";
+        var stroke = PaintToCss(Get(node, "stroke")) ?? "#38bdf8";
         var width = Get(node, "width")?.ToString() ?? "0.25";
-        return $"<path d=\"{EncodeAttribute(d)}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\" />";
+        return $"<path d=\"{EncodeAttribute(d)}\" fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{width}\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static string RenderText(IDictionary<string, object?> node)
@@ -1703,7 +1989,7 @@ internal static class SvgRenderer
 
         var position = ToPoint(Get(node, "position"));
         var fontSize = ToDouble(Get(node, "fontSize"), 12);
-        var fill = Get(node, "color")?.ToString() ?? Get(node, "fill")?.ToString() ?? "#e2e8f0";
+        var fill = PaintToCss(Get(node, "color")) ?? PaintToCss(Get(node, "fill")) ?? "#e2e8f0";
         var align = Get(node, "align")?.ToString() ?? "left";
         var font = Get(node, "font")?.ToString();
 
@@ -1713,7 +1999,7 @@ internal static class SvgRenderer
             return string.Empty;
         }
 
-        return $"<path d=\"{EncodeAttribute(built.PathData)}\" fill=\"{fill}\" stroke=\"none\" stroke-width=\"0\" />";
+        return $"<path d=\"{EncodeAttribute(built.PathData)}\" fill=\"{fill}\" stroke=\"none\" stroke-width=\"0\"{FormatOpacity(node)}{FormatBlendMode(node)} />";
     }
 
     private static object? Get(IDictionary<string, object?> map, string key)

@@ -41,9 +41,10 @@ You can override `fd.measureText` entirely (for example to clamp to integer widt
 
 ## Shared rules
 - **Coordinates** – All positions are `[x, y]` pairs in the same units as your `view` expression.
-- **Colors** – `stroke` and `fill` accept any CSS color string; defaults are noted per primitive.
+- **Colors** – `stroke`, `fill`, and `color` accept either a CSS color string or an srgb color object: `{ type:"color"; space:"srgb"; r:<0-255>; g:<0-255>; b:<0-255>; a:<0-1>; }`.
 - **Stroke width** – Expressed in world units and scaled at draw time so exports stay crisp at any resolution.
 - **Layers** – Returning `[[...], [...]]` yields multiple layers; inner order is preserved exactly.
+- **Compositing** – Any primitive may include `opacity` (number) and/or `blendMode` (string). `opacity` multiplies into the current alpha; `blendMode` is forwarded to the renderer (e.g. Canvas `globalCompositeOperation`, SVG `mix-blend-mode`).
 
 ## Primitive specs
 
@@ -90,6 +91,13 @@ You can override `fd.measureText` entirely (for example to clamp to integer widt
   - `y' = b*x + d*y + f`
 - `graphics`: a primitive, list of primitives, or nested layers to transform.
 
+### `group`
+`group` applies compositing settings to nested graphics without changing geometry.
+
+- `graphics`: required nested primitives/layers.
+- `opacity`: optional number multiplied into alpha.
+- `blendMode`: optional string forwarded to the renderer (e.g. `"multiply"`).
+
 ### `debug`
 `debug` entries don’t draw shapes—they emit overlays so you can inspect intermediate values while iterating.
 
@@ -103,6 +111,8 @@ Debug overlays never affect layout; they simply render on top and log nothing to
 ### Custom primitives
 
 Unknown `type` values are treated as custom graphics when you also return a `graphics` array. FuncDraw will preserve your other properties under `props` so renderers can pass custom metadata to shaders, DOM nodes, etc.
+
+`opacity` and `blendMode` are treated as compositing fields, so they are lifted onto the custom primitive wrapper (they are not stored under `props`).
 
 ```funcscript
 {
@@ -138,6 +148,17 @@ FuncDraw exposes lightweight transform helpers that return a `transform` primiti
 - `fd.rotate(graphics, origin, angleRadians)` – Wrap `graphics` in a rotation around `origin` (`[x, y]`).
 - `fd.scale(graphics, origin, scaleX, scaleY)` – Wrap `graphics` in a scale transform around `origin` (`[x, y]`).
 - `fd.traslate(...)` is a typo and will error; use `fd.translate`.
+
+## `fd.color`
+
+FuncDraw exposes `fd.color` helpers that return an srgb color object (so you don’t have to build `#RRGGBBAA` strings by hand).
+
+- `fd.color.rgb(r, g, b)` – returns `{ type:"color"; space:"srgb"; r; g; b; a:1 }`.
+- `fd.color.rgba(r, g, b, a)` – returns `{ type:"color"; space:"srgb"; r; g; b; a }`.
+- `fd.color.hex("#RRGGBB")` – parses hex into an srgb color object (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA` supported).
+- `fd.color.parse(value)` – parses either a hex string or an existing srgb color object.
+- `fd.color.alpha(value, a)` – sets alpha on a parsed color.
+- `fd.color.mulAlpha(value, factor)` – multiplies alpha on a parsed color.
 
 ## `fd.boundingbox`
 

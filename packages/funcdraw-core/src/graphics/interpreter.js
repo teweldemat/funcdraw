@@ -207,11 +207,23 @@ function normalizeTypedKvc(typedKvc, warnings, context, path) {
       return null;
     }
     const props = collectKvcProperties(entries, ['type', 'graphics'], context, path);
+    const composite = {};
+    for (const key of Object.keys(props)) {
+      const lower = key.toLowerCase();
+      if (lower === 'opacity') {
+        composite.opacity = props[key];
+        delete props[key];
+      } else if (lower === 'blendmode') {
+        composite.blendMode = props[key];
+        delete props[key];
+      }
+    }
     return {
       type: 'custom',
       name: typeName,
       graphics: Array.isArray(normalizedGraphics) ? normalizedGraphics : [normalizedGraphics],
-      props
+      props,
+      ...composite
     };
   }
 

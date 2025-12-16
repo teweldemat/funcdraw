@@ -11,6 +11,7 @@ const BUILT_IN_PRIMITIVES = new Set([
   'path',
   'text',
   'transform',
+  'group',
   'debug'
 ]);
 

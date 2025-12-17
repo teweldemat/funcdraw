@@ -1,32 +1,36 @@
-!!Important!!
-**** We are currntly developing FuncDraw.Net and have paused the development of packages/funcdraw-play until we are satsified with the .net version **
-**** Do note make the of failing to distingush between module and collection folders and trying to access the internal components of a module ****
-# FuncDraw: FuncScript-based Vector Graphics Authoring Tool
+# FuncDraw Vector Graphics Authoring System
 
-This repository contains the core framework for FuncDraw.
+FuncDraw is a vector graphics authoring system built around a strictly component-based model for graphics, motion, and transformation. It is powered by a functional programming language called **FuncScript** and brings an open‑source, node‑style component authoring culture to vector graphics.
 
-## Focus Areas
-- **packages/funcdraw-core** — Core FuncDraw engine.
-- **packages/funcdraw-play** — Web-based renderer implementation.
+In FuncDraw, artwork is authored as code. Visual structures, behaviors, and animations are composed from small, reusable functional components and organized in a filesystem‑driven hierarchy.
 
-## Repository Layout Notes
-- **funcscript/** — FuncScript repository included as a submodule.
-- **examples/** — Art projects and supporting libraries used to stress-test capabilities. A curated set will be included in releases.
+An **art package** is distributed as an npm package and contains an *art root folder* with FuncScript expressions organized into folders. Folder and file names are referenced directly in FuncScript expressions and therefore form part of the public API of the art package.
 
-## Quick Start Reading List
-- **FuncDraw manual:**  
-  `docs/funcdraw-manual.md`
-- **FuncScript references:**  
-  `funcscript/docs/index.md`,  
-  `funcscript/docs/examples.md`,  
-  `funcscript/docs/reference/built-in-symbols.md`
-- **FuncScript developer guides:**  
-  `funcscript/docs/developers/test-framework.md`,  
-  `funcscript/docs/developers/fs-package.md`
+## Anatomy of a FuncDraw Package
 
-## No Defensive Code in This Round
-During this phase of framework development, do **not** write defensive code. We want quirks and bugs to surface.  
-Because we control the entire stack—from the FuncScript runtime to the example art projects—we know what to expect at each stage.
+**Package**  
+An npm package that contains an art root folder with FuncScript expressions.
 
-Avoid fallbacks and null-coalescing for situations that should never occur. If a function is guaranteed to exist or a value is guaranteed to be provided, rely on that guarantee.  
-Where necessary,  evaluate to `error("expected X and Y")` to signal incorrect usage rather than silently masking issues.
+**Expression**  
+A `.fs` file within the art folder structure. An expression evaluates to a value, typically a drawable, transformation, animation, or higher‑order component.
+
+**Collection**  
+A folder in the art folder structure that contains expressions and/or subfolders and does *not* contain an `eval.fs` file.
+
+A collection evaluates to a key–value object where:
+- each key is the file or folder name, and
+- each value is the evaluated result of the corresponding expression or sub‑collection.
+
+Collections expose their internal structure directly through this mapping.
+
+**Module**  
+A folder that contains an `eval.fs` file. The presence of `eval.fs` turns the folder into a module.
+
+A module evaluates exclusively to the result of `eval.fs`. Its internal files and folders are not directly accessible, and the module is referenced only by its folder name.
+
+## The `package` Function
+
+The `package("<npm-package-name>")` function loads a FuncDraw art package and evaluates its art root folder.
+
+- If the art root folder contains an `eval.fs` file, the result of that file is returned.
+- Otherwise, the art root folder is evaluated as a collection and returns a key–value object representing its contents.

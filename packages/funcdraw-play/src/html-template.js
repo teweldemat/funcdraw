@@ -1,6 +1,7 @@
 'use strict';
 
-function createHtmlTemplate() {
+function createHtmlTemplate({ initialTime = null } = {}) {
+  const initialTimeLiteral = initialTime === null ? 'null' : String(initialTime);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -118,6 +119,7 @@ function createHtmlTemplate() {
   </main>
   <script src="/__funcdraw/runtime.js"></script>
   <script>
+    const INITIAL_TIME = ${initialTimeLiteral};
     const BOOTSTRAP_URL = '/__funcdraw/bootstrap';
     const FONT_URL = '/__funcdraw/assets/fonts/Inter-Regular.ttf';
     const canvas = document.getElementById('fd-canvas');
@@ -135,7 +137,8 @@ function createHtmlTemplate() {
     const animationState = {
       enabled: false,
       playing: false,
-      time: 0,
+      time: INITIAL_TIME === null ? 0 : INITIAL_TIME,
+      pendingInitialTime: INITIAL_TIME,
       raf: null,
       lastTick: null,
       renderFrameTimes: []
@@ -190,9 +193,11 @@ function createHtmlTemplate() {
       const hasCustomTimeParam = Object.prototype.hasOwnProperty.call(params, 'time');
       const timeValue = hasCustomTimeParam
         ? params.time
-        : animationState.enabled
-          ? animationState.time
-          : undefined;
+        : animationState.pendingInitialTime !== null
+          ? formatTimeParam(animationState.pendingInitialTime)
+          : animationState.enabled
+            ? animationState.time
+            : undefined;
       const runtimeInstance = await ensureRuntime();
       logInfo('Evaluating scene (browser runtime)', { reason, resetState, eventCount: events.length });
       if (events.length > 0) {
@@ -214,6 +219,7 @@ function createHtmlTemplate() {
           logInfo('Scene ignored events (null payload)', { reason, eventCount: events.length });
           return null;
         }
+        animationState.pendingInitialTime = null;
         const prevState = latestScene && latestScene.state;
         latestScene = payload;
         const logSceneDetails =

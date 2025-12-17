@@ -119,6 +119,9 @@ async function startPlayer(cwd, argvInput) {
   const timelineState = {
     value: 0
   };
+  const initialTimelineState = {
+    value: 0
+  };
   const canvasState = {
     width: 40,
     height: 30
@@ -126,6 +129,7 @@ async function startPlayer(cwd, argvInput) {
   let modelState = null;
   let retainedStepFn = null;
   setTimelineValue(argv.t);
+  initialTimelineState.value = timelineState.value;
   if (Array.isArray(argv.canvas) && argv.canvas.length > 0) {
     if (argv.canvas.length < 2) {
       throw new Error('expected --canvas <width> <height>');
@@ -145,7 +149,7 @@ async function startPlayer(cwd, argvInput) {
     }
   }
   function resetTimeline() {
-    timelineState.value = 0;
+    timelineState.value = initialTimelineState.value;
   }
 
   function setCanvasSize({ width, height }) {

@@ -9,6 +9,7 @@ async function startServer({
   getBootstrap,
   runtimeSource,
   fontPath,
+  initialTime = null,
   host = '127.0.0.1',
   port,
   openBrowser = true
@@ -18,7 +19,7 @@ async function startServer({
   const clients = new Set();
   app.get('/', (_req, res) => {
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(createHtmlTemplate());
+    res.send(createHtmlTemplate({ initialTime }));
   });
 
   if (typeof runtimeSource === 'string' && runtimeSource.length > 0) {

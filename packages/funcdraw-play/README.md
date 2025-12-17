@@ -22,7 +22,8 @@ Place your FuncScript models inside an `art/` directory. Each `.fs` file is trea
 
 ```
 art/
-  scene.fs
+  view.fs
+  graphics.fs
   components/
     background.fs
     label.js
@@ -34,7 +35,12 @@ Run `npm run play` (or `pnpm play`, etc.) to open a browser window that renders 
 
 `funcdraw-play` automatically builds a resolver from the `art/` folder at your project root. Each file becomes addressable by FuncScript `package` and `use` statements, and the preview server watches the entire directory tree for changes. When the `art/` folder is missing, the CLI falls back to a baked-in sample expression so you can confirm the tool is working.
 
-By default the CLI renders `art/scene.fs` if it exists. If `scene.fs` is missing, the first available expression in the root of `art/` is used. Your scene should expose a `view` object with `{ left, bottom, right, top }` coordinates so the browser can preserve aspect ratios and project your world coordinates to fit the available canvas.
+By default the CLI evaluates the `art/` package root (i.e. the FuncScript package result). To render anything, the root value should be either:
+
+- A scene object that exposes `view: { left, bottom, right, top }` and `graphics: [...]` (optionally `step`), or
+- A primitive / list of primitives (no explicit `view`).
+
+A simple authoring pattern is to define `art/view.fs` and `art/graphics.fs` so the root collection evaluates to `{ view, graphics }`.
 
 CLI options:
 
@@ -46,13 +52,13 @@ Use `funcdraw-play --help` to see the full list. Defaults listen on `127.0.0.1:5
 
 Use `--debug` when you want the server to print evaluated scene payloads (including warnings) directly to the terminal for troubleshooting.
 
-Use `--test` to run FuncScript package tests (pairs like `scene.fs` and `scene.test.fs`) through the runtime `testPackage` helper. The CLI reports failing cases, sets a non-zero exit code when any test fails, and exits without starting the preview server.
+Use `--test` to run FuncScript package tests (pairs like `<name>.fs` and `<name>.test.fs`) through the runtime `testPackage` helper. The CLI reports failing cases, sets a non-zero exit code when any test fails, and exits without starting the preview server.
 
 Use `--dump` to skip server/browse launching altogether, evaluate the configured scene once (with SVG output), print the payload to the console, and exit. This is handy for CI pipelines or quick inspection without spinning up the preview UI.
 
 Use `--trace` to emit a hierarchical FuncScript package trace (paths, snippets, results) using the runtime's package tracing hook. Pair it with `--dump` to see both payload and trace, run `--trace` alone for a trace-only evaluation, or pass `--trace step-into [filter]` to include every traced step (optionally filtered by substring). Add `--trace-file trace.json` to write the trace tree to disk as JSON.
 
-Use `--exp <expression>` to evaluate a FuncScript snippet without editing `art/eval.*`. The snippet runs with `art` bound to the loaded package, so `--exp art.altScene --dump --t 1` dumps the `art/altScene.*` expression at `t = 1`—perfect for debugging alternate compositions.
+Use `--exp <expression>` to evaluate a FuncScript snippet with `art` bound to the loaded package (useful for dumping alternate compositions without changing the package root).
 
 ## Time value hook & animation
 

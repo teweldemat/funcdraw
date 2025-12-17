@@ -37,17 +37,16 @@ async function loadUserConfig(cwd, options = {}) {
   const artResolver = createArtResolver(cwd);
   if (artResolver) {
     const relativeArtPath = path.relative(cwd, artResolver.watchPath) || artResolver.watchPath;
-    const selectedExpression = expressionOverride || pickDefaultArtExpression(artResolver.resolver);
-    const resolver = selectedExpression
-      ? wrapResolverWithExpression(artResolver.resolver, selectedExpression)
+    const resolver = expressionOverride
+      ? wrapResolverWithExpression(artResolver.resolver, expressionOverride)
       : artResolver.resolver;
     return {
       resolver,
       options: {},
       configPath: null,
       watchPaths: [artResolver.watchPath],
-      sourceDescription: selectedExpression
-        ? `art directory (${relativeArtPath}) via ${selectedExpression}`
+      sourceDescription: expressionOverride
+        ? `art directory (${relativeArtPath}) via --exp`
         : `art directory (${relativeArtPath})`
     };
   }
@@ -108,52 +107,4 @@ function wrapResolverWithExpression(baseResolver, expressionText) {
     }
   };
   return normalized;
-}
-
-function pickDefaultArtExpression(resolver) {
-  const nameMap = collectRootEntries(resolver);
-  const preferred = ['scene', 'main', 'eval'];
-  for (const target of preferred) {
-    const candidate = nameMap.get(target);
-    if (candidate && resolver.getExpression([candidate])) {
-      return `art.${candidate}`;
-    }
-  }
-  for (const candidate of nameMap.values()) {
-    if (resolver.getExpression([candidate])) {
-      return `art.${candidate}`;
-    }
-  }
-  return null;
-}
-
-function collectRootEntries(resolver) {
-  const result = new Map();
-  const entries = resolver.listChildren([]);
-  for (const entry of entries) {
-    const name = extractEntryName(entry);
-    if (!name) {
-      continue;
-    }
-    const lower = name.toLowerCase();
-    if (!result.has(lower)) {
-      result.set(lower, name);
-    }
-  }
-  return result;
-}
-
-function extractEntryName(entry) {
-  if (entry === null || entry === undefined) {
-    return null;
-  }
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (typeof entry === 'object' && typeof entry.name === 'string') {
-    const trimmed = entry.name.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  return null;
 }

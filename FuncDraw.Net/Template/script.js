@@ -371,6 +371,37 @@
       }
     }
 
+    function paintToCss(value) {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (typeof value === 'object') {
+        const type = String(value.type || '').trim().toLowerCase();
+        if (type === 'color') {
+          const space = String(value.space || '').trim().toLowerCase();
+          if (space !== 'srgb') {
+            throw new Error('Unsupported color space (expected srgb)');
+          }
+          const r = Number(value.r);
+          const g = Number(value.g);
+          const b = Number(value.b);
+          const a = Number(value.a);
+          if (![r, g, b, a].every(Number.isFinite)) {
+            throw new Error('Invalid srgb color value (expected numbers r,g,b,a)');
+          }
+          return `rgba(${r}, ${g}, ${b}, ${a})`;
+        }
+      }
+      throw new Error('Unsupported paint value');
+    }
+
+    function isNonePaint(value) {
+      return typeof value === 'string' && value.trim().toLowerCase() === 'none';
+    }
+
     function drawTransform(node) {
       const worldMatrix = normalizeMatrix(node.matrix);
       ctx.save();
@@ -430,7 +461,11 @@
     function drawLine(node) {
       const from = toPoint(node.from);
       const to = toPoint(node.to);
-      ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (isNonePaint(stroke)) {
+        return;
+      }
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = projectStrokeWidth(node.width);
       ctx.beginPath();
       ctx.moveTo(from[0], from[1]);
@@ -445,12 +480,14 @@
       const height = size[1];
       const x = pos[0];
       const y = pos[1];
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && !isNonePaint(fill)) {
+        ctx.fillStyle = fill;
         ctx.fillRect(x, y, width, height);
       }
-      if (node.stroke || !node.fill) {
-        ctx.strokeStyle = node.stroke || '#38bdf8';
+      const stroke = paintToCss(node.stroke) || (!fill ? '#38bdf8' : null);
+      if (stroke && !isNonePaint(stroke)) {
+        ctx.strokeStyle = stroke;
         ctx.lineWidth = projectStrokeWidth(node.width);
         ctx.strokeRect(x, y, width, height);
       }
@@ -461,13 +498,17 @@
       const radius = Math.abs(Number(node.radius) || 1);
       ctx.beginPath();
       ctx.arc(center[0], center[1], radius, 0, Math.PI * 2);
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && !isNonePaint(fill)) {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
-      ctx.lineWidth = projectStrokeWidth(node.width);
-      ctx.stroke();
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke && !isNonePaint(stroke)) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = projectStrokeWidth(node.width);
+        ctx.stroke();
+      }
     }
 
     function drawEllipse(node) {
@@ -476,13 +517,17 @@
       const ry = Math.abs(Number(node.radiusY) || Number(node.ry) || 1);
       ctx.beginPath();
       ctx.ellipse(center[0], center[1], rx, ry, 0, 0, Math.PI * 2);
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && !isNonePaint(fill)) {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
-      ctx.lineWidth = projectStrokeWidth(node.width);
-      ctx.stroke();
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke && !isNonePaint(stroke)) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = projectStrokeWidth(node.width);
+        ctx.stroke();
+      }
     }
 
     function drawPolygon(node) {
@@ -499,13 +544,17 @@
         }
       });
       ctx.closePath();
-      if (node.fill) {
-        ctx.fillStyle = node.fill;
+      const fill = paintToCss(node.fill);
+      if (fill && !isNonePaint(fill)) {
+        ctx.fillStyle = fill;
         ctx.fill();
       }
-      ctx.strokeStyle = node.stroke || '#38bdf8';
-      ctx.lineWidth = projectStrokeWidth(node.width);
-      ctx.stroke();
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke && !isNonePaint(stroke)) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = projectStrokeWidth(node.width);
+        ctx.stroke();
+      }
     }
 
     function drawText(node) {
@@ -518,13 +567,13 @@
         return;
       }
       const path = new Path2D(String(d));
-      const fill = node.fill || 'none';
-      if (fill && fill !== 'none') {
+      const fill = paintToCss(node.fill) || 'none';
+      if (fill && !isNonePaint(fill)) {
         ctx.fillStyle = fill;
         ctx.fill(path);
       }
-      const stroke = node.stroke || '#38bdf8';
-      if (stroke && stroke !== 'none') {
+      const stroke = paintToCss(node.stroke) || '#38bdf8';
+      if (stroke && !isNonePaint(stroke)) {
         ctx.strokeStyle = stroke;
         ctx.lineWidth = projectStrokeWidth(node.width);
         ctx.stroke(path);

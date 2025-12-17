@@ -97,6 +97,7 @@
   windowGlass: (i) =>
   {
     x: windowStartX + i * (windowW + windowGap);
+    glassStrokeWidth: width * 0.6;
     eval
     {
       type: "rect";
@@ -106,7 +107,7 @@
       size: [windowW, windowH];
       fill: fd.color.alpha("#93c5fd", 0.28);
       stroke: fd.color.alpha("#e2e8f0", 0.35);
-      width: width * 0.6;
+      width: glassStrokeWidth;
       blendMode: "multiply";
       opacity: 0.9;
     };
@@ -115,6 +116,7 @@
   windows: Range(0, windowCount) map (k, idx) => windowHole(k);
   glass: Range(0, windowCount) map (k, idx) => windowGlass(k);
 
+  frontLightStrokeWidth: width * 0.6;
   frontLight:
   {
     type: "circle";
@@ -123,7 +125,7 @@
     radius: h * 0.06;
     fill: "#fde047";
     stroke: "#f59e0b";
-    width: width * 0.6;
+    width: frontLightStrokeWidth;
   };
 
   stripeH: h * 0.12;
@@ -141,4 +143,3 @@
 
   eval wheels + [body, stripe] + windows + [doorOpening, door, frontLight] + glass;
 }
-

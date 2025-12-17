@@ -6,27 +6,27 @@
   s5: common.scene5Duration;
 
   stage:
-    if t < s1 then "scene1"
-    else if t < s1 + s2 then "scene2"
-    else if t < s1 + s2 + s3 then "scene3"
-    else if t < s1 + s2 + s3 + s4 then "scene4"
-    else if t < s1 + s2 + s3 + s4 + s5 then "scene5"
+    if t < s1 then "scene1_dawn"
+    else if t < s1 + s2 then "scene2_exit_house"
+    else if t < s1 + s2 + s3 then "scene3_walk_to_stop"
+    else if t < s1 + s2 + s3 + s4 then "scene4_bus_arrival"
+    else if t < s1 + s2 + s3 + s4 + s5 then "scene5_board_bus"
     else "end";
 
   stageT:
-    if stage == "scene1" then t
-    else if stage == "scene2" then t - s1
-    else if stage == "scene3" then t - s1 - s2
-    else if stage == "scene4" then t - s1 - s2 - s3
-    else if stage == "scene5" then t - s1 - s2 - s3 - s4
+    if stage == "scene1_dawn" then t
+    else if stage == "scene2_exit_house" then t - s1
+    else if stage == "scene3_walk_to_stop" then t - s1 - s2
+    else if stage == "scene4_bus_arrival" then t - s1 - s2 - s3
+    else if stage == "scene5_board_bus" then t - s1 - s2 - s3 - s4
     else s5;
 
   sceneFn:
-    if stage == "scene1" then scene1
-    else if stage == "scene2" then scene2
-    else if stage == "scene3" then scene3
-    else if stage == "scene4" then scene4
-    else scene5;
+    if stage == "scene1_dawn" then scene1_dawn
+    else if stage == "scene2_exit_house" then scene2_exit_house
+    else if stage == "scene3_walk_to_stop" then scene3_walk_to_stop
+    else if stage == "scene4_bus_arrival" then scene4_bus_arrival
+    else scene5_board_bus;
 
   scene: sceneFn(stageT);
 
@@ -39,5 +39,5 @@
     color: "#0f172a";
   };
 
-  eval scene + { graphics: scene.graphics + [label]; common; actor; backdrop; scene1; scene2; scene3; scene4; scene5; };
+  eval scene + { graphics: scene.graphics + [label]; common; actor; backdrop; scene1_dawn; scene2_exit_house; scene3_walk_to_stop; scene4_bus_arrival; scene5_board_bus; };
 }

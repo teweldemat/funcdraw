@@ -28,7 +28,7 @@
   };
 
   profile: character.profileWalk(startAnchor, walkBase, horizontalDistance, strideLength, progress);
-  actor: character.static(profile.anchor, profile, palette);
+  actor: character.static(profile.anchor, profile, palette,character.skins.poly);
 
   groundY: startAnchor[1] + defaults.leftLeg.end[1];
   endAnchor: [startAnchor[0] + horizontalDistance, startAnchor[1]];

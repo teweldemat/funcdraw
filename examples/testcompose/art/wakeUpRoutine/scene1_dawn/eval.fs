@@ -1,6 +1,6 @@
 (localT) =>
 {
-  view: common.resolveView();
+  view: common.resolveViewAt(common.houseAnchor[0]);
   progress: common.ease01(localT / common.scene1Duration);
   darknessAlpha: 0.95 * (1 - progress);
 

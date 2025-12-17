@@ -1,9 +1,9 @@
 (localT) =>
 {
-  view: common.resolveView();
   doorOpen: common.ease01(localT / common.scene2Duration);
   layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
   anchor: actor.doorCharacterAnchor(layout);
+  view: common.resolveViewAt(anchor[0]);
 
   standing: actor.characterMeasurements + actor.frontPose;
   characterGraphic: actor.character.static(anchor, standing, actor.charPalette,actor.skin);

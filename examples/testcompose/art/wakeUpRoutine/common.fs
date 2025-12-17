@@ -4,7 +4,7 @@
   baseView:
   {
     left: -110;
-    bottom: -60;
+    bottom: -78;
     right: 110;
     top: 90;
   };
@@ -35,12 +35,34 @@
   houseWidth: 60;
   houseStories: 2;
 
+  followLookAhead: 40;
+  busStopX: 85;
+
+  zebraCrossing:
+  {
+    centerX: 22;
+    width: 26;
+    stripeWidth: 2.3;
+    gap: 1.7;
+    inset: 1.2;
+    fill: fd.color.alpha("#e2e8f0", 0.9);
+  };
+
+  walkStride: 6;
+  walkStepsPerSecond: 3;
+  walkwayDx: 0;
+
+  walkDuration: (distance) => math.Abs(distance) / (walkStride * walkStepsPerSecond);
+
   scene1Duration: 8;
   scene2Duration: 4;
 
-  walkToRoadDuration: 4;
+  walkToRoadDuration: walkDuration(sidewalkTopY - yardTopY);
   turnDuration: 1.5;
-  walkToStopDuration: 9;
+  walkToCrossingDuration: walkDuration(zebraCrossing.centerX - (houseAnchor[0] + walkwayDx));
+  crossZebraDuration: walkDuration(roadBottomY - sidewalkTopY);
+  walkToStopFarSideDuration: walkDuration(busStopX - zebraCrossing.centerX);
+  walkToStopDuration: walkToCrossingDuration + crossZebraDuration + walkToStopFarSideDuration;
   scene3Duration: walkToRoadDuration + turnDuration + walkToStopDuration;
 
   waitForBusDuration: 2.5;
@@ -52,18 +74,17 @@
   walkToSeatDuration: 3.5;
   settleDuration: 1;
   endDuration: 2.8;
-  scene5Duration: enterBusDuration + walkToSeatDuration + settleDuration + endDuration;
+  scene5aDuration: enterBusDuration;
+  scene5bDuration: walkToSeatDuration + settleDuration + endDuration;
+  scene5Duration: scene5aDuration + scene5bDuration;
 
   totalDuration: scene1Duration + scene2Duration + scene3Duration + scene4Duration + scene5Duration;
 
   ease01: (p) => (1 - math.Cos(p * math.Pi)) / 2;
 
-  followLookAhead: 40;
-  busStopX: 85;
-
   busStopSign:
   {
-    base: [busStopX - 14, sidewalkTopY];
+    base: [busStopX - 14, roadBottomY];
     poleHeight: 18;
     signSize: [12, 8];
     fill: "#e2e8f0";
@@ -74,7 +95,7 @@
 
   bus:
   {
-    size: [92, 24];
+    size: [92, 30];
     fill: "#f97316";
     stroke: "#0f172a";
     width: 0.35;

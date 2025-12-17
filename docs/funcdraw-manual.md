@@ -188,8 +188,7 @@ package("@yours/pkg").ui._layout
 
 ##### Scenario 4: Facade module (indirect exposure without re-exporting)
 
-Re-exporting a single child unchanged (for example `{ types; }`) can be useful when you want to hide other
-siblings in the folder. But if the parent folder is just a thin wrapper around `types/`, it's redundant.
+When a module only re-exports a single child unchanged (for example `{ types; }`), it doesn't buy you much.
 The more useful pattern is a *facade module* that exports a stable entrypoint while keeping the internal
 implementation (and its helpers) private.
 
@@ -245,11 +244,6 @@ as long as you keep the exported keys stable. For example, you can rename `butto
   slider: slider;
 }
 ```
-
-### JavaScript expressions (`.js`)
-FuncDraw loaders also accept `.js` files inside `art/`. They are evaluated as JavaScript snippets (no
-`module.exports` wrapper) and should `return` the value for that expression. The snippet runs with the same
-package scope available as in FuncScript (siblings, nested folders, `package(...)`, etc.).
 
 ### The `package("<name>")` function
 `package("<npm-name>")` loads another FuncDraw art package and evaluates its `art/` root. The returned value
@@ -591,8 +585,9 @@ funcdraw-play --test
 
 ---
 
-## Debugging and CLI Tips (FuncDraw Play)
+## Debugging 
 
+### Use FuncDraw play clid option
 Useful flags:
 
 - `--debug`: print evaluated scene payloads and warnings
@@ -602,13 +597,15 @@ Useful flags:
 - `--canvas <w> <h>`: seed the canvas size (drives the `canvas` hook and projection)
 - `--trace`: emit FuncScript package trace information
 - `--exp <snippet>`: evaluate an expression snippet with `art` bound to the loaded package
-
+- `--png-out output.png`: output as png image, important to visual insptect the rendered images.
 Example:
 
 ```bash
 funcdraw-play --dump --svg output.svg --t 2.5 --exp "art.wakeUpRoutine"
 ```
 
+### Test expressions
+Write indidividual test expressioms for the important expressions.
 ---
 
 ## Authoring Guidelines

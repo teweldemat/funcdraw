@@ -18,7 +18,7 @@ Add a script to your project:
 }
 ```
 
-Place your FuncScript models inside an `art/` directory. Each `.fs` file is treated as a FuncScript expression and each `.js` file is treated as a JavaScript snippet. You don't need to wrap the snippet in `module.exports`—just write the code that should run and return the value for that package. Nested folders become nested keys in the resolver. For example:
+Place your FuncScript models inside an `art/` directory. Each `.fs` file is treated as a FuncScript expression, and nested folders become nested keys in the resolver. For example:
 
 ```
 art/
@@ -26,10 +26,9 @@ art/
   graphics.fs
   components/
     background.fs
-    label.js
 ```
 
-Run `npm run play` (or `pnpm play`, etc.) to open a browser window that renders your graphics. Edit files in the `art/` folder and the preview will automatically reload the canvas whenever the file changes. `.fs` files are evaluated as FuncScript, while `.js` files are automatically wrapped as ```javascript fenced blocks before evaluation.
+Run `npm run play` (or `pnpm play`, etc.) to open a browser window that renders your graphics. Edit files in the `art/` folder and the preview will automatically reload the canvas whenever the file changes.
 
 ## Scene resolution
 

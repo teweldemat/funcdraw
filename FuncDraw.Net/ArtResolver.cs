@@ -97,7 +97,6 @@ internal sealed class ArtResolver : IFsPackageResolver
         {
             return new PackageExpressionDescriptor(content, PackageLanguages.JavaScript);
         }
-
         return new PackageExpressionDescriptor(content, PackageLanguages.FuncScript);
     }
 

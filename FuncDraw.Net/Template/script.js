@@ -735,7 +735,10 @@
     }
 
     function buildPointerEvent(action, event) {
-      const canvasPoint = [event.offsetX, event.offsetY];
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width ? canvas.width / rect.width : 1;
+      const scaleY = rect.height ? canvas.height / rect.height : 1;
+      const canvasPoint = [(event.clientX - rect.left) * scaleX, (event.clientY - rect.top) * scaleY];
       const worldPoint = projector.unprojectPoint(canvasPoint);
       return {
         type: 'pointer',

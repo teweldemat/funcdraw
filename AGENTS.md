@@ -34,3 +34,9 @@ The `package("<npm-package-name>")` function loads a FuncDraw art package and ev
 
 - If the art root folder contains an `eval.fs` file, the result of that file is returned.
 - Otherwise, the art root folder is evaluated as a collection and returns a key–value object representing its contents.
+
+## Reading list
+**FuncDraw Manual** docs/funcdraw-manual.md
+**FuncScript Intro** funcscript/docs/index.md
+**FuncScript Formal Syntax** funcscript/docs/funcscript-fromal-syntax.md
+**FuncScript Test** funcscript/docs/developers/test-framework.md

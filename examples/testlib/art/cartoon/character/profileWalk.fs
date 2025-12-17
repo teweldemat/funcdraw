@@ -10,15 +10,14 @@
   };
   m0: base + merged;
 
-  strideAbs: math.Abs(strideLength);
+  rawStrideAbs: math.Abs(strideLength);
   distanceAbs: math.Abs(horizontalDistance);
   sign: math.Sign(horizontalDistance);
 
-  seed:
-  {
-    anchor: position;
-    profile: m0;
-  };
+  legTotal0: (m0.leftLeg.upper + m0.leftLeg.lower + m0.rightLeg.upper + m0.rightLeg.lower) / 2;
+  defaultLegTotal: (defaultMeasurements.leftLeg.upper + defaultMeasurements.leftLeg.lower + defaultMeasurements.rightLeg.upper + defaultMeasurements.rightLeg.lower) / 2;
+  legScale0: legTotal0 / defaultLegTotal;
+  strideAbs: rawStrideAbs * legScale0;
 
   stepOnce: (state, k) =>
   {
@@ -31,10 +30,36 @@
     eval { anchor: nextProfile.anchor; profile: nextProfile; };
   };
 
-  eval if strideAbs <= 0 then error("expected strideLength > 0") else
+  eval if rawStrideAbs <= 0 then error("expected strideLength > 0") else
   if progress < 0 or progress > 1 then error("expected progress 0..1") else
   if distanceAbs == 0 then m0 + { anchor: position; } else
   {
+    gaitSeedProfile:
+    {
+      leftWorldX0: position[0] + m0.leftLeg.end[0];
+      rightWorldX0: position[0] + m0.rightLeg.end[0];
+      midX: (leftWorldX0 + rightWorldX0) / 2;
+      diff: strideAbs * sign;
+      leftX: (midX - diff / 2) - position[0];
+      rightX: (midX + diff / 2) - position[0];
+
+      seeded:
+        m0
+        + {
+          leftLeg: m0.leftLeg + { end: [leftX, m0.leftLeg.end[1]]; };
+          rightLeg: m0.rightLeg + { end: [rightX, m0.rightLeg.end[1]]; };
+        };
+
+      leftStartWorld: [position[0] + leftX, position[1] + m0.leftLeg.end[1]];
+      eval singleStepProfile(position, seeded, "left", leftStartWorld, 0);
+    };
+
+    seed:
+    {
+      anchor: gaitSeedProfile.anchor;
+      profile: gaitSeedProfile;
+    };
+
     fullSteps: math.Floor(distanceAbs / strideAbs);
     remainder: distanceAbs - fullSteps * strideAbs;
 

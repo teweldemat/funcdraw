@@ -158,7 +158,7 @@ test('primitives preserve tag metadata in raw output', () => {
   assert.equal(result.raw.graphics[0].tag, 'pose-1');
 });
 
-test('value hooks inject dynamic values into the scene', () => {
+test('context values are available during evaluation', () => {
   const resolver = createResolver(`
   {
     view:[10,10];
@@ -167,45 +167,33 @@ test('value hooks inject dynamic values into the scene', () => {
         type:"text";
         text:t;
         position:[0,0];
+      },
+      {
+        type:"text";
+        text:canvas.size.width;
+        position:[0,-2];
       }
     ];
   }
   `);
 
-  let currentValue = 0;
   const expression = createExpression(resolver);
   const result = expression.evaluate({
     output: ['raw'],
-    valueHooks: {
-      t: () => {
-        currentValue += 0.5;
-        return currentValue;
+    context: {
+      t: 0.5,
+      canvas: {
+        size: {
+          width: 100,
+          height: 200
+        }
       }
     }
   });
 
   assert.equal(result.raw.graphics[0].text, 0.5);
-  assert.deepStrictEqual(result.valueHooks, {
-    t: { used: true }
-  });
-});
-
-test('unused value hooks are reported as unused', () => {
-  const resolver = createResolver(`
-  {
-    view:[5,5];
-    graphics:[{ type:"line"; from:[0,0]; to:[1,1]; }];
-  }
-  `);
-  const expression = createExpression(resolver);
-  const result = expression.evaluate({
-    valueHooks: {
-      t: () => 42
-    }
-  });
-  assert.deepStrictEqual(result.valueHooks, {
-    t: { used: false }
-  });
+  assert.equal(result.raw.graphics[1].text, 100);
+  assert.equal(result.valueHooks, undefined);
 });
 
 test('trace output collects package evaluation', () => {

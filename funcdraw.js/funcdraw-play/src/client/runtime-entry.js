@@ -119,20 +119,41 @@ export function createBrowserRuntime({ bootstrap, fontBuffer }) {
 
   const evaluateOnce = ({ includeSvg }) => {
     const outputs = includeSvg ? ['raw', 'svg'] : ['raw'];
+    const contextUsage = {
+      t: { used: false },
+      canvas: { used: false }
+    };
     const result = expression.evaluate({
       output: outputs,
       stateArg: modelState,
-      valueHooks: {
-        t: () => timelineValue,
-        canvas: () => ({
+      context: {
+        t: timelineValue,
+        canvas: {
           size: {
             width: canvasSize.width,
             height: canvasSize.height
           }
-        })
+        }
+      },
+      createProvider: ({ engine, values }) => {
+        class TrackingProvider extends engine.DefaultFsDataProvider {
+          get(name) {
+            if (name) {
+              const key = String(name).toLowerCase();
+              if (key === 't') {
+                contextUsage.t.used = true;
+              } else if (key === 'canvas') {
+                contextUsage.canvas.used = true;
+              }
+            }
+            return super.get(name);
+          }
+        }
+        return new TrackingProvider(values);
       }
     });
 
+    result.contextUsage = contextUsage;
     retainedStepFn = typeof result.step === 'function' ? result.step : null;
     lastEvalTime = timelineValue;
     lastEvalCanvas = { ...canvasSize };

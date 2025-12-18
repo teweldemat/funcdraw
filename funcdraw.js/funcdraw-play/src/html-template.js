@@ -1,17 +1,24 @@
 'use strict';
 
-function createHtmlTemplate({ initialTime = null } = {}) {
+function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncDraw Play', embed = false } = {}) {
   const initialTimeLiteral = initialTime === null ? 'null' : String(initialTime);
+  let safeBaseHref = typeof baseHref === 'string' && baseHref.trim().length > 0 ? baseHref.trim() : '/';
+  if (!safeBaseHref.endsWith('/')) {
+    safeBaseHref += '/';
+  }
+  const safeTitle = typeof title === 'string' && title.trim().length > 0 ? title.trim() : 'FuncDraw Play';
+  const bodyClass = embed ? 'fd-embed' : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>FuncDraw Play</title>
+  <title>${escapeHtml(safeTitle)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <base href="${escapeHtmlAttribute(safeBaseHref)}"/>
   <style>
     @font-face {
       font-family: 'Inter';
-      src: url('/__funcdraw/assets/fonts/Inter-Regular.ttf') format('truetype');
+      src: url('__funcdraw/assets/fonts/Inter-Regular.ttf') format('truetype');
       font-weight: 400;
       font-style: normal;
       font-display: swap;
@@ -36,6 +43,12 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       justify-content: space-between;
       align-items: center;
       gap: 20px;
+    }
+    body.fd-embed header {
+      padding: 8px 10px;
+    }
+    body.fd-embed header h1 {
+      display: none;
     }
     header h1 {
       font-size: 16px;
@@ -70,10 +83,40 @@ function createHtmlTemplate({ initialTime = null } = {}) {
     #fd-time-controls.active {
       display: flex;
     }
+    #fd-time-scrub {
+      width: 160px;
+      accent-color: #38bdf8;
+    }
+    #fd-time-max {
+      width: 84px;
+      background: rgba(2, 6, 23, 0.55);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-variant-numeric: tabular-nums;
+      outline: none;
+    }
+    #fd-time-max:focus {
+      border-color: rgba(56, 189, 248, 0.75);
+    }
     #fd-time-label {
       font-variant-numeric: tabular-nums;
       color: #94a3b8;
       font-weight: 500;
+    }
+    #fd-time-speed {
+      background: rgba(2, 6, 23, 0.55);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+    }
+    #fd-time-speed:focus {
+      border-color: rgba(56, 189, 248, 0.75);
     }
     #fd-frame-time-label {
       font-variant-numeric: tabular-nums;
@@ -90,6 +133,9 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       align-items: center;
       padding: 24px;
     }
+    body.fd-embed main {
+      padding: 0;
+    }
     canvas {
       background: #020617;
       border-radius: 12px;
@@ -97,17 +143,31 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       max-width: 100%;
       max-height: calc(100vh - 140px);
     }
+    body.fd-embed canvas {
+      border-radius: 0;
+      max-height: 100vh;
+      box-shadow: none;
+    }
   </style>
 </head>
-<body>
+<body class="${bodyClass}">
   <header id="fd-header">
-    <h1>FuncDraw Play</h1>
+    <h1>${escapeHtml(safeTitle)}</h1>
     <div id="fd-toolbar">
       <span id="fd-stats">loading…</span>
       <span id="fd-warning"></span>
       <div id="fd-time-controls">
         <button id="fd-play-toggle">Play</button>
         <button id="fd-reset-timeline">Reset</button>
+        <select id="fd-time-speed" title="Playback speed">
+          <option value="2">2×</option>
+          <option value="1" selected>1×</option>
+          <option value="0.5">1/2×</option>
+          <option value="0.25">1/4×</option>
+          <option value="0.125">1/8×</option>
+        </select>
+        <input id="fd-time-scrub" type="range" min="0" max="10" step="0.01" value="0" />
+        <input id="fd-time-max" type="number" min="0" step="1" value="10" title="Timeline max (seconds)" />
         <span id="fd-time-label">t=0.00s</span>
         <span id="fd-frame-time-label">avg10=—</span>
       </div>
@@ -117,11 +177,11 @@ function createHtmlTemplate({ initialTime = null } = {}) {
   <main id="fd-stage">
     <canvas id="fd-canvas" width="640" height="360"></canvas>
   </main>
-  <script src="/__funcdraw/runtime.js"></script>
+  <script src="__funcdraw/runtime.js"></script>
   <script>
     const INITIAL_TIME = ${initialTimeLiteral};
-    const BOOTSTRAP_URL = '/__funcdraw/bootstrap';
-    const FONT_URL = '/__funcdraw/assets/fonts/Inter-Regular.ttf';
+    const BOOTSTRAP_URL = '__funcdraw/bootstrap';
+    const FONT_URL = '__funcdraw/assets/fonts/Inter-Regular.ttf';
     const canvas = document.getElementById('fd-canvas');
     const ctx = canvas.getContext('2d');
     const stats = document.getElementById('fd-stats');
@@ -131,6 +191,9 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       container: document.getElementById('fd-time-controls'),
       toggle: document.getElementById('fd-play-toggle'),
       reset: document.getElementById('fd-reset-timeline'),
+      speed: document.getElementById('fd-time-speed'),
+      scrub: document.getElementById('fd-time-scrub'),
+      max: document.getElementById('fd-time-max'),
       label: document.getElementById('fd-time-label'),
       frameTimeLabel: document.getElementById('fd-frame-time-label')
     };
@@ -139,6 +202,9 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       playing: false,
       time: INITIAL_TIME === null ? 0 : INITIAL_TIME,
       pendingInitialTime: INITIAL_TIME,
+      speed: 1,
+      scrubMax: 10,
+      scrubTimer: null,
       raf: null,
       lastTick: null,
       renderFrameTimes: []
@@ -258,7 +324,7 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       if (!scene) {
         return;
       }
-      syncValueHooksFromPayload(scene);
+      syncContextUsageFromPayload(scene);
       logDebug('Rendering scene', {
         view: scene.view,
         warnings: Array.isArray(scene.warnings) ? scene.warnings.length : 0,
@@ -767,6 +833,46 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       });
     });
 
+    animationControls.speed.addEventListener('change', () => {
+      const next = Number(animationControls.speed.value);
+      if (!Number.isFinite(next) || next <= 0) {
+        animationState.speed = 1;
+        animationControls.speed.value = '1';
+        return;
+      }
+      animationState.speed = next;
+    });
+
+    animationControls.scrub.addEventListener('input', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      stopAnimation();
+      const next = Number(animationControls.scrub.value);
+      if (Number.isFinite(next)) {
+        animationState.time = Math.max(0, next);
+        updateAnimationUi();
+        scheduleTimelineEvaluation('timeline-scrub');
+      }
+    });
+
+    animationControls.max.addEventListener('change', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      const parsed = Number(animationControls.max.value);
+      if (!Number.isFinite(parsed)) {
+        return;
+      }
+      const nextMax = Math.max(0, parsed);
+      animationState.scrubMax = nextMax;
+      if (animationState.time > nextMax) {
+        animationState.time = nextMax;
+        scheduleTimelineEvaluation('timeline-max-clamp');
+      }
+      updateAnimationUi();
+    });
+
     canvas.addEventListener('pointerdown', (event) => {
       sendPointerEvent('down', event);
     });
@@ -801,7 +907,7 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       sendPointerEvent('rawupdate', event);
     });
 
-    const events = new EventSource('/__funcdraw/events');
+    const events = new EventSource('__funcdraw/events');
     events.addEventListener('reload', () => {
       logInfo('Reload event received from server');
       stopAnimation();
@@ -822,7 +928,7 @@ function createHtmlTemplate({ initialTime = null } = {}) {
         return;
       }
       if (canvasHookState.active) {
-        logInfo('Canvas resized, reloading scene for canvas hook');
+        logInfo('Canvas resized, reloading scene (canvas context used)');
         loadScene('canvas-resize');
       } else {
         logDebug('Window resized, re-rendering scene');
@@ -830,15 +936,15 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       }
     });
 
-    function syncValueHooksFromPayload(scene) {
-      const hooks = (scene && scene.valueHooks) || {};
-      syncAnimationFromHooks(hooks, scene);
-      syncCanvasHookState(hooks);
+    function syncContextUsageFromPayload(scene) {
+      const usage = (scene && scene.contextUsage) || {};
+      syncAnimationFromContextUsage(usage, scene);
+      syncCanvasUsageState(usage);
     }
 
-    function syncAnimationFromHooks(hooks, scene) {
-      const timeHook = hooks.t;
-      const usesTime = Boolean(timeHook && timeHook.used);
+    function syncAnimationFromContextUsage(usage, scene) {
+      const timeUsage = usage.t;
+      const usesTime = Boolean(timeUsage && timeUsage.used);
       if (!usesTime) {
         if (animationState.enabled) {
           stopAnimation({ preserveTime: false });
@@ -856,9 +962,9 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       updateAnimationUi();
     }
 
-    function syncCanvasHookState(hooks) {
-      const canvasHook = hooks.canvas;
-      canvasHookState.active = Boolean(canvasHook && canvasHook.used);
+    function syncCanvasUsageState(usage) {
+      const canvasUsage = usage.canvas;
+      canvasHookState.active = Boolean(canvasUsage && canvasUsage.used);
     }
 
     function supportsStepper(scene) {
@@ -983,7 +1089,7 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       }
       const delta = Math.max(0, timestamp - animationState.lastTick);
       animationState.lastTick = timestamp;
-      animationState.time += delta / 1000;
+      animationState.time += (delta / 1000) * (animationState.speed || 1);
       updateAnimationUi();
       const frameStart = performance.now();
       const frameScene = await loadScene('animation', {
@@ -1011,9 +1117,40 @@ function createHtmlTemplate({ initialTime = null } = {}) {
       animationControls.toggle.textContent = animationState.playing ? 'Pause' : 'Play';
       animationControls.reset.disabled = animationState.time === 0 && !animationState.playing;
       animationControls.label.textContent = 't=' + formatTimeDisplay(animationState.time);
+      const max = resolveScrubMax(animationState.time, animationState.scrubMax);
+      animationState.scrubMax = max;
+      if (animationControls.scrub) {
+        animationControls.scrub.max = String(max);
+        animationControls.scrub.value = String(Math.min(Math.max(0, animationState.time), max));
+      }
+      if (animationControls.max) {
+        animationControls.max.value = String(max);
+      }
       const avgRenderTime = averageRenderFrameTime(animationState.renderFrameTimes);
       animationControls.frameTimeLabel.textContent =
         avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
+    }
+
+    function resolveScrubMax(time, currentMax) {
+      const t = Number(time);
+      const m = Number(currentMax);
+      const base = Number.isFinite(m) && m > 0 ? m : 10;
+      if (!Number.isFinite(t) || t <= base) {
+        return base;
+      }
+      const next = Math.ceil(t / 5) * 5;
+      return Math.max(base, next);
+    }
+
+    function scheduleTimelineEvaluation(reason) {
+      if (animationState.scrubTimer !== null) {
+        clearTimeout(animationState.scrubTimer);
+        animationState.scrubTimer = null;
+      }
+      animationState.scrubTimer = setTimeout(() => {
+        animationState.scrubTimer = null;
+        loadScene(reason, { params: { time: formatTimeParam(animationState.time) } });
+      }, 50);
     }
 
     function recordRenderFrameTime(value) {
@@ -1064,3 +1201,16 @@ function createHtmlTemplate({ initialTime = null } = {}) {
 module.exports = {
   createHtmlTemplate
 };
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeHtmlAttribute(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}

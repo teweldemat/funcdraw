@@ -59,12 +59,12 @@ Use `--trace` to emit a hierarchical FuncScript package trace (paths, snippets, 
 
 Use `--exp <expression>` to evaluate a FuncScript snippet with `art` bound to the loaded package (useful for dumping alternate compositions without changing the package root).
 
-## Time value hook & animation
+## Time (`t`) & animation
 
-FuncDraw Play automatically injects a `t` value hook into every scene. If your FuncScript references `t`, the browser HUD exposes play/pause and reset controls that stream incremental `t` values back to the server so your model can animate over time. When the scene never touches `t`, the UI hides the controls and FuncDraw evaluates your expression once, just like before.
+FuncDraw Play provides a `t` context value (seconds) to every scene. If your FuncScript reads `t`, the browser HUD exposes play/pause and reset controls that update `t` and re-evaluate the model over time. When the scene never touches `t`, the UI hides the controls and FuncDraw evaluates your expression once.
 
-When running in `--dump` mode you can seed the hooks manually: pass `--t 2.5` to set the initial time and `--canvas 800 600` to mimic a particular viewport. Add `--svg` if you still want SVG output in the dump payload, or `--svg output.svg` to write the SVG to disk.
+When running in `--dump` mode you can seed the context values manually: pass `--t 2.5` to set the initial time and `--canvas 800 600` to mimic a particular viewport. Add `--svg` if you still want SVG output in the dump payload, or `--svg output.svg` to write the SVG to disk.
 
-## Canvas size hook
+## Canvas size (`canvas`)
 
-In addition to `t`, FuncDraw Play injects a `canvas` value hook. The hook exposes the actual pixel dimensions of the preview canvas: `canvas.size.width` and `canvas.size.height`. When your model reads `canvas`, the client automatically re-evaluates the scene whenever the browser window resizes so your geometry can react to the available space.
+In addition to `t`, FuncDraw Play provides a `canvas` context value with the actual pixel dimensions of the preview canvas: `canvas.size.width` and `canvas.size.height`. When your model reads `canvas`, the client automatically re-evaluates the scene whenever the browser window resizes so your geometry can react to the available space.

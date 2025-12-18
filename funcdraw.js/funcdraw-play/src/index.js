@@ -202,22 +202,43 @@ async function startPlayer(cwd, argvInput) {
 
     const evaluateOnce = async (includeSvgFlag) => {
       const outputsForRun = includeSvg && includeSvgFlag ? outputs : ['raw'];
+      const contextUsage = {
+        t: { used: false },
+        canvas: { used: false }
+      };
       const result = await currentExpression.evaluate({
         output: outputsForRun,
         trace: traceOptions || traceEnabled,
         dumpLogger,
         stateArg: modelState,
         canvas: { width: canvasState.width, height: canvasState.height },
-        valueHooks: {
-          t: () => timelineState.value,
-          canvas: () => ({
+        context: {
+          t: timelineState.value,
+          canvas: {
             size: {
               width: canvasState.width,
               height: canvasState.height
             }
-          })
+          }
+        },
+        createProvider: ({ engine, values }) => {
+          class TrackingProvider extends engine.DefaultFsDataProvider {
+            get(name) {
+              if (name) {
+                const key = String(name).toLowerCase();
+                if (key === 't') {
+                  contextUsage.t.used = true;
+                } else if (key === 'canvas') {
+                  contextUsage.canvas.used = true;
+                }
+              }
+              return super.get(name);
+            }
+          }
+          return new TrackingProvider(values);
         }
       });
+      result.contextUsage = contextUsage;
       if (!includeSvgFlag) {
         delete result.svg;
       }
@@ -547,7 +568,12 @@ function pathsEqual(a, b) {
 }
 
 module.exports = {
-  startPlayer
+  startPlayer,
+  startServer,
+  createPreviewRouter: require('./preview-router').createPreviewRouter,
+  loadUserConfig,
+  buildBootstrapPayload,
+  bundleBrowserRuntime
 };
 
 function normalizeSvgOption(raw, cwd) {

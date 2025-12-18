@@ -75,10 +75,10 @@ function loadGraphics(resolver, options = {}) {
     expose: fdOptions.expose
   });
   const typedFd = createFdValue(engine, fdContext);
-  const valueHookEntries = createValueHookEntries(options.valueHooks);
   const converter = createValueConverter(engine, { logger: options.dumpLogger || null });
   const traceCollector = createTraceCollector(options.trace, converter, engine);
-  const providerFactory = createProviderFactory(engine, typedFd, valueHookEntries);
+  const providerValues = buildProviderValues(engine, typedFd, options.context);
+  const providerFactory = createProviderFactory(engine, providerValues, options.createProvider);
   const provider = providerFactory();
   const traceHook = traceCollector ? traceCollector.hook : null;
   const traceEntryHook = traceCollector ? traceCollector.entryHook : null;
@@ -105,119 +105,17 @@ function loadGraphics(resolver, options = {}) {
   if (outputs.has('svg')) {
     result.svg = renderSvg(interpretation, { font, measureText, canvas: options.canvas });
   }
-  if (valueHookEntries) {
-    result.valueHooks = summarizeValueHookUsage(valueHookEntries);
-  }
   if (traceCollector) {
     result.trace = traceCollector.export();
   }
   return result;
 }
 
-function createProviderFactory(engine, typedFd, valueHooks) {
-  if (!valueHooks) {
-    return () => new engine.DefaultFsDataProvider({ fd: typedFd });
+function createProviderFactory(engine, values, createProvider) {
+  if (typeof createProvider === 'function') {
+    return () => createProvider({ engine, values });
   }
-  class ValueHookProvider extends engine.DefaultFsDataProvider {
-    constructor(initialValues) {
-      super(initialValues);
-    }
-
-    get(name) {
-      const entry = resolveHookEntry(valueHooks, name);
-      if (entry) {
-        entry.used = true;
-        if (!entry.hasValue) {
-          entry.value = normalizeHookValue(engine, entry.hook());
-          entry.hasValue = true;
-        }
-        return entry.value;
-      }
-      return super.get(name);
-    }
-
-    isDefined(name) {
-      if (resolveHookEntry(valueHooks, name)) {
-        return true;
-      }
-      return super.isDefined(name);
-    }
-  }
-
-  return () => new ValueHookProvider({ fd: typedFd });
-}
-
-function resolveHookEntry(valueHooks, name) {
-  if (!valueHooks || !name) {
-    return null;
-  }
-  const key = String(name).toLowerCase();
-  return valueHooks.get(key) || null;
-}
-
-function createValueHookEntries(option) {
-  if (!option) {
-    return null;
-  }
-  const entries = Array.isArray(option)
-    ? option
-    : typeof option === 'object'
-      ? Object.entries(option)
-      : null;
-  if (!entries || entries.length === 0) {
-    return null;
-  }
-  const hooks = new Map();
-  for (const entry of entries) {
-    const normalized = normalizeHookDescriptor(entry);
-    if (!normalized) {
-      continue;
-    }
-    hooks.set(normalized.key, {
-      name: normalized.name,
-      hook: normalized.hook,
-      used: false,
-      hasValue: false,
-      value: null
-    });
-  }
-  return hooks.size > 0 ? hooks : null;
-}
-
-function normalizeHookDescriptor(entry) {
-  if (!entry) {
-    return null;
-  }
-  let name = null;
-  let hook = null;
-  if (Array.isArray(entry) && entry.length >= 2) {
-    [name, hook] = entry;
-  } else if (typeof entry === 'object') {
-    name = entry.name;
-    hook = entry.hook || entry.value || entry.fn;
-  }
-  const normalizedName = typeof name === 'string' ? name.trim() : name != null ? String(name).trim() : '';
-  if (!normalizedName || typeof hook !== 'function') {
-    return null;
-  }
-  return {
-    name: normalizedName,
-    key: normalizedName.toLowerCase(),
-    hook
-  };
-}
-
-function summarizeValueHookUsage(valueHooks) {
-  if (!valueHooks || valueHooks.size === 0) {
-    return null;
-  }
-  const summary = {};
-  for (const entry of valueHooks.values()) {
-    summary[entry.name] = {
-      used: Boolean(entry.used)
-    };
-  }
-  return summary;
+  return () => new engine.DefaultFsDataProvider(values);
 }
 
 function evaluateStatefulRoot({ engine, providerFactory, typedRoot, stateArg }) {
@@ -239,33 +137,35 @@ function evaluateStatefulRoot({ engine, providerFactory, typedRoot, stateArg }) 
   return callable.evaluate(provider, params);
 }
 
-function normalizeHookValue(engine, value) {
-  const assertTyped = engine.assertTyped || funcscript.assertTyped;
-  try {
-    return assertTyped(value);
-  } catch {
-    // fall through to normalize the plain structure
+function buildProviderValues(engine, typedFd, context) {
+  const normalized = normalizeProviderValues(engine, context);
+  return {
+    fd: typedFd,
+    ...normalized
+  };
+}
+
+function normalizeProviderValues(engine, context) {
+  if (!context || typeof context !== 'object') {
+    return {};
   }
-  if (Array.isArray(value)) {
-    const typedItems = value.map((item) => normalizeHookValue(engine, item));
-    const listClass = engine.ArrayFsList || funcscript.ArrayFsList;
-    if (typeof listClass === 'function') {
-      const listInstance = new listClass(typedItems);
-      return engine.normalize(listInstance);
+  const result = {};
+  for (const [key, rawValue] of Object.entries(context)) {
+    if (!key) {
+      continue;
     }
-    throw new Error('Array value hooks require ArrayFsList support');
+    result[key] = ensureTyped(engine, rawValue);
   }
-  if (value && typeof value === 'object') {
-    const simpleKvcClass = engine.SimpleKeyValueCollection || funcscript.SimpleKeyValueCollection;
-    if (value instanceof simpleKvcClass) {
-      return engine.normalize(value);
+  return result;
+}
+
+function ensureTyped(engine, value) {
+  if (engine && typeof engine.assertTyped === 'function') {
+    try {
+      return engine.assertTyped(value);
+    } catch {
+      // fall through
     }
-    const collectionEntries = Object.entries(value).map(([key, inner]) => [
-      key,
-      normalizeHookValue(engine, inner)
-    ]);
-    const collection = new simpleKvcClass(collectionEntries);
-    return engine.normalize(collection);
   }
   return engine.normalize(value);
 }

@@ -448,9 +448,9 @@ fd.color.mulAlpha("#38bdf8", 0.5)
 
 ---
 
-## Animation (Time Hook)
+## Animation (Time)
 
-FuncDraw Play injects a value hook named `t` (time in seconds). If your scene reads `t`, the preview UI
+FuncDraw Play provides a context value named `t` (time in seconds). If your scene reads `t`, the preview UI
 enables play/pause and reset controls and re-evaluates the model as `t` changes.
 
 Typical pattern:
@@ -469,9 +469,9 @@ Typical pattern:
 
 ---
 
-## Responsive Scenes (Canvas Size Hook)
+## Responsive Scenes (Canvas Size)
 
-FuncDraw Play injects `canvas.size.width` and `canvas.size.height`. If your scene reads `canvas`, the
+FuncDraw Play provides `canvas.size.width` and `canvas.size.height`. If your scene reads `canvas`, the
 preview automatically re-evaluates on window resize.
 
 Use this to preserve aspect ratio or choose framing dynamically (see `examples/testcompose/.../common.fs`).

@@ -5,12 +5,12 @@
   "description": "Sample FuncDraw composition that consumes @funcdraw/testlib.",
   "scripts": {
     "play": "funcdraw-play",
-    "nplay": "dotnet run --project ../../FuncDraw.Net -- --root ."
+    "nplay": "dotnet run --project ../../FuncDraw.Net/FuncDraw.Net -- --root ."
   },
   "dependencies": {
     "@funcdraw/testlib": "file:../testlib"
   },
   "devDependencies": {
-    "@funcdraw/play": "file:../../packages/funcdraw-play"
+    "@funcdraw/play": "file:../../funcdraw.js/funcdraw-play"
   }
 }

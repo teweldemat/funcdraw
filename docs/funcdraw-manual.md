@@ -62,7 +62,7 @@ or a primitive/list of primitives. Use `--exp` to evaluate a snippet with `art` 
 Optional (this repo): the .NET preview server is used by the examples’ `nplay` script:
 
 ```bash
-dotnet run --project FuncDraw.Net -- --root .
+dotnet run --project FuncDraw.Net/FuncDraw.Net -- --root .
 ```
 
 ---

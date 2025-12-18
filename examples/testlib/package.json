@@ -5,9 +5,9 @@
   "description": "Small FuncDraw helper library used by the sample compositions in this repo.",
   "scripts": {
     "play": "funcdraw-play",
-    "nplay": "dotnet run --project ../../FuncDraw.Net -- --root ."
+    "nplay": "dotnet run --project ../../FuncDraw.Net/FuncDraw.Net -- --root ."
   },
   "devDependencies": {
-    "@funcdraw/play": "file:../../packages/funcdraw-play"
+    "@funcdraw/play": "file:../../funcdraw.js/funcdraw-play"
   }
 }

@@ -3,9 +3,7 @@
   {
     geometry: args.geometry;
     headCenter: args.headCenter;
-    anchor: args.anchor;
     hit: args.hit;
-    handleRadius: args.handleRadius;
 
     pickPart: (eventPoint) =>
     {
@@ -22,19 +20,6 @@
         else if hit.hitSegment(p, geometry.leftLegAttachment, geometry.rightLegAttachment) then "thighs"
         else null;
     };
-
-    pickHandle: (eventPoint) =>
-    {
-      p: [eventPoint.x, eventPoint.y];
-      eval
-        if hit.hitCircle(p, anchor, handleRadius) then "anchor"
-        else if hit.hitCircle(p, geometry.leftHand.to, handleRadius) then "leftHandEnd"
-        else if hit.hitCircle(p, geometry.rightHand.to, handleRadius) then "rightHandEnd"
-        else if hit.hitCircle(p, geometry.leftLeg.to, handleRadius) then "leftLegEnd"
-        else if hit.hitCircle(p, geometry.rightLeg.to, handleRadius) then "rightLegEnd"
-        else null;
-    };
-
-    eval { pickPart; pickHandle; };
+    eval { pickPart; };
   };
 }

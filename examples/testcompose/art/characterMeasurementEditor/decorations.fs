@@ -5,9 +5,6 @@
     headCenter: args.headCenter;
     selectedPart: args.selectedPart;
     hoveredPart: args.hoveredPart;
-    anchor: args.anchor;
-    dragging: args.dragging;
-    handleRadius: args.handleRadius;
 
     highlightStroke: "#fbbf24";
     highlightWidth: 0.9;
@@ -107,35 +104,6 @@
       ]
       else error("expected hoveredPart");
 
-    draggingKind: if dragging == null then null else dragging.kind;
-    handleStroke: "#0f172a";
-    handleWidth: 0.2;
-    handleBaseFill: "#e2e8f0";
-    handleActiveFill: "#fbbf24";
-    anchorFill: "#f472b6";
-    handle: (center, kind, baseFill) =>
-    {
-      active: draggingKind == kind;
-      eval
-      {
-        type: "circle";
-        center;
-        radius: if active then handleRadius * 1.4 else handleRadius;
-        fill: if active then handleActiveFill else baseFill;
-        stroke: handleStroke;
-        width: if active then handleWidth * 2 else handleWidth;
-      };
-    };
-
-    handles:
-    [
-      handle(anchor, "anchor", anchorFill),
-      handle(geometry.leftHand.to, "leftHandEnd", handleBaseFill),
-      handle(geometry.rightHand.to, "rightHandEnd", handleBaseFill),
-      handle(geometry.leftLeg.to, "leftLegEnd", handleBaseFill),
-      handle(geometry.rightLeg.to, "rightLegEnd", handleBaseFill)
-    ];
-
-    eval { highlight; hoverHighlight; handles; };
+    eval { highlight; hoverHighlight; };
   };
 }

@@ -2,10 +2,14 @@
   make: (args) =>
   {
     anchor: args.anchor;
+    anchorDotState: args.anchorDotState;
+    leftHandEndDotState: args.leftHandEndDotState;
+    rightHandEndDotState: args.rightHandEndDotState;
+    leftLegEndDotState: args.leftLegEndDotState;
+    rightLegEndDotState: args.rightLegEndDotState;
     measurements: args.measurements;
     selectedPart: args.selectedPart;
     hoveredPart: args.hoveredPart;
-    dragging: args.dragging;
 
     primarySliderState: args.primarySliderState;
     secondarySliderState: args.secondarySliderState;
@@ -15,12 +19,17 @@
 
     geometry: args.geometry;
     pickPart: args.pickPart;
-    pickHandle: args.pickHandle;
 
     primarySlider: args.primarySlider;
     secondarySlider: args.secondarySlider;
     sameSidesToggle: args.sameSidesToggle;
     bendToggle: args.bendToggle;
+
+    anchorDot: args.anchorDot;
+    leftHandEndDot: args.leftHandEndDot;
+    rightHandEndDot: args.rightHandEndDot;
+    leftLegEndDot: args.leftLegEndDot;
+    rightLegEndDot: args.rightLegEndDot;
 
     hasSecondary:
       selectedPart == "leftArm" or
@@ -157,71 +166,70 @@
 
       handledByUi: primaryStep != null or secondaryStep != null or toggleStep != null or bendStep != null;
 
+      isDragging: (s) => s != null and s.pointerId != null;
+
+      anchorDotStep: if handledByUi and !isDragging(anchorDotState) then null else anchorDot.step(event);
+      leftHandEndStep: if handledByUi and !isDragging(leftHandEndDotState) then null else leftHandEndDot.step(event);
+      rightHandEndStep: if handledByUi and !isDragging(rightHandEndDotState) then null else rightHandEndDot.step(event);
+      leftLegEndStep: if handledByUi and !isDragging(leftLegEndDotState) then null else leftLegEndDot.step(event);
+      rightLegEndStep: if handledByUi and !isDragging(rightLegEndDotState) then null else rightLegEndDot.step(event);
+
+      dragStart: (s) => s != null and Len(s.events) > 0 and s.events[0].action == "dragstart";
+      dotChanged: (s) => s != null and Len(s.events) > 0 and s.events[0].action == "change";
+      dotValue: (s) => if dotChanged(s) then s.events[0].value else null;
+
       handleDown:
-        if handledByUi or dragging != null then null
-        else if event.type == "pointer" and event.action == "down" then pickHandle(event.point)
+        if event.type != "pointer" or event.action != "down" then null
+        else if dragStart(anchorDotStep) then "anchor"
+        else if dragStart(leftHandEndStep) then "leftHandEnd"
+        else if dragStart(rightHandEndStep) then "rightHandEnd"
+        else if dragStart(leftLegEndStep) then "leftLegEnd"
+        else if dragStart(rightLegEndStep) then "rightLegEnd"
         else null;
 
-      nextDragging:
-        if dragging == null then
-          if handleDown == null then null
-          else
-          {
-            p: [event.point.x, event.point.y];
-            center:
-              if handleDown == "anchor" then anchor
-              else if handleDown == "leftHandEnd" then geometry.leftHand.to
-              else if handleDown == "rightHandEnd" then geometry.rightHand.to
-              else if handleDown == "leftLegEnd" then geometry.leftLeg.to
-              else if handleDown == "rightLegEnd" then geometry.rightLeg.to
-              else error("expected handleDown");
-            eval
-            {
-              kind: handleDown;
-              pointerId: event.pointer.id;
-              offset: [center[0] - p[0], center[1] - p[1]];
-            };
-          }
-        else if event.type == "pointer" and (event.action == "up" or event.action == "cancel") and event.pointer.id == dragging.pointerId then null
-        else dragging;
-
-      dragPoint:
-        if nextDragging == null then null
-        else if event.type == "pointer" and (event.action == "move" or event.action == "down") and event.pointer.id == nextDragging.pointerId then
-        {
-          p: [event.point.x, event.point.y];
-          eval [p[0] + nextDragging.offset[0], p[1] + nextDragging.offset[1]];
-        }
-        else null;
-
-      nextAnchor:
-        if dragPoint == null then anchor
-        else if nextDragging.kind == "anchor" then dragPoint
-        else anchor;
+      nextAnchor: dotValue(anchorDotStep)??anchor;
+      nextAnchorDotState: if anchorDotStep == null then anchorDotState else anchorDotStep.state;
+      nextLeftHandEndDotState: if leftHandEndStep == null then leftHandEndDotState else leftHandEndStep.state;
+      nextRightHandEndDotState: if rightHandEndStep == null then rightHandEndDotState else rightHandEndStep.state;
+      nextLeftLegEndDotState: if leftLegEndStep == null then leftLegEndDotState else leftLegEndStep.state;
+      nextRightLegEndDotState: if rightLegEndStep == null then rightLegEndDotState else rightLegEndStep.state;
 
       nextMeasurementsWithDrag:
-        if dragPoint == null then nextMeasurementsWithBend
-        else if nextDragging.kind == "leftHandEnd" then
-        {
-          end: [dragPoint[0] - geometry.leftHand.from[0], dragPoint[1] - geometry.leftHand.from[1]];
-          eval nextMeasurementsWithBend + { leftHand: nextMeasurementsWithBend.leftHand + { end; }; };
-        }
-        else if nextDragging.kind == "rightHandEnd" then
-        {
-          end: [dragPoint[0] - geometry.rightHand.from[0], dragPoint[1] - geometry.rightHand.from[1]];
-          eval nextMeasurementsWithBend + { rightHand: nextMeasurementsWithBend.rightHand + { end; }; };
-        }
-        else if nextDragging.kind == "leftLegEnd" then
-        {
-          end: [dragPoint[0] - geometry.leftLeg.from[0], dragPoint[1] - geometry.leftLeg.from[1]];
-          eval nextMeasurementsWithBend + { leftLeg: nextMeasurementsWithBend.leftLeg + { end; }; };
-        }
-        else if nextDragging.kind == "rightLegEnd" then
-        {
-          end: [dragPoint[0] - geometry.rightLeg.from[0], dragPoint[1] - geometry.rightLeg.from[1]];
-          eval nextMeasurementsWithBend + { rightLeg: nextMeasurementsWithBend.rightLeg + { end; }; };
-        }
-        else nextMeasurementsWithBend;
+      {
+        m1:
+          if !dotChanged(leftHandEndStep) then nextMeasurementsWithBend
+          else
+          {
+            p: leftHandEndStep.events[0].value;
+            end: [p[0] - geometry.leftHand.from[0], p[1] - geometry.leftHand.from[1]];
+            eval nextMeasurementsWithBend + { leftHand: nextMeasurementsWithBend.leftHand + { end; }; };
+          };
+        m2:
+          if !dotChanged(rightHandEndStep) then m1
+          else
+          {
+            p: rightHandEndStep.events[0].value;
+            end: [p[0] - geometry.rightHand.from[0], p[1] - geometry.rightHand.from[1]];
+            eval m1 + { rightHand: m1.rightHand + { end; }; };
+          };
+        m3:
+          if !dotChanged(leftLegEndStep) then m2
+          else
+          {
+            p: leftLegEndStep.events[0].value;
+            end: [p[0] - geometry.leftLeg.from[0], p[1] - geometry.leftLeg.from[1]];
+            eval m2 + { leftLeg: m2.leftLeg + { end; }; };
+          };
+        m4:
+          if !dotChanged(rightLegEndStep) then m3
+          else
+          {
+            p: rightLegEndStep.events[0].value;
+            end: [p[0] - geometry.rightLeg.from[0], p[1] - geometry.rightLeg.from[1]];
+            eval m3 + { rightLeg: m3.rightLeg + { end; }; };
+          };
+        eval m4;
+      };
 
       dragSelectedPart:
         if handleDown == "leftHandEnd" then "leftArm"
@@ -267,20 +275,28 @@
         else if bendStep == null then bendToggleState
         else bendStep.state;
 
-      dragChanged: nextDragging != dragging;
-      anchorChanged: nextAnchor != anchor;
       measurementsChanged: nextMeasurementsWithDrag != measurements;
+      dotsChanged:
+        anchorDotStep != null or
+        leftHandEndStep != null or
+        rightHandEndStep != null or
+        leftLegEndStep != null or
+        rightLegEndStep != null;
 
       eval
-      if primaryStep == null and secondaryStep == null and toggleStep == null and bendStep == null and !selectionChanged and !hoverChanged and !dragChanged and !anchorChanged and !measurementsChanged then null else
+      if primaryStep == null and secondaryStep == null and toggleStep == null and bendStep == null and !selectionChanged and !hoverChanged and !dotsChanged and !measurementsChanged then null else
       {
         state:
         {
           anchor: nextAnchor;
+          anchorDot: nextAnchorDotState;
+          leftHandEndDot: nextLeftHandEndDotState;
+          rightHandEndDot: nextRightHandEndDotState;
+          leftLegEndDot: nextLeftLegEndDotState;
+          rightLegEndDot: nextRightLegEndDotState;
           measurements: nextMeasurementsWithDrag;
           selectedPart: nextSelectedPart;
           hoveredPart: hoverCandidate;
-          dragging: nextDragging;
           primarySlider: nextPrimarySliderState;
           secondarySlider: nextSecondarySliderState;
           sameSidesToggle: nextSameSidesToggleState;

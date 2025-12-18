@@ -50,5 +50,23 @@
         ];
       };
     }
+    ,
+    {
+      name: "tree draws trunk and canopy";
+      test: (mod) =>
+      {
+        graphics:
+          mod.tree(
+            {
+              base: [0, 0];
+              height: 30;
+            });
+        eval
+        [
+          assert.equal(Len(graphics filter (g) => g.name == "tree-trunk"), 1),
+          assert.equal(Len(graphics filter (g) => g.name == "tree-leaf"), 3)
+        ];
+      };
+    }
   ];
 }

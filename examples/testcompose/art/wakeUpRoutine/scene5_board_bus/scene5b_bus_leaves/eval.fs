@@ -90,14 +90,6 @@
     if localT > common.walkToSeatDuration then 1
     else localT / common.walkToSeatDuration;
 
-  settleT: localT - common.walkToSeatDuration;
-  settled: settleT > common.settleDuration;
-  endT: settleT - common.settleDuration;
-  endAlpha:
-    if endT < 0 then 0
-    else if endT > common.endDuration then 1
-    else common.ease01(endT / common.endDuration);
-
   headPos:
   [
     startHead[0] + (seatHead[0] - startHead[0]) * insideProgress,
@@ -116,17 +108,6 @@
     opacity: 1;
   };
 
-  endCenterX: (view.left + view.right) / 2;
-  endLabel:
-  {
-    type: "text";
-    text: "THE END";
-    position: [endCenterX, 30];
-    align: "center";
-    fontSize: 24;
-    color: fd.color.alpha("#0f172a", endAlpha);
-  };
-
   eval
   {
     view;
@@ -136,6 +117,6 @@
       + [head]
       + glass
       + stopSign
-      + (if settled then [endLabel] else []);
+      + [];
   };
 }

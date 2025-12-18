@@ -5,8 +5,10 @@
   steerRise: 0.2 * height;
   barGap: 2.2;
 
-  xAtY: (y) => front[0] - slant * ((y - front[1]) / height);
-  rearXAtY: (y) => rear[0] + rearSlant * ((y - rear[1]) / height);
+  dirMul: if front[0] >= rear[0] then 1 else -1;
+
+  xAtY: (y) => front[0] - dirMul * slant * ((y - front[1]) / height);
+  rearXAtY: (y) => rear[0] + dirMul * rearSlant * ((y - rear[1]) / height);
 
   rTopY: rear[1] + height;
   rTop: [rearXAtY(rTopY), rTopY];
@@ -37,7 +39,7 @@
 
   handleLen: 2.6;
   handleRise: 0.8;
-  handleEnd: [fTop[0] + handleLen, fTop[1] + handleRise];
+  handleEnd: [fTop[0] + handleLen * dirMul, fTop[1] + handleRise];
 
   seatCenter: [rTop[0], rTop[1] + seatThickness * 0.5];
 

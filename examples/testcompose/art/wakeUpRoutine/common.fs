@@ -73,12 +73,13 @@
   enterBusDuration: 1.2;
   walkToSeatDuration: 3.5;
   settleDuration: 1;
-  endDuration: 2.8;
   scene5aDuration: enterBusDuration;
-  scene5bDuration: walkToSeatDuration + settleDuration + endDuration;
+  scene5bDuration: walkToSeatDuration + settleDuration;
   scene5Duration: scene5aDuration + scene5bDuration;
 
-  totalDuration: scene1Duration + scene2Duration + scene3Duration + scene4Duration + scene5Duration;
+  scene6Duration: 20;
+
+  totalDuration: scene1Duration + scene2Duration + scene3Duration + scene4Duration + scene5Duration + scene6Duration;
 
   ease01: (p) => (1 - math.Cos(p * math.Pi)) / 2;
 

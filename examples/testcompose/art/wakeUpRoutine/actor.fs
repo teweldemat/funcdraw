@@ -95,6 +95,15 @@
     rightHand: { sign: -1; };
   };
 
+  leftPose:
+  {
+    direction: "left";
+    leftLeg: { sign: -1; };
+    rightLeg: { sign: -1; };
+    leftHand: { sign: 1; };
+    rightHand: { sign: 1; };
+  };
+
   charPalette:
   {
     body: "#38bdf8";

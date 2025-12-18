@@ -1,10 +1,12 @@
-(rearWheelCenterParam, wheelRadiusParam, wheelTurnAngleParam, frameColorParam, frameAccentColorParam) =>
+(rearWheelCenterParam, wheelRadiusParam, wheelTurnAngleParam, frameColorParam, frameAccentColorParam, directionParam) =>
 {
   rearWheelCenter: rearWheelCenterParam ?? [0, 0];
   baseWheelRadius: 9;
   wheelRadius: wheelRadiusParam ?? baseWheelRadius;
   scaleFactor: wheelRadius / baseWheelRadius;
   wheelTurnAngle: wheelTurnAngleParam ?? 0;
+  direction: directionParam ?? "right";
+  dirMul: if direction == "right" then 1 else if direction == "left" then -1 else error("expected direction left|right");
 
   innerRadius: 1 * scaleFactor;
   wheelToWheel: 25 * scaleFactor;
@@ -13,12 +15,12 @@
   gearRatio: 0.6;
   pedalOrbitRadius: gearRadius * 2.5 - 0.3;
 
-  wheelAngle: wheelTurnAngle;
+  wheelAngle: wheelTurnAngle * dirMul;
   pedalAngle: wheelAngle * gearRatio;
 
   leftWheelCenter: rearWheelCenter;
-  rightWheelCenter: [rearWheelCenter[0] + wheelToWheel, rearWheelCenter[1]];
-  frontGearCenter: [rearWheelCenter[0] + wheelToWheel / 2, rearWheelCenter[1]];
+  rightWheelCenter: [rearWheelCenter[0] + wheelToWheel * dirMul, rearWheelCenter[1]];
+  frontGearCenter: [rearWheelCenter[0] + (wheelToWheel / 2) * dirMul, rearWheelCenter[1]];
 
   frameHeight: wheelRadius * 1.6;
   frameColor: frameColorParam ?? "#9ca3af";
@@ -55,6 +57,10 @@
     graphics;
     pedalAngle;
     wheelAngle;
+    direction;
+    dirMul;
+    rearWheelCenter;
+    frontWheelCenter: rightWheelCenter;
     leftWheelCenter;
     rightWheelCenter;
     frontGearCenter;

@@ -1,34 +1,5 @@
 (localT) =>
 {
-  transport: package("@funcdraw/testlib").cartoon.transport;
-
-  layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
-  startAnchor: actor.doorCharacterAnchor(layout);
-
-  toRoadDistance: common.sidewalkTopY - common.yardTopY;
-  stride: common.walkStride;
-  zoomFactor: 0.018;
-  walkwayDx: common.walkwayDx;
-
-  walkDownProgress: if localT < common.walkToRoadDuration then localT / common.walkToRoadDuration else 1;
-  toRoadBase: actor.characterMeasurements + actor.frontPose;
-  toRoadProfileBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, walkDownProgress, zoomFactor);
-  toRoadProfile: toRoadProfileBase + { anchor: [startAnchor[0], toRoadProfileBase.anchor[1]]; };
-  toRoadEndBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor));
-  toRoadEnd: toRoadEndBase + { anchor: [startAnchor[0] + walkwayDx, toRoadEndBase.anchor[1]]; };
-
-  turnT: localT - common.walkToRoadDuration;
-  turnProgress:
-    if turnT < 0 then 0
-    else if turnT > common.turnDuration then 1
-    else common.ease01(turnT / common.turnDuration);
-  turnAnchorX: startAnchor[0] + walkwayDx * turnProgress;
-  turnBase: toRoadEndBase + { anchor: [turnAnchorX, toRoadEndBase.anchor[1]]; };
-  turnDirection: if turnProgress < 0.5 then "front" else "right";
-  turned:
-    if turnDirection == "front" then turnBase + actor.frontPose
-    else turnBase + actor.rightPose;
-
   stage:
     if localT < common.walkToRoadDuration then "toRoad"
     else if localT < common.walkToRoadDuration + common.turnDuration then "turn"
@@ -45,7 +16,20 @@
 
   eval if stage == "toRoad" then
   {
-    current: toRoadProfile;
+    transport: package("@funcdraw/testlib").cartoon.transport;
+
+    layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
+    startAnchor: actor.doorCharacterAnchor(layout);
+
+    toRoadDistance: common.sidewalkTopY - common.yardTopY;
+    stride: common.walkStride;
+    zoomFactor: 0.018;
+
+    walkDownProgress: stageT / common.walkToRoadDuration;
+    toRoadBase: actor.characterMeasurements + actor.frontPose;
+    toRoadProfileBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, walkDownProgress, zoomFactor);
+    current: toRoadProfileBase + { anchor: [startAnchor[0], toRoadProfileBase.anchor[1]]; };
+
     viewCenterX: current.anchor[0];
     view: common.resolveViewAt(viewCenterX);
     stopSign: transport.busStopSign(common.busStopSign);
@@ -63,7 +47,29 @@
   }
   else if stage == "turn" then
   {
-    current: turned;
+    transport: package("@funcdraw/testlib").cartoon.transport;
+
+    layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
+    startAnchor: actor.doorCharacterAnchor(layout);
+
+    toRoadDistance: common.sidewalkTopY - common.yardTopY;
+    stride: common.walkStride;
+    zoomFactor: 0.018;
+    walkwayDx: common.walkwayDx;
+
+    toRoadBase: actor.characterMeasurements + actor.frontPose;
+    toRoadEndBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor));
+
+    turnProgress:
+      if stageT > common.turnDuration then 1
+      else common.ease01(stageT / common.turnDuration);
+    turnAnchorX: startAnchor[0] + walkwayDx * turnProgress;
+    turnBase: toRoadEndBase + { anchor: [turnAnchorX, toRoadEndBase.anchor[1]]; };
+    turnDirection: if turnProgress < 0.5 then "front" else "right";
+    current:
+      if turnDirection == "front" then turnBase + actor.frontPose
+      else turnBase + actor.rightPose;
+
     viewCenterX: current.anchor[0];
     view: common.resolveViewAt(viewCenterX);
     stopSign: transport.busStopSign(common.busStopSign);

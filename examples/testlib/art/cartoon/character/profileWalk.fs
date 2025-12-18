@@ -19,6 +19,15 @@
   legScale0: legTotal0 / defaultLegTotal;
   strideAbs: rawStrideAbs * legScale0;
 
+  // Stabilize hands across steps (avoid feeding the previous step's capped hand pose back into the
+  // next step), which also enables O(1) step skipping below.
+  baseHands:
+  {
+    leftHand: m0.leftHand;
+    rightHand: m0.rightHand;
+    handPhaseOffset: m0.handPhaseOffset;
+  };
+
   stepOnce: (state, k) =>
   {
     isEven: (k div 2) * 2 == k;
@@ -26,7 +35,7 @@
     movingLeg: if moving == "left" then state.profile.leftLeg else state.profile.rightLeg;
     startWorld: [state.anchor[0] + movingLeg.end[0], state.anchor[1] + movingLeg.end[1]];
     target: [startWorld[0] + 2 * strideAbs * sign, startWorld[1]];
-    nextProfile: singleStepProfile(state.anchor, state.profile, moving, target, 1);
+    nextProfile: singleStepProfile(state.anchor, state.profile + baseHands, moving, target, 1);
     eval { anchor: nextProfile.anchor; profile: nextProfile; };
   };
 
@@ -51,7 +60,7 @@
         };
 
       leftStartWorld: [position[0] + leftX, position[1] + m0.leftLeg.end[1]];
-      eval singleStepProfile(position, seeded, "left", leftStartWorld, 0);
+      eval singleStepProfile(position, seeded + baseHands, "left", leftStartWorld, 0);
     };
 
     seed:
@@ -66,10 +75,22 @@
     traveled: distanceAbs * progress;
     stepIndex: math.Floor(traveled / strideAbs);
 
+    // O(1) step skipping: after each full step, the anchor advances by `strideAbs * sign`,
+    // and the pose cycles with period 2 (left-leg move, then right-leg move).
     completed:
-      Range(0, stepIndex) reduce (state, k) =>
-        stepOnce(state, k)
-      ~ seed;
+    {
+      isEvenStep: math.Floor(stepIndex / 2) * 2 == stepIndex;
+      movedLeft:
+      {
+        movingLeg: seed.profile.leftLeg;
+        startWorld: [seed.anchor[0] + movingLeg.end[0], seed.anchor[1] + movingLeg.end[1]];
+        target: [startWorld[0] + 2 * strideAbs * sign, startWorld[1]];
+        eval singleStepProfile(seed.anchor, seed.profile + baseHands, "left", target, 1);
+      };
+      finalAnchor: [seed.anchor[0] + stepIndex * strideAbs * sign, seed.anchor[1]];
+      finalProfileBase: if isEvenStep then seed.profile else movedLeft;
+      eval { anchor: finalAnchor; profile: finalProfileBase + { anchor: finalAnchor; }; };
+    };
 
     eval if remainder == 0 and stepIndex == fullSteps then completed.profile else
     {
@@ -83,7 +104,7 @@
       startWorldNow: [completed.anchor[0] + movingLegNow.end[0], completed.anchor[1] + movingLegNow.end[1]];
       targetNow: [startWorldNow[0] + 2 * stepAdvance * sign, startWorldNow[1]];
 
-      eval singleStepProfile(completed.anchor, completed.profile, movingNow, targetNow, localProgress);
+      eval singleStepProfile(completed.anchor, completed.profile + baseHands, movingNow, targetNow, localProgress);
     };
   };
 }

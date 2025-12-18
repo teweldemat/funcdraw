@@ -39,6 +39,46 @@
       };
     },
     {
+      name: "keeps one foot planted within a step";
+      test: (fn) =>
+      {
+        start: [0, 0];
+        distance: 24;
+        stride: 6;
+        zoom: 0.05;
+
+        // Both p values are within the first step (travel < stride).
+        p0: 0.10;
+        p1: 0.20;
+        a: fn(start, {}, distance, stride, p0, zoom);
+        b: fn(start, {}, distance, stride, p1, zoom);
+
+        attachmentsY: (anchor, profile) =>
+        {
+          bodyDir: [math.Cos(profile.bodyAngle), math.Sin(profile.bodyAngle)];
+          perpendicular: [-bodyDir[1], bodyDir[0]];
+          spread: if profile.direction == "front" then 1
+            else if profile.direction == "back" then 1
+            else if profile.direction == "left" then 0
+            else if profile.direction == "right" then 0
+            else error("expected direction left|right|front|back");
+          thighSpread: profile.thighWidth * spread;
+          eval
+          {
+            left: anchor[1] + perpendicular[1] * thighSpread;
+            right: anchor[1] - perpendicular[1] * thighSpread;
+          };
+        };
+
+        attachA: attachmentsY(a.anchor, a);
+        attachB: attachmentsY(b.anchor, b);
+        rightFootA: attachA.right + a.rightLeg.end[1];
+        rightFootB: attachB.right + b.rightLeg.end[1];
+
+        eval [assert.approx(rightFootA, rightFootB, 0.0001)];
+      };
+    },
+    {
       name: "supports negative distances";
       test: (fn) =>
       {
@@ -58,34 +98,6 @@
         ];
       };
     },
-    {
-      name: "scales stride with character size";
-      test: (fn) =>
-      {
-        start: [0, 0];
-        distance: 24;
-        stride: 6;
-        zoom: 0.05;
-        profile0: fn(start, {}, distance, stride, 0, zoom);
-
-        diff0: math.Abs(profile0.leftLeg.end[1] - profile0.rightLeg.end[1]);
-        a0: diff0 * zoom / 2;
-        scaleStep: (1 - a0) / (1 + a0);
-        stepAdvance: diff0 / (1 + a0);
-        p1: stepAdvance / math.Abs(distance);
-        profile1: fn(start, {}, distance, stride, p1, zoom);
-
-        diff1: math.Abs(profile1.leftLeg.end[1] - profile1.rightLeg.end[1]);
-
-        eval
-        [
-          assert.approx(diff1 / profile1.height, diff0 / profile0.height, 0.0001),
-          assert.approx(diff1, diff0 * scaleStep, 0.0001),
-          assert.approx(profile1.height, profile0.height * scaleStep, 0.0001)
-        ];
-      };
-    }
-    ,
     {
       name: "scales the initial stride from leg size";
       test: (fn) =>

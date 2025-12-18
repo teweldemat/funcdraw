@@ -14,30 +14,17 @@
   distanceAbs: math.Abs(verticalDistance);
   sign: math.Sign(verticalDistance);
 
-  attachmentsY: (anchor, profile) =>
-  {
-    bodyDir: [math.Cos(profile.bodyAngle), math.Sin(profile.bodyAngle)];
-    perpendicular: [-bodyDir[1], bodyDir[0]];
-    spread: if profile.direction == "front" then 1
-      else if profile.direction == "back" then 1
-      else if profile.direction == "left" then 0
-      else if profile.direction == "right" then 0
-      else error("expected direction left|right|front|back");
+  legTotal0: (m0.leftLeg.upper + m0.leftLeg.lower + m0.rightLeg.upper + m0.rightLeg.lower) / 2;
+  defaultLegTotal: (defaultMeasurements.leftLeg.upper + defaultMeasurements.leftLeg.lower + defaultMeasurements.rightLeg.upper + defaultMeasurements.rightLeg.lower) / 2;
+  legScale0: legTotal0 / defaultLegTotal;
+  stepLen: strideAbs * legScale0;
 
-    thighSpread: profile.thighWidth * spread;
-    eval
-    {
-      left: anchor[1] + perpendicular[1] * thighSpread;
-      right: anchor[1] - perpendicular[1] * thighSpread;
-    };
-  };
-
-  footWorldY: (anchor, profile, whichFeet) =>
+  scaleLimbToEnd: (limb, end) =>
   {
-    attach: attachmentsY(anchor, profile);
-    eval if whichFeet == "left" then attach.left + profile.leftLeg.end[1]
-    else if whichFeet == "right" then attach.right + profile.rightLeg.end[1]
-    else error("expected whichFeet left|right");
+    total: limb.upper + limb.lower;
+    distance: math.Sqrt(end[0] * end[0] + end[1] * end[1]);
+    factor: if total <= 0 then 1 else distance / total;
+    eval limb + { end: end; upper: limb.upper * factor; lower: limb.lower * factor; sign: limb.sign; };
   };
 
   eval if strideAbs <= 0 then error("expected strideLength > 0") else
@@ -45,112 +32,110 @@
   if zoomFactor <= 0 then error("expected zoomFactor > 0") else
   if distanceAbs == 0 then m0 + { anchor: position; } else
   {
-    gaitSeedProfile:
-    {
-      attach0: attachmentsY(position, m0);
-      leftY0: attach0.left + m0.leftLeg.end[1];
-      rightY0: attach0.right + m0.rightLeg.end[1];
-      midY: (leftY0 + rightY0) / 2;
-      legTotal0: (m0.leftLeg.upper + m0.leftLeg.lower + m0.rightLeg.upper + m0.rightLeg.lower) / 2;
-      defaultLegTotal: (defaultMeasurements.leftLeg.upper + defaultMeasurements.leftLeg.lower + defaultMeasurements.rightLeg.upper + defaultMeasurements.rightLeg.lower) / 2;
-      legScale0: legTotal0 / defaultLegTotal;
-      diff: strideAbs * legScale0 * sign;
-      desiredLeftY: midY - diff / 2;
-      desiredRightY: midY + diff / 2;
-      leftEndY: desiredLeftY - attach0.left;
-      rightEndY: desiredRightY - attach0.right;
-      eval
-        m0 + {
-          leftLeg: m0.leftLeg + { end: [0, leftEndY]; };
-          rightLeg: m0.rightLeg + { end: [0, rightEndY]; };
-      };
-    };
-
+    meanLegEndY0: (m0.leftLeg.end[1] + m0.rightLeg.end[1]) / 2;
+    midY0: position[1] + meanLegEndY0;
+    midY: midY0 + verticalDistance * progress;
     traveled: distanceAbs * progress;
 
-    otherFeet: (feet) =>
-      if feet == "left" then "right"
-      else if feet == "right" then "left"
-      else error("expected feet left|right");
+    scale: math.Exp(-sign * zoomFactor * traveled);
 
-    stepParams: (state, moving) =>
-    {
-      fixed: otherFeet(moving);
-      movingY: footWorldY(state.anchor, state.profile, moving);
-      fixedY: footWorldY(state.anchor, state.profile, fixed);
-      diff: math.Abs(fixedY - movingY);
+    scaled:
+      m0 + {
+        height: m0.height * scale;
+        neckLength: m0.neckLength * scale;
+        headRadius: m0.headRadius * scale;
+        shoulderWidth: m0.shoulderWidth * scale;
+        thighWidth: m0.thighWidth * scale;
+        leftHand: m0.leftHand + { upper: m0.leftHand.upper * scale; lower: m0.leftHand.lower * scale; };
+        rightHand: m0.rightHand + { upper: m0.rightHand.upper * scale; lower: m0.rightHand.lower * scale; };
+        leftLeg: m0.leftLeg + { upper: m0.leftLeg.upper * scale; lower: m0.leftLeg.lower * scale; };
+        rightLeg: m0.rightLeg + { upper: m0.rightLeg.upper * scale; lower: m0.rightLeg.lower * scale; };
+      };
 
-      a: sign * diff * zoomFactor / 2;
-      stepScale: (1 - a) / (1 + a);
-      nextDiff: diff * stepScale;
-      targetY: fixedY + nextDiff * sign;
-      stepAdvance: (diff + nextDiff) / 2;
+    meanLegEndY: meanLegEndY0 * scale;
+    anchorY: midY - meanLegEndY;
+    anchor: [position[0], anchorY];
 
-      eval { targetY; stepAdvance; };
-    };
+    spread: if scaled.direction == "front" then 1
+      else if scaled.direction == "back" then 1
+      else if scaled.direction == "left" then 0
+      else if scaled.direction == "right" then 0
+      else error("expected direction left|right|front|back");
+    bodyDir: [math.Cos(scaled.bodyAngle), math.Sin(scaled.bodyAngle)];
+    perpendicular: [-bodyDir[1], bodyDir[0]];
+    thighSpread: scaled.thighWidth * spread;
+    leftLegAttachY: anchorY + perpendicular[1] * thighSpread;
+    rightLegAttachY: anchorY - perpendicular[1] * thighSpread;
 
-    seedProfile: singleStepZoom(position, gaitSeedProfile, "left", 0, 0, zoomFactor);
-    seed:
-    {
-      anchor: seedProfile.anchor;
-      profile: seedProfile;
-    };
+    // Stepping model (O(1)):
+    // - Define a fixed step length in traveled-midpoint space (`stepLen`).
+    // - Within each step, one foot is planted (constant world Y), the other moves so the midpoint
+    //   remains linear in `progress`.
+    phase: if stepLen <= 0 then 0 else traveled / stepLen;
+    stepIndex: math.Floor(phase);
+    pairIndex: math.Floor(stepIndex / 2);
+    isEvenStep: pairIndex * 2 == stepIndex;
 
-    maxSteps: math.Ceiling(distanceAbs / strideAbs) * 20 + 20;
-    walked:
-      Range(0, maxSteps) reduce (acc, k) =>
+    leftBaseY: midY0 - (stepLen * sign) / 2;
+    rightBaseY: midY0 + (stepLen * sign) / 2;
+    rightFixedY: rightBaseY + pairIndex * 2 * stepLen * sign;
+    leftFixedY: leftBaseY + math.Floor((stepIndex + 1) / 2) * 2 * stepLen * sign;
+
+    legs:
+      if progress == 1 then
       {
-        eval if acc.remaining == 0 then acc else
-        {
-          isEven: (k div 2) * 2 == k;
-          moving: if isEven then "left" else "right";
-          params: stepParams(acc.state, moving);
-
-          eval if acc.remaining >= params.stepAdvance then
-          {
-            nextProfile: singleStepZoom(acc.state.anchor, acc.state.profile, moving, params.targetY, 1, zoomFactor);
-            eval
-            {
-              state: { anchor: nextProfile.anchor; profile: nextProfile; };
-              remaining: acc.remaining - params.stepAdvance;
-            };
-          }
-          else
-          {
-            localProgress: acc.remaining / params.stepAdvance;
-            partialProfile: singleStepZoom(acc.state.anchor, acc.state.profile, moving, params.targetY, localProgress, zoomFactor);
-            eval
-            {
-              state: { anchor: partialProfile.anchor; profile: partialProfile; };
-              remaining: 0;
-            };
-          };
-        };
+        worldY: midY;
+        leftEndY: worldY - leftLegAttachY;
+        rightEndY: worldY - rightLegAttachY;
+        eval { leftEnd: [0, leftEndY]; rightEnd: [0, rightEndY]; };
       }
-      ~ { state: seed; remaining: traveled; };
-
-    finalProfile: walked.state.profile;
-
-    eval if progress == 1 then
-    {
-      scaleLimbToEnd: (limb, end) =>
+      else if isEvenStep then
       {
-        total: limb.upper + limb.lower;
-        distance: math.Sqrt(end[0] * end[0] + end[1] * end[1]);
-        factor: distance / total;
-        eval limb + { end: end; upper: limb.upper * factor; lower: limb.lower * factor; };
+        rightWorldY: rightFixedY;
+        leftWorldY: 2 * midY - rightWorldY;
+        leftEndY: leftWorldY - leftLegAttachY;
+        rightEndY: rightWorldY - rightLegAttachY;
+        eval { leftEnd: [0, leftEndY]; rightEnd: [0, rightEndY]; };
+      }
+      else
+      {
+        leftWorldY: leftFixedY;
+        rightWorldY: 2 * midY - leftWorldY;
+        leftEndY: leftWorldY - leftLegAttachY;
+        rightEndY: rightWorldY - rightLegAttachY;
+        eval { leftEnd: [0, leftEndY]; rightEnd: [0, rightEndY]; };
       };
 
-      legEndY: (finalProfile.leftLeg.end[1] + finalProfile.rightLeg.end[1]) / 2;
-      handEndY: (finalProfile.leftHand.end[1] + finalProfile.rightHand.end[1]) / 2;
+    updatedLeftLeg: scaleLimbToEnd(scaled.leftLeg, legs.leftEnd);
+    updatedRightLeg: scaleLimbToEnd(scaled.rightLeg, legs.rightEnd);
 
-      eval finalProfile + {
-        leftLeg: scaleLimbToEnd(finalProfile.leftLeg, [0, legEndY]);
-        rightLeg: scaleLimbToEnd(finalProfile.rightLeg, [0, legEndY]);
-        leftHand: scaleLimbToEnd(finalProfile.leftHand, [0, handEndY]);
-        rightHand: scaleLimbToEnd(finalProfile.rightHand, [0, handEndY]);
+    legDiffY: updatedLeftLeg.end[1] - updatedRightLeg.end[1];
+
+    baseHandY0: (m0.leftHand.end[1] + m0.rightHand.end[1]) / 2;
+    baseHandY: baseHandY0 * scale;
+    leftHandEndY: baseHandY - legDiffY / 2;
+    rightHandEndY: baseHandY + legDiffY / 2;
+
+    hands:
+      if progress == 1 then
+      {
+        endY: baseHandY;
+        eval { leftEnd: [0, endY]; rightEnd: [0, endY]; };
+      }
+      else
+      {
+        eval { leftEnd: [0, leftHandEndY]; rightEnd: [0, rightHandEndY]; };
       };
-    }
-    else finalProfile;
+
+    updatedLeftHand: scaleLimbToEnd(scaled.leftHand, hands.leftEnd);
+    updatedRightHand: scaleLimbToEnd(scaled.rightHand, hands.rightEnd);
+
+    eval scaled + {
+      anchor;
+      leftLeg: updatedLeftLeg;
+      rightLeg: updatedRightLeg;
+      leftHand: updatedLeftHand;
+      rightHand: updatedRightHand;
+    };
   };
 }

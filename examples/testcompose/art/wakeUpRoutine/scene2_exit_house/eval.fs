@@ -5,7 +5,7 @@
   anchor: actor.doorCharacterAnchor(layout);
   view: common.resolveViewAt(anchor[0]);
 
-  standing: actor.characterMeasurements + actor.frontPose;
+  standing: actor.standProfile(actor.characterMeasurements + actor.frontPose);
   characterGraphic: actor.character.static(anchor, standing, actor.charPalette,actor.skin);
 
   houseGraphics:

@@ -26,7 +26,7 @@
 
   crossDistance: common.roadBottomY - common.sidewalkTopY;
   crossZoomFactor: 0.0008;
-  crossed: actor.character.zoomWalk(atCross.anchor, crossBase, crossDistance, stride, crossProgress, crossZoomFactor);
+  crossed: actor.crouchProfile(actor.character.zoomWalk(atCross.anchor, crossBase, crossDistance, stride, crossProgress, crossZoomFactor));
 
   viewCenterX: crossed.anchor[0] + common.followLookAhead;
   view: common.resolveViewAt(viewCenterX);

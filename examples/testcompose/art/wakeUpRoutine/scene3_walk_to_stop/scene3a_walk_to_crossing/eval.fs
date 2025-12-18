@@ -21,7 +21,7 @@
   targetX: common.zebraCrossing.centerX;
   toCrossDistance: targetX - toRoadEnd.anchor[0];
   base: toRoadEnd + actor.rightPose;
-  current: actor.character.profileWalk(toRoadEnd.anchor, base, toCrossDistance, stride, walkProgress);
+  current: actor.crouchProfile(actor.character.profileWalk(toRoadEnd.anchor, base, toCrossDistance, stride, walkProgress));
 
   viewCenterX: current.anchor[0] + common.followLookAhead;
   view: common.resolveViewAt(viewCenterX);

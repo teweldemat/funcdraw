@@ -30,7 +30,7 @@
     else 1;
 
   toStopDistance: common.busStopX - crossed.anchor[0];
-  current: actor.character.profileWalk(crossed.anchor, crossed, toStopDistance, stride, walkProgress);
+  current: actor.crouchProfile(actor.character.profileWalk(crossed.anchor, crossed, toStopDistance, stride, walkProgress));
 
   viewCenterX: current.anchor[0] + common.followLookAhead;
   view: common.resolveViewAt(viewCenterX);

@@ -2,8 +2,9 @@
   character: package("@funcdraw/testlib").cartoon.character;
   skin:character.skins.poly;
 
-  // Leg reach ratio (1 = straight legs, <1 = crouched).
-  legCrouch01: 0.92;
+  // Target reach ratios for walking (1 = straight, <1 = more bend/slack).
+  legCrouch01: 0.96;
+  sideLegCrouch01: 0.99;
   // Arm reach ratio (1 = straight arms, <1 = slight bend).
   armBend01: 0.97;
 
@@ -11,8 +12,8 @@
   {
     defaults: character.skeleton.defaults;
     s: 0.6;
-    // Slight crouch helps the walk feel grounded (less "sliding").
-    legReach01: legCrouch01;
+    // Standing should be fully straight; walking slack is applied via `crouchProfile(...)`.
+    legReach01: 1;
     scaleVec: (v) => [v[0] * s, v[1] * s];
     scaleLimb: (limb) =>
     {
@@ -44,28 +45,39 @@
     };
   };
 
-  ensureSlackIfStraight: (limb, reach01) =>
+  ensureReach01: (limb, reach01) =>
   {
     end: limb.end;
     dist: math.Sqrt(end[0] * end[0] + end[1] * end[1]);
     total: limb.upper + limb.lower;
-    eps: 0.000001;
-
-    // If the limb is (almost) perfectly straight, "restore" a bit of extra reach so it bends.
-    // This is especially important after `zoomWalk(..., progress=1, ...)`, which normalizes
-    // limb lengths to match `end`, removing the intended slack/crouch.
-    eval
-      if math.Abs(dist - total) < eps then
-        limb + { upper: limb.upper / reach01; lower: limb.lower / reach01; }
-      else limb;
+    eps: 0.0000001;
+    r: reach01 ?? 1;
+    minTotal: if r <= 0 then total else dist / r;
+    scale: if total <= eps then 1 else minTotal / total;
+    eval if scale > 1 + eps then limb + { upper: limb.upper * scale; lower: limb.lower * scale; } else limb;
   };
 
   crouchProfile: (profile) =>
+  {
+    legReach:
+      if profile.direction == "left" or profile.direction == "right" then sideLegCrouch01
+      else legCrouch01;
+    eval
+      profile
+      + {
+        leftLeg: ensureReach01(profile.leftLeg, legReach);
+        rightLeg: ensureReach01(profile.rightLeg, legReach);
+        leftHand: ensureReach01(profile.leftHand, armBend01);
+        rightHand: ensureReach01(profile.rightHand, armBend01);
+      };
+  };
+
+  straighten: (limb) => limb + { end: [0, -(limb.upper + limb.lower)]; };
+
+  standProfile: (profile) =>
     profile + {
-      leftLeg: ensureSlackIfStraight(profile.leftLeg, legCrouch01);
-      rightLeg: ensureSlackIfStraight(profile.rightLeg, legCrouch01);
-      leftHand: ensureSlackIfStraight(profile.leftHand, armBend01);
-      rightHand: ensureSlackIfStraight(profile.rightHand, armBend01);
+      leftLeg: straighten(profile.leftLeg);
+      rightLeg: straighten(profile.rightLeg);
     };
 
   frontPose:

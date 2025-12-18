@@ -27,7 +27,7 @@
 
     walkDownProgress: stageT / common.walkToRoadDuration;
     toRoadBase: actor.characterMeasurements + actor.frontPose;
-    toRoadProfileBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, walkDownProgress, zoomFactor);
+    toRoadProfileBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, walkDownProgress, zoomFactor));
     current: toRoadProfileBase + { anchor: [startAnchor[0], toRoadProfileBase.anchor[1]]; };
 
     viewCenterX: current.anchor[0];
@@ -66,9 +66,10 @@
     turnAnchorX: startAnchor[0] + walkwayDx * turnProgress;
     turnBase: toRoadEndBase + { anchor: [turnAnchorX, toRoadEndBase.anchor[1]]; };
     turnDirection: if turnProgress < 0.5 then "front" else "right";
-    current:
+    current0:
       if turnDirection == "front" then turnBase + actor.frontPose
       else turnBase + actor.rightPose;
+    current: actor.standProfile(current0);
 
     viewCenterX: current.anchor[0];
     view: common.resolveViewAt(viewCenterX);

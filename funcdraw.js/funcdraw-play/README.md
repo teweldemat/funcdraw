@@ -13,7 +13,8 @@ Add a script to your project:
 ```json
 {
   "scripts": {
-    "play": "funcdraw-play"
+    "play": "funcdraw-play",
+    "share": "funcdraw-share"
   }
 }
 ```
@@ -58,6 +59,26 @@ Use `--dump` to skip server/browse launching altogether, evaluate the configured
 Use `--trace` to emit a hierarchical FuncScript package trace (paths, snippets, results) using the runtime's package tracing hook. Pair it with `--dump` to see both payload and trace, run `--trace` alone for a trace-only evaluation, or pass `--trace step-into [filter]` to include every traced step (optionally filtered by substring). Add `--trace-file trace.json` to write the trace tree to disk as JSON.
 
 Use `--exp <expression>` to evaluate a FuncScript snippet with `art` bound to the loaded package (useful for dumping alternate compositions without changing the package root).
+
+## Sharing
+
+`funcdraw-share` uploads a zip snapshot of your package (plus a browser bootstrap payload) to a FuncDraw share server and prints a playable link.
+
+```bash
+FUNCDRAW_SHARE_SERVER=http://localhost:8787 npm run share
+```
+
+Restrict access to specific Google account emails:
+
+```bash
+npm run share -- --restrict alice@gmail.com,bob@gmail.com
+```
+
+Share a specific expression (with `art` bound to the loaded package):
+
+```bash
+npm run share -- --exp "art.ui.badge"
+```
 
 ## Time (`t`) & animation
 

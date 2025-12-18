@@ -5,6 +5,7 @@
   "description": "Sample FuncDraw composition that consumes @funcdraw/testlib.",
   "scripts": {
     "play": "funcdraw-play",
+    "share": "funcdraw-share",
     "nplay": "dotnet run --project ../../FuncDraw.Net/FuncDraw.Net -- --root ."
   },
   "dependencies": {

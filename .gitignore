@@ -24,6 +24,8 @@ Thumbs.db
 fd-player/.npm-cache
 artifacts
 .vercel
+share-server/.venv
+share-server/data
 FuncDraw.Net/bin/Debug
 FuncDraw.Net/obj
 FuncDraw.Net.Tests/obj/Debug

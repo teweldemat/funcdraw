@@ -843,17 +843,121 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       animationState.speed = next;
     });
 
-    animationControls.scrub.addEventListener('input', () => {
+    function parseTimeInput(value) {
+      if (typeof value !== 'string') {
+        return Number(value);
+      }
+      const raw = value.trim();
+      if (raw.length === 0) {
+        return NaN;
+      }
+      const direct = Number(raw);
+      if (Number.isFinite(direct)) {
+        return direct;
+      }
+      if (!raw.includes(':')) {
+        return NaN;
+      }
+      const parts = raw.split(':').map((part) => part.trim());
+      if (parts.length < 2 || parts.length > 3) {
+        return NaN;
+      }
+      const numbers = parts.map((part) => Number(part));
+      if (numbers.some((num) => !Number.isFinite(num))) {
+        return NaN;
+      }
+      if (numbers.length === 2) {
+        const [minutes, seconds] = numbers;
+        return minutes * 60 + seconds;
+      }
+      const [hours, minutes, seconds] = numbers;
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    function setTimelineTime(next, reason, { clampToMax } = {}) {
       if (!animationState.enabled) {
         return;
       }
       stopAnimation();
-      const next = Number(animationControls.scrub.value);
-      if (Number.isFinite(next)) {
-        animationState.time = Math.max(0, next);
-        updateAnimationUi();
-        scheduleTimelineEvaluation('timeline-scrub');
+      const parsed = Number(next);
+      if (!Number.isFinite(parsed)) {
+        return;
       }
+      const min = 0;
+      const rawMax = Number(animationControls.scrub.max);
+      const max = Number.isFinite(rawMax) ? rawMax : animationState.scrubMax;
+      const resolved =
+        clampToMax === false
+          ? Math.max(min, parsed)
+          : Math.min(max, Math.max(min, parsed));
+      animationState.time = resolved;
+      updateAnimationUi();
+      scheduleTimelineEvaluation(reason);
+    }
+
+    function seekScrubAtPointerEvent(event) {
+      if (!animationState.enabled) {
+        return;
+      }
+      if (!event || typeof event.clientX !== 'number') {
+        return;
+      }
+      if (event.button != null && event.button !== 0) {
+        return;
+      }
+      const rect = animationControls.scrub.getBoundingClientRect();
+      if (!rect.width) {
+        return;
+      }
+      const min = Number(animationControls.scrub.min) || 0;
+      const max = Number(animationControls.scrub.max) || animationState.scrubMax;
+      const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+      let value = min + ratio * (max - min);
+
+      const step = Number(animationControls.scrub.step);
+      if (Number.isFinite(step) && step > 0) {
+        value = Math.round(value / step) * step;
+      }
+
+      animationControls.scrub.value = String(value);
+      setTimelineTime(value, 'timeline-click', { clampToMax: true });
+    }
+
+    animationControls.scrub.addEventListener('input', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      const next = Number(animationControls.scrub.value);
+      setTimelineTime(next, 'timeline-scrub', { clampToMax: true });
+    });
+
+    animationControls.scrub.addEventListener('pointerdown', (event) => {
+      seekScrubAtPointerEvent(event);
+    });
+
+    animationControls.scrub.addEventListener('dblclick', () => {
+      if (!animationState.enabled) {
+        return;
+      }
+      stopAnimation();
+      const max = Number(animationControls.scrub.max) || animationState.scrubMax;
+      const current = Number.isFinite(animationState.time) ? animationState.time : 0;
+      const value = window.prompt('Enter time in seconds (e.g. 12.5 or 1:23):', current.toFixed(2));
+      if (value == null) {
+        return;
+      }
+      const parsed = parseTimeInput(value);
+      if (!Number.isFinite(parsed)) {
+        logWarn('Invalid time value:', value);
+        return;
+      }
+      animationState.time = Math.max(0, parsed);
+      if (animationState.time > max) {
+        // Let updateAnimationUi expand the max as needed.
+        animationState.scrubMax = resolveScrubMax(animationState.time, animationState.scrubMax);
+      }
+      updateAnimationUi();
+      scheduleTimelineEvaluation('timeline-entry');
     });
 
     animationControls.max.addEventListener('change', () => {

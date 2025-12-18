@@ -1,5 +1,4 @@
-{
-  eval [
+[
     {
       name: "moves the left foot toward a world target with lift";
       test: (fn) =>
@@ -118,5 +117,4 @@
         ];
       };
     }
-  ];
-}
+]

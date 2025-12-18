@@ -20,6 +20,7 @@
         else if hit.hitSegment(p, geometry.leftLegAttachment, geometry.rightLegAttachment) then "thighs"
         else null;
     };
-    eval { pickPart; };
+
+    eval pickPart;
   };
 }

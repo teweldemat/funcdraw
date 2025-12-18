@@ -81,8 +81,7 @@
     else [iconTransform, textNode];
 
   stepper: (event) =>
-  {
-    eval if event.type != "pointer" then null else
+    if event.type != "pointer" then null else
     {
       inside: isInside(event.point);
       nextHovered: inside;
@@ -96,7 +95,6 @@
       }
       else null;
     };
-  };
 
   eval
   {

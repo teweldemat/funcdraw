@@ -37,8 +37,7 @@
   };
 
   stepper: (event) =>
-  {
-    eval if event.type != "pointer" then null else
+    if event.type != "pointer" then null else
     {
       inside: isInside(event.point);
       startDrag: event.action == "down" and inside;
@@ -67,7 +66,6 @@
       }
       else null;
     };
-  };
 
   track:
   {

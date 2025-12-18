@@ -44,8 +44,7 @@
   };
 
   stepper: (event) =>
-  {
-    eval if event.type != "pointer" then null else
+    if event.type != "pointer" then null else
     {
       id: event.pointer?.id??0;
       inside: isInside(event.point);
@@ -88,7 +87,6 @@
 
       eval if pointChanged or dragChanged or hoverChanged then { state: nextState; events; } else null;
     };
-  };
 
   visualRadius:
     if dragging then radius * activeScale

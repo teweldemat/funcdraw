@@ -1,5 +1,4 @@
-{
-  eval [
+[
     {
       name: "exposes static character with jointed limbs";
       test: (fn) =>
@@ -88,5 +87,4 @@
         ];
       };
     }
-  ];
-}
+]

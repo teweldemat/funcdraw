@@ -83,7 +83,7 @@
   headCenter: [geometry.neck.to[0] + headOffset[0], geometry.neck.to[1] + headOffset[1]];
 
   hit: mathLib.makeHitTester(cfg.hitRadius);
-  picker: pickerLib.build({ geometry; headCenter; hit; });
+  pickPart: pickerLib.build({ geometry; headCenter; hit; });
 
   selectionInfo: selectionLib.describe(selectedPart, geometry.measurements);
 
@@ -195,7 +195,7 @@
         bendToggleState;
         sameSides;
         geometry;
-        pickPart: picker.pickPart;
+        pickPart;
         primarySlider: uiBuilt.primarySlider;
         secondarySlider: uiBuilt.secondarySlider;
         sameSidesToggle: uiBuilt.sameSidesToggle;

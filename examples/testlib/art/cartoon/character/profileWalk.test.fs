@@ -1,5 +1,4 @@
-{
-  eval [
+[
     {
       name: "moves anchor linearly with progress";
       test: (fn) =>
@@ -92,5 +91,4 @@
         ];
       };
     }
-  ];
-}
+]

@@ -1,5 +1,4 @@
-{
-  eval [
+[
     {
       name: "moves the moving foot toward target y and shifts anchor half";
       test: (fn) =>
@@ -139,5 +138,4 @@
         ];
       };
     }
-  ];
-}
+]

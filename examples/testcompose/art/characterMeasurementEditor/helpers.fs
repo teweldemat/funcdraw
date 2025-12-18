@@ -1,8 +1,5 @@
 {
-  clamp: (x, lo, hi) =>
-  {
-    eval if x < lo then lo else if x > hi then hi else x;
-  };
+  clamp: (x, lo, hi) => if x < lo then lo else if x > hi then hi else x;
 
   dot: (a, b) => a[0] * b[0] + a[1] * b[1];
   dist2: (a, b) => (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]);

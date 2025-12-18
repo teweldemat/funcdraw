@@ -85,8 +85,7 @@
   content: if labelNode == null then [track, knob] else [track, knob, labelNode];
 
   stepper: (event) =>
-  {
-    eval if event.type != "pointer" then null else
+    if event.type != "pointer" then null else
     {
       inside: isInside(event.point);
       nextHovered: inside;
@@ -101,7 +100,6 @@
       }
       else null;
     };
-  };
 
   eval
   {
@@ -109,4 +107,3 @@
     step: stepper;
   };
 }
-

@@ -1,5 +1,4 @@
-{
-  eval [
+[
     {
       name: "moves feet midpoint linearly with progress";
       test: (fn) =>
@@ -172,5 +171,4 @@
         ];
       };
     }
-  ];
-}
+]

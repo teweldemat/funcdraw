@@ -8,6 +8,20 @@
   };
   m: base + merged;
 
+  // Keep hands slightly bent by capping their reach a bit below max extension.
+  capReach01: 0.97;
+  capLimbEnd: (limb, desiredEnd) =>
+  {
+    upper: limb.upper;
+    lower: limb.lower;
+    maxReach: (upper + lower) * capReach01;
+    dx: desiredEnd[0];
+    dy: desiredEnd[1];
+    dist: math.Sqrt(dx * dx + dy * dy);
+    factor: if dist <= 0 then 1 else if dist <= maxReach then 1 else maxReach / dist;
+    eval { end: [dx * factor, dy * factor]; upper; lower; sign: limb.sign; };
+  };
+
   moving: if movingFeet == "left" then m.leftLeg else m.rightLeg;
   stepLift: (moving.upper + moving.lower) * 0.2;
 
@@ -54,20 +68,8 @@
   verticalAmp: stepLift * 0.25;
   handLift: verticalAmp * math.Sin(stepPhase * 2);
 
-  updatedLeftHand:
-  {
-    end: [leftHandX, baseLeftY + handLift];
-    upper: m.leftHand.upper;
-    lower: m.leftHand.lower;
-    sign: m.leftHand.sign;
-  };
-  updatedRightHand:
-  {
-    end: [rightHandX, baseRightY + handLift];
-    upper: m.rightHand.upper;
-    lower: m.rightHand.lower;
-    sign: m.rightHand.sign;
-  };
+  updatedLeftHand: capLimbEnd(m.leftHand, [leftHandX, baseLeftY + handLift]);
+  updatedRightHand: capLimbEnd(m.rightHand, [rightHandX, baseRightY + handLift]);
 
   eval m + {
     anchor: shiftedAnchor;

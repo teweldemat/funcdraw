@@ -11,7 +11,7 @@
   walkwayDx: common.walkwayDx;
 
   toRoadBase: actor.characterMeasurements + actor.frontPose;
-  toRoadEndBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor);
+  toRoadEndBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor));
   toRoadEnd: toRoadEndBase + { anchor: [startAnchor[0] + walkwayDx, toRoadEndBase.anchor[1]]; };
 
   walkProgress:

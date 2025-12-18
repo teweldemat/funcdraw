@@ -11,7 +11,7 @@
   walkwayDx: common.walkwayDx;
 
   toRoadBase: actor.characterMeasurements + actor.frontPose;
-  toRoadEndBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor);
+  toRoadEndBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor));
   toRoadEnd: toRoadEndBase + { anchor: [startAnchor[0] + walkwayDx, toRoadEndBase.anchor[1]]; };
 
   crossingX: common.zebraCrossing.centerX;
@@ -22,7 +22,7 @@
 
   crossDistance: common.roadBottomY - common.sidewalkTopY;
   crossZoomFactor: 0.0008;
-  crossedBack: actor.character.zoomWalk(atCross.anchor, crossBase, crossDistance, stride, 1, crossZoomFactor);
+  crossedBack: actor.crouchProfile(actor.character.zoomWalk(atCross.anchor, crossBase, crossDistance, stride, 1, crossZoomFactor));
   crossed: crossedBack + actor.rightPose;
 
   toStopDistance: common.busStopX - crossed.anchor[0];

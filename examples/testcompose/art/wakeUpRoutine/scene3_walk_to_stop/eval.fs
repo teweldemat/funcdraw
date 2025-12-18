@@ -14,7 +14,7 @@
   toRoadBase: actor.characterMeasurements + actor.frontPose;
   toRoadProfileBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, walkDownProgress, zoomFactor);
   toRoadProfile: toRoadProfileBase + { anchor: [startAnchor[0], toRoadProfileBase.anchor[1]]; };
-  toRoadEndBase: actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor);
+  toRoadEndBase: actor.crouchProfile(actor.character.zoomWalk(startAnchor, toRoadBase, toRoadDistance, stride, 1, zoomFactor));
   toRoadEnd: toRoadEndBase + { anchor: [startAnchor[0] + walkwayDx, toRoadEndBase.anchor[1]]; };
 
   turnT: localT - common.walkToRoadDuration;

@@ -2,6 +2,14 @@
 
 const { loadGraphics } = require('./load-graphics');
 
+function loadDefaultEngine() {
+  if (typeof require !== 'function') {
+    throw new Error('FuncDraw requires an engine; provide options.engine in browser mode');
+  }
+  const moduleName = ['@tewelde', 'funcscript'].join('/');
+  return require(moduleName);
+}
+
 function mergeOptions(baseOptions = {}, overrideOptions = {}) {
   if (!overrideOptions || typeof overrideOptions !== 'object') {
     return { ...baseOptions };
@@ -34,11 +42,18 @@ class FuncDrawExpression {
   constructor(resolver, options = {}) {
     this.resolver = resolver;
     this.options = options;
+    this._packageEvaluator = null;
+    this._packageEngine = null;
   }
 
   evaluate(overrides = {}) {
     const merged = mergeOptions(this.options, overrides);
-    return loadGraphics(this.resolver, merged);
+    const engine = merged.engine || loadDefaultEngine();
+    if (!this._packageEvaluator || this._packageEngine !== engine) {
+      this._packageEvaluator = engine.loadPackage(this.resolver);
+      this._packageEngine = engine;
+    }
+    return loadGraphics(this._packageEvaluator, { ...merged, engine });
   }
 }
 

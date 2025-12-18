@@ -59,9 +59,12 @@ function createFdValue(engine, context) {
   return engine.normalize(collection);
 }
 
-function loadGraphics(resolver, options = {}) {
+function loadGraphics(resolverOrEvaluator, options = {}) {
   const engine = options.engine || loadDefaultEngine();
-  ensureResolver(resolver);
+  const packageEvaluator =
+    typeof resolverOrEvaluator === 'function'
+      ? resolverOrEvaluator
+      : (ensureResolver(resolverOrEvaluator), engine.loadPackage(resolverOrEvaluator));
   const outputs = resolveOutputs(options.output);
   const fontInput = options.font || (options.fd ? options.fd.font : null);
   const font = loadFont(fontInput);
@@ -82,7 +85,7 @@ function loadGraphics(resolver, options = {}) {
   const provider = providerFactory();
   const traceHook = traceCollector ? traceCollector.hook : null;
   const traceEntryHook = traceCollector ? traceCollector.entryHook : null;
-  const typedRoot = engine.loadPackage(resolver, provider, traceHook, traceEntryHook);
+  const typedRoot = packageEvaluator(provider, traceHook, traceEntryHook);
   const interpretation = interpretGraphics({
     typedRoot: evaluateStatefulRoot({
       engine,

@@ -1,0 +1,94 @@
+(rearWheelCenterParam, wheelRadiusParam, wheelTurnAngleParam, frameColorParam, frameAccentColorParam) =>
+{
+  rearWheelCenter: rearWheelCenterParam ?? [0, 0];
+  baseWheelRadius: 9;
+  wheelRadius: wheelRadiusParam ?? baseWheelRadius;
+  scaleFactor: wheelRadius / baseWheelRadius;
+  wheelTurnAngle: wheelTurnAngleParam ?? 0;
+
+  innerRadius: 1 * scaleFactor;
+  wheelToWheel: 25 * scaleFactor;
+  gearRadius: 2 * scaleFactor;
+  gearTeeth: 12;
+  gearRatio: 0.6;
+  pedalOrbitRadius: gearRadius * 2.5 - 0.3;
+
+  wheelAngle: wheelTurnAngle;
+  pedalAngle: wheelAngle * gearRatio;
+
+  leftWheelCenter: rearWheelCenter;
+  rightWheelCenter: [rearWheelCenter[0] + wheelToWheel, rearWheelCenter[1]];
+  frontGearCenter: [rearWheelCenter[0] + wheelToWheel / 2, rearWheelCenter[1]];
+
+  frameHeight: wheelRadius * 1.6;
+  frameColor: frameColorParam ?? "#9ca3af";
+  frameAccentColor: frameAccentColorParam ?? "#6b7280";
+
+  leftWheel: machine.parts.wheel(leftWheelCenter, wheelRadius, innerRadius, wheelAngle);
+  rightWheel: machine.parts.wheel(rightWheelCenter, wheelRadius, innerRadius, wheelAngle);
+
+  drivetrain: drive(frontGearCenter, leftWheelCenter, gearRadius, gearTeeth, gearRatio, pedalAngle);
+
+  frameResult: frame(leftWheelCenter, rightWheelCenter, frontGearCenter, frameHeight, frameColor, frameAccentColor);
+
+  // Layers for rider/vehicle occlusion: far pedal behind legs, frame between legs, near pedal in front.
+  pedalFarGraphic: drivetrain.pedal1;
+  pedalNearGraphic: drivetrain.pedal2;
+  pedalFarCenter: drivetrain.pedal1Center;
+  pedalNearCenter: drivetrain.pedal2Center;
+
+  graphics:
+  [
+    pedalFarGraphic,
+    leftWheel,
+    rightWheel,
+    drivetrain.gear2,
+    drivetrain.gear1,
+    drivetrain.chain1,
+    drivetrain.chain2,
+    frameResult.graphics,
+    pedalNearGraphic
+  ];
+
+  eval
+  {
+    graphics;
+    pedalAngle;
+    wheelAngle;
+    leftWheelCenter;
+    rightWheelCenter;
+    frontGearCenter;
+    frameHeight;
+    wheelRadius;
+    wheelBase: wheelToWheel;
+    pedalOrbitRadius;
+    layers:
+    {
+      back: [pedalFarGraphic];
+      between:
+      [
+        leftWheel,
+        rightWheel,
+        drivetrain.gear2,
+        drivetrain.gear1,
+        drivetrain.chain1,
+        drivetrain.chain2,
+        frameResult.graphics
+      ];
+      front: [pedalNearGraphic];
+    };
+    attachments:
+    {
+      seat: frameResult.seat;
+      handlebar: frameResult.handlebar;
+      // `near`/`far` follow draw order: the near pedal is drawn last.
+      pedals:
+      {
+        a: drivetrain.pedal1Center;
+        b: drivetrain.pedal2Center;
+        far: pedalFarCenter;
+        near: pedalNearCenter;
+      };
+    };
+  };
+}

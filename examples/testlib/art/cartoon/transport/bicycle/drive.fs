@@ -10,8 +10,8 @@
   rearTeethRaw: frontTeeth * ratio;
   rearTeeth: math.Max(3, math.Floor(rearTeethRaw));
 
-  gear1: machine.parts.gear(frontCenter, frontRadius, frontTeeth, pedalAngle);
-  gear2: machine.parts.gear(rearCenter, frontRadius * ratio, rearTeeth, pedalAngle / ratio);
+  gear1: cartoon.machine.parts.gear(frontCenter, frontRadius, frontTeeth, pedalAngle);
+  gear2: cartoon.machine.parts.gear(rearCenter, frontRadius * ratio, rearTeeth, pedalAngle / ratio);
 
   chain1:
     chain(

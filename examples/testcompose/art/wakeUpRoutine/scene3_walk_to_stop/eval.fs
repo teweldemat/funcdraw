@@ -17,6 +17,7 @@
   eval if stage == "toRoad" then
   {
     transport: package("@funcdraw/testlib").cartoon.transport;
+    city: package("@funcdraw/testlib").cartoon.city;
 
     layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
     startAnchor: actor.doorCharacterAnchor(layout);
@@ -32,7 +33,7 @@
 
     viewCenterX: current.anchor[0];
     view: common.resolveViewAt(viewCenterX);
-    stopSign: transport.busStopSign(common.busStopSign);
+    stopSign: city.busStopSign(common.busStopSign);
     characterGraphic: actor.character.static(current.anchor, current, actor.charPalette,actor.skin);
     houseGraphics:
       common.house.types.cottage(
@@ -48,6 +49,7 @@
   else if stage == "turn" then
   {
     transport: package("@funcdraw/testlib").cartoon.transport;
+    city: package("@funcdraw/testlib").cartoon.city;
 
     layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
     startAnchor: actor.doorCharacterAnchor(layout);
@@ -73,7 +75,7 @@
 
     viewCenterX: current.anchor[0];
     view: common.resolveViewAt(viewCenterX);
-    stopSign: transport.busStopSign(common.busStopSign);
+    stopSign: city.busStopSign(common.busStopSign);
     characterGraphic: actor.character.static(current.anchor, current, actor.charPalette,actor.skin);
     houseGraphics:
       common.house.types.cottage(

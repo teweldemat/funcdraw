@@ -1,6 +1,7 @@
 {
   character: package("@funcdraw/testlib").cartoon.character;
-  bicycle: package("@funcdraw/testlib").cartoon.bicycle;
+  transport: package("@funcdraw/testlib").cartoon.transport;
+  bicycle: transport.bicycle;
 
   // Rider measurements (side-view pose).
   defaults: character.skeleton.defaults;

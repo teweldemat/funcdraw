@@ -25,10 +25,7 @@
     };
 
   eval
-  [
-    lines,
-    { type: "circle"; center; radius: outerRadius; stroke: "#334155"; width: 1; fill: "none"; },
-    { type: "circle"; center; radius: innerRadius; stroke: "#38bdf8"; width: 1; fill: "none"; }
-  ];
+    lines
+    + [{ type: "circle"; center; radius: outerRadius; stroke: "#334155"; width: 1; fill: "none"; }]
+    + [{ type: "circle"; center; radius: innerRadius; stroke: "#38bdf8"; width: 1; fill: "none"; }];
 }
-

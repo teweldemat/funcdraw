@@ -1,6 +1,7 @@
 (localT) =>
 {
   transport: package("@funcdraw/testlib").cartoon.transport;
+  city: package("@funcdraw/testlib").cartoon.city;
 
   layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
   startAnchor: actor.doorCharacterAnchor(layout);
@@ -37,7 +38,7 @@
       rightHand: straighten(stopped.rightHand);
     };
 
-  stopSignFront: transport.busStopSign(common.busStopSign);
+  stopSignFront: city.busStopSign(common.busStopSign);
   stopSign:
     stopSignFront map (g) =>
       if g.name == "bus-stop-label" then g + { opacity: 0; }

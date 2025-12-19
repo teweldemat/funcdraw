@@ -1,14 +1,17 @@
 (localT) =>
 {
   transport: package("@funcdraw/testlib").cartoon.transport;
+  city: package("@funcdraw/testlib").cartoon.city;
   landscape: package("@funcdraw/testlib").cartoon.landscape;
   house: package("@funcdraw/testlib").cartoon.house;
-  bicycle: package("@funcdraw/testlib").cartoon.bicycle;
+  bicycle: transport.bicycle;
   character: package("@funcdraw/testlib").cartoon.character;
 
   s: scene6Segments;
 
   clamp01: (p) => if p < 0 then 0 else if p > 1 then 1 else p;
+  lerp: (a, b, p) => a + (b - a) * p;
+  lerpVec: (a, b, p) => [lerp(a[0], b[0], p), lerp(a[1], b[1], p)];
 
   stopCenterX: 360;
 
@@ -32,17 +35,61 @@
   rideProgress: clamp01(rideT / s.rideDuration);
   rideDistance: 220;
   bikeRearX0: stopCenterX - 70;
-  bikeRearX: bikeRearX0 - rideDistance * rideProgress;
   viewCenterX:
     if rideT < 0 then stopCenterX
-    else bikeRearX - 40;
+    else bikeRearCenterRide[0] - 40;
   view: common.resolveViewAt(viewCenterX);
+  cameraDeltaX: viewCenterX - stopCenterX;
+
+  translateGraphicX: (dx, g) =>
+    if g.type == "rect" then g + { position: [g.position[0] + dx, g.position[1]]; }
+    else if g.type == "circle" then g + { center: [g.center[0] + dx, g.center[1]]; }
+    else if g.type == "line" then g + { from: [g.from[0] + dx, g.from[1]]; to: [g.to[0] + dx, g.to[1]]; }
+    else if g.type == "polygon" then g + { points: g.points map (p) => [p[0] + dx, p[1]]; }
+    else if g.type == "text" then g + { position: [g.position[0] + dx, g.position[1]]; }
+    else g;
+
+  rotatePointAroundCS: (pivot, c, s, p) =>
+  {
+    dx: p[0] - pivot[0];
+    dy: p[1] - pivot[1];
+    eval [pivot[0] + dx * c - dy * s, pivot[1] + dx * s + dy * c];
+  };
+
+  rotateGraphicAroundCS: (pivot, c, s, g) =>
+    if g.type == "circle" then g + { center: rotatePointAroundCS(pivot, c, s, g.center); }
+    else if g.type == "line" then g + { from: rotatePointAroundCS(pivot, c, s, g.from); to: rotatePointAroundCS(pivot, c, s, g.to); }
+    else if g.type == "polygon" then g + { points: g.points map (p) => rotatePointAroundCS(pivot, c, s, p); }
+    else if g.type == "rect" then
+      g
+      + {
+        type: "polygon";
+        points:
+          [
+            rotatePointAroundCS(pivot, c, s, g.position),
+            rotatePointAroundCS(pivot, c, s, [g.position[0] + g.size[0], g.position[1]]),
+            rotatePointAroundCS(pivot, c, s, [g.position[0] + g.size[0], g.position[1] + g.size[1]]),
+            rotatePointAroundCS(pivot, c, s, [g.position[0], g.position[1] + g.size[1]]),
+          ];
+      }
+    else if g.type == "text" then g + { position: rotatePointAroundCS(pivot, c, s, g.position); }
+    else g;
+
+  rotateLayerAroundCS: (pivot, c, s, layer) => layer map (g) => rotateGraphicAroundCS(pivot, c, s, g);
+
+  parallaxLayer: (depth, layer) =>
+  {
+    // depth=0 => fixed in world (foreground), depth=1 => locked to view (infinite background).
+    dx: cameraDeltaX * depth;
+    eval layer map (g) => translateGraphicX(dx, g);
+  };
 
   // More houses + trees at the new location.
   house1:
     house.types.townhouse(
       {
-        anchor: [stopCenterX - 60, common.yardTopY];
+        // Keep the tallest building away from the side road intersection.
+        anchor: [stopCenterX + 110, common.yardTopY];
         width: 52;
         stories: 3;
         doorOpen: 0;
@@ -51,7 +98,7 @@
   house2:
     house.types.cottage(
       {
-        anchor: [stopCenterX + 55, common.yardTopY];
+        anchor: [stopCenterX + 65, common.yardTopY];
         width: 46;
         stories: 2;
         doorOpen: 0;
@@ -60,7 +107,8 @@
   house3:
     house.types.cottage(
       {
-        anchor: [stopCenterX - 165, common.yardTopY];
+        // Keep the smaller house away from the side-road entrance.
+        anchor: [stopCenterX - 235, common.yardTopY];
         width: 44;
         stories: 1;
         doorOpen: 0;
@@ -76,16 +124,153 @@
     + tree(stopCenterX + 95, 30, 3)
     + tree(stopCenterX - 210, 32, 4);
 
+  // Depth/parallax: the bike, bus, and main road are "depth 0".
+  // Background elements drift with parallax by depth.
+  sideRoadHorizonY: -8;
+  depthFromY: (y) => clamp01((y - common.roadTopY) / (sideRoadHorizonY - common.roadTopY));
+  // Houses are placed farther than trees (more drift + drawn behind).
+  treesDepth: depthFromY(common.yardTopY + 1);
+  housesDepth: depthFromY(common.yardTopY + 7);
+
+  treesLayer: parallaxLayer(treesDepth, trees);
+  housesLayer:
+    parallaxLayer(housesDepth, house1)
+    + parallaxLayer(housesDepth, house2)
+    + parallaxLayer(housesDepth, house3);
+
+  sideRoadTurnX: stopCenterX - 200;
+  // Used for the bike's fixed (depth=0) ride path.
+  sideRoadBikeVanishX0: sideRoadTurnX - 90;
+  // Used for the road graphic: when the view is centered on `sideRoadTurnX`, the road becomes vertical.
+  // This is achieved by keeping the vanishing point at the screen center (world x = `viewCenterX`).
+  sideRoadRenderVanishX0: stopCenterX;
+
+  // A side road branching toward the horizon with rough perspective.
+  // Base stays attached to the main road (depth 0), while the far end drifts
+  // with background parallax so it aligns with houses/trees.
+  sideRoad:
+  {
+    turnX: sideRoadTurnX;
+    baseY: common.roadTopY;
+    roadH: common.roadTopY - common.roadBottomY;
+    baseW: roadH * 0.95;
+    horizonY: sideRoadHorizonY;
+    topW: baseW * 0.16;
+    // Far end is shifted by the same parallax depth as houses/trees.
+    vanishX0: sideRoadRenderVanishX0;
+    vanishDepth: depthFromY(horizonY);
+    vanishX: vanishX0 + cameraDeltaX * vanishDepth;
+
+    patch:
+    {
+      type: "polygon";
+      name: "side-road-intersection";
+      // Extend the side-road edges down into the main road with the same perspective.
+      points:
+      {
+        bottomY: common.roadBottomY;
+        // p is negative (extrapolation) since bottomY is closer than baseY.
+        p: (bottomY - baseY) / (horizonY - baseY);
+        leftTop: [turnX - baseW / 2, baseY];
+        rightTop: [turnX + baseW / 2, baseY];
+        leftBottom: [leftTop[0] + (vanishX - leftTop[0]) * p, bottomY];
+        rightBottom: [rightTop[0] + (vanishX - rightTop[0]) * p, bottomY];
+        eval [leftBottom, rightBottom, rightTop, leftTop];
+      };
+      fill: "#475569";
+      stroke: "none";
+      width: 0;
+    };
+
+    roadPoly:
+    {
+      type: "polygon";
+      name: "side-road";
+      points:
+      [
+        [turnX - baseW / 2, baseY],
+        [turnX + baseW / 2, baseY],
+        [vanishX + topW / 2, horizonY],
+        [vanishX - topW / 2, horizonY],
+      ];
+      fill: "#475569";
+      stroke: "#0f172a";
+      width: 0.25;
+    };
+
+    dxWorld: vanishX0 - turnX;
+    dy: horizonY - baseY;
+    dx: vanishX - turnX;
+    len: math.Sqrt(dx * dx + dy * dy);
+    dir: if len <= 0 then [0, 1] else [dx / len, dy / len];
+    lerp: (a, b, p) => a + (b - a) * p;
+    dashCount: 9;
+    dashes:
+      Range(0, dashCount) map (k, idx) =>
+      {
+        p: (k + 0.6) / (dashCount + 1);
+        // Interpolate parallax along the road: no drift at the base, full drift at the horizon.
+        y: baseY + dy * p;
+        driftX: cameraDeltaX * depthFromY(y);
+        center: [turnX + dxWorld * p + driftX, y];
+        dashLen: lerp(3.2, 0.55, p);
+        from: [center[0] - dir[0] * dashLen / 2, center[1] - dir[1] * dashLen / 2];
+        to: [center[0] + dir[0] * dashLen / 2, center[1] + dir[1] * dashLen / 2];
+        eval { type: "line"; name: "side-road-dash"; from; to; stroke: fd.color.alpha("#e2e8f0", 0.75); width: lerp(1.05, 0.2, p); };
+      };
+
+    eval
+      if turnX < view.left - 40 or turnX > view.right + 40 then []
+      else [patch, roadPoly] + dashes;
+  };
+
+  // Add a subtle perspective shear to the zebra crossing so it responds to view changes.
+  roadDepth01: (y) => clamp01((y - common.roadBottomY) / (common.roadTopY - common.roadBottomY));
+  zebraCenterX: common.zebraCrossing.centerX;
+  zebraDeltaX: viewCenterX - zebraCenterX;
+  zebraPerspectiveStrength: 0.35;
+
+  warpZebraStripe:
+    (g) =>
+      if g.type != "rect" then g
+      else
+      {
+        x0: g.position[0];
+        y0: g.position[1];
+        x1: g.position[0] + g.size[0];
+        y1: g.position[1] + g.size[1];
+
+        warpX: (x, y) => x + zebraDeltaX * roadDepth01(y) * zebraPerspectiveStrength;
+        eval
+          g
+          + {
+            type: "polygon";
+            points:
+              [
+                [warpX(x0, y0), y0],
+                [warpX(x1, y0), y0],
+                [warpX(x1, y1), y1],
+                [warpX(x0, y1), y1],
+              ];
+          };
+      };
+
+  backdrop0: backdrop(view, 1, t);
+  zebraStripes: backdrop0 filter (g) => g.name == "zebra";
+  backdropNoZebra: backdrop0 filter (g) => g.name != "zebra";
+  zebraLayer: zebraStripes map warpZebraStripe;
+
   envLayer:
-    backdrop(view, 1, t)
-    + trees
-    + house1
-    + house2
-    + house3;
+    // Draw farther houses behind nearer trees.
+    backdropNoZebra
+    + zebraLayer
+    + sideRoad
+    + housesLayer
+    + treesLayer;
 
   // Bus stop sign (new location).
   stopSignCfg: common.busStopSign + { base: [stopCenterX + 80, common.roadBottomY]; };
-  stopSign: transport.busStopSign(stopSignCfg);
+  stopSign: city.busStopSign(stopSignCfg);
 
   // Bus motion + door.
   arriveProgress: common.ease01(clamp01(arriveT / s.arriveDuration));
@@ -209,16 +394,54 @@
   mountProgress: common.ease01(clamp01(mountT / s.mountDuration));
 
   bikeRideAngle: rideDistance * rideProgress / bikeWheelRadius;
-  bikeRideRearCenter: [bikeRearX, common.roadBottomY + bikeWheelRadius];
-  bikeMoving: bicycle(bikeRideRearCenter, bikeWheelRadius, bikeRideAngle, "#9ca3af", "#6b7280", "left");
+  bikeRideY: common.roadBottomY + bikeWheelRadius;
+  bikeRearX: bikeRearX0 - rideDistance * rideProgress;
+  bikeMainRearCenter: [bikeRearX, bikeRideY];
+
+  preTurnDistance: bikeRearX0 - sideRoadTurnX;
+  turnMid: clamp01(preTurnDistance / rideDistance);
+  turnWindow: 0.18;
+  turnStart: turnMid - turnWindow / 2;
+  turnBlend: common.ease01(clamp01((rideProgress - turnStart) / turnWindow));
+
+  sideDxWorld: sideRoadBikeVanishX0 - sideRoadTurnX;
+  sideDyWorld: sideRoadHorizonY - common.roadTopY;
+  sideLen0: math.Sqrt(sideDxWorld * sideDxWorld + sideDyWorld * sideDyWorld);
+  sideDir0: if sideLen0 <= 0 then [-1, 0] else [sideDxWorld / sideLen0, sideDyWorld / sideLen0];
+
+  sideProgress: clamp01((rideProgress - turnStart) / (1 - turnStart));
+  // Don't ride all the way to the horizon (it would "float" into the sky in this 2D setup).
+  sidePMax: 0.55;
+  sideP: sidePMax * sideProgress;
+
+  // Bike is depth=0, so its world path does not include parallax drift.
+  sideSurfaceY: common.roadTopY + sideDyWorld * sideP;
+  bikeSideRearCenter: [sideRoadTurnX + sideDxWorld * sideP, sideSurfaceY + bikeWheelRadius];
+
+  bikeRearCenterRide: lerpVec(bikeMainRearCenter, bikeSideRearCenter, turnBlend);
+  // Align rotation with the side road's current screen direction (includes parallax drift),
+  // while keeping the bike path itself at depth=0.
+  sidePAhead: if sideP + 0.01 > sidePMax then sidePMax else sideP + 0.01;
+  sideSurfaceY2: common.roadTopY + sideDyWorld * sidePAhead;
+  sideDriftX2: cameraDeltaX * depthFromY(sideSurfaceY2);
+  sideDriftX1: cameraDeltaX * depthFromY(sideSurfaceY);
+  sideCenterX1: sideRoadTurnX + sideDxWorld * sideP + sideDriftX1;
+  sideCenterX2: sideRoadTurnX + sideDxWorld * sidePAhead + sideDriftX2;
+  sideDxNow: sideCenterX2 - sideCenterX1;
+  sideDyNow: sideSurfaceY2 - sideSurfaceY;
+  sideLenNow: math.Sqrt(sideDxNow * sideDxNow + sideDyNow * sideDyNow);
+  sideDir: if sideLenNow <= 0 then sideDir0 else [sideDxNow / sideLenNow, sideDyNow / sideLenNow];
+  cTarget: -sideDir[0];
+  sTarget: -sideDir[1];
+  cRaw: lerp(1, cTarget, turnBlend);
+  sRaw: lerp(0, sTarget, turnBlend);
+  csLen: math.Sqrt(cRaw * cRaw + sRaw * sRaw);
+  cTurn: if csLen <= 0 then 1 else cRaw / csLen;
+  sTurn: if csLen <= 0 then 0 else sRaw / csLen;
+
+  bikeMoving: bicycle(bikeRearCenterRide, bikeWheelRadius, bikeRideAngle, "#9ca3af", "#6b7280", "left");
 
   // Rider pose attached to pedals + handlebar.
-  dist: (a, b) =>
-  {
-    dx: b[0] - a[0];
-    dy: b[1] - a[1];
-    eval math.Sqrt(dx * dx + dy * dy);
-  };
   bendSignTo: (origin, target, desiredDir) =>
   {
     dx: target[0] - origin[0];
@@ -253,8 +476,6 @@
       + {
         bodyAngle;
         neckAngle;
-        shoulderWidth: actor.characterMeasurements.shoulderWidth * 1.15;
-        thighWidth: actor.characterMeasurements.thighWidth * 1.1;
       };
 
     baseGeometry: character.skeleton.build(anchor, baseMeasurements);
@@ -281,39 +502,21 @@
     leftElbowSign: bendSignTo(baseGeometry.leftHandAttachment, barA, elbowBendDir);
     rightElbowSign: bendSignTo(baseGeometry.rightHandAttachment, barB, elbowBendDir);
 
-    legSlackMul: 1.05;
-    armSlackMul: 1.03;
-    legMaxDist:
-      math.Max(
-        dist(baseGeometry.leftLegAttachment, bikeForRide.frontGearCenter) + bikeForRide.pedalOrbitRadius,
-        dist(baseGeometry.rightLegAttachment, bikeForRide.frontGearCenter) + bikeForRide.pedalOrbitRadius
-      ) * legSlackMul;
-    armMaxDist:
-      math.Max(
-        dist(baseGeometry.leftHandAttachment, barA),
-        dist(baseGeometry.rightHandAttachment, barB)
-      ) * armSlackMul;
-
-    legUpper: legMaxDist / 2;
-    legLower: legMaxDist / 2;
-    armUpper: armMaxDist / 2;
-    armLower: armMaxDist / 2;
-
     riderMeasurements:
       baseMeasurements
       + {
         leftLeg:
           baseMeasurements.leftLeg
-          + { upper: legUpper; lower: legLower; end: leftLegEnd; sign: leftKneeSign; };
+          + { end: leftLegEnd; sign: leftKneeSign; };
         rightLeg:
           baseMeasurements.rightLeg
-          + { upper: legUpper; lower: legLower; end: rightLegEnd; sign: rightKneeSign; };
+          + { end: rightLegEnd; sign: rightKneeSign; };
         leftHand:
           baseMeasurements.leftHand
-          + { upper: armUpper; lower: armLower; end: leftHandEnd; sign: leftElbowSign; };
+          + { end: leftHandEnd; sign: leftElbowSign; };
         rightHand:
           baseMeasurements.rightHand
-          + { upper: armUpper; lower: armLower; end: rightHandEnd; sign: rightElbowSign; };
+          + { end: rightHandEnd; sign: rightElbowSign; };
       };
 
     selectedSkin:
@@ -342,7 +545,7 @@
 
   riderRideShown:
     if rideT < 0 then []
-    else makeRider(bikeMoving, true);
+    else rotateLayerAroundCS(bikeRearCenterRide, cTurn, sTurn, makeRider(bikeMoving, true));
 
   // Keep the bike visible during mount; swap to the moving bike once riding starts.
   bikeOnGround:

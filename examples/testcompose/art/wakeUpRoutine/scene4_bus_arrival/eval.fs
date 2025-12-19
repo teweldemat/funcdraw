@@ -1,6 +1,7 @@
 (localT) =>
 {
   transport: package("@funcdraw/testlib").cartoon.transport;
+  city: package("@funcdraw/testlib").cartoon.city;
 
   layout: common.houseLayout(common.houseAnchor, common.houseWidth, common.houseStories);
   startAnchor: actor.doorCharacterAnchor(layout);
@@ -44,7 +45,7 @@
   viewCenterX: standing.anchor[0] + common.followLookAhead;
   view: common.resolveViewAt(viewCenterX);
 
-  stopSign: transport.busStopSign(common.busStopSign);
+  stopSign: city.busStopSign(common.busStopSign);
 
   arriveT: localT - common.waitForBusDuration;
   arriveProgress:

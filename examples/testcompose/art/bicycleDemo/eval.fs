@@ -1,5 +1,6 @@
 {
-  bicycle: package("@funcdraw/testlib").cartoon.bicycle;
+  transport: package("@funcdraw/testlib").cartoon.transport;
+  bicycle: transport.bicycle;
 
   wheelAngle: t * 3.0;
   rearCenter: [-20, 0];
@@ -15,4 +16,3 @@
 
   eval { view; graphics: bike.graphics; };
 }
-

@@ -26,31 +26,33 @@
   frameColor: frameColorParam ?? "#9ca3af";
   frameAccentColor: frameAccentColorParam ?? "#6b7280";
 
-  leftWheel: machine.parts.wheel(leftWheelCenter, wheelRadius, innerRadius, wheelAngle);
-  rightWheel: machine.parts.wheel(rightWheelCenter, wheelRadius, innerRadius, wheelAngle);
+  leftWheel: cartoon.machine.parts.wheel(leftWheelCenter, wheelRadius, innerRadius, wheelAngle);
+  rightWheel: cartoon.machine.parts.wheel(rightWheelCenter, wheelRadius, innerRadius, wheelAngle);
 
   drivetrain: drive(frontGearCenter, leftWheelCenter, gearRadius, gearTeeth, gearRatio, pedalAngle);
 
   frameResult: frame(leftWheelCenter, rightWheelCenter, frontGearCenter, frameHeight, frameColor, frameAccentColor);
 
   // Layers for rider/vehicle occlusion: far pedal behind legs, frame between legs, near pedal in front.
-  pedalFarGraphic: drivetrain.pedal1;
-  pedalNearGraphic: drivetrain.pedal2;
+  // NOTE: `pedal1`/`pedal2` are already graphics lists, so keep them flat (no nested lists).
+  pedalFarGraphics: drivetrain.pedal1;
+  pedalNearGraphics: drivetrain.pedal2;
   pedalFarCenter: drivetrain.pedal1Center;
   pedalNearCenter: drivetrain.pedal2Center;
 
+  betweenGraphics:
+    leftWheel
+    + rightWheel
+    + drivetrain.gear2
+    + drivetrain.gear1
+    + drivetrain.chain1
+    + drivetrain.chain2
+    + frameResult.graphics;
+
   graphics:
-  [
-    pedalFarGraphic,
-    leftWheel,
-    rightWheel,
-    drivetrain.gear2,
-    drivetrain.gear1,
-    drivetrain.chain1,
-    drivetrain.chain2,
-    frameResult.graphics,
-    pedalNearGraphic
-  ];
+    pedalFarGraphics
+    + betweenGraphics
+    + pedalNearGraphics;
 
   eval
   {
@@ -68,21 +70,12 @@
     wheelRadius;
     wheelBase: wheelToWheel;
     pedalOrbitRadius;
-    layers:
-    {
-      back: [pedalFarGraphic];
-      between:
-      [
-        leftWheel,
-        rightWheel,
-        drivetrain.gear2,
-        drivetrain.gear1,
-        drivetrain.chain1,
-        drivetrain.chain2,
-        frameResult.graphics
-      ];
-      front: [pedalNearGraphic];
-    };
+	  layers:
+	    {
+	      back: pedalFarGraphics;
+	      between: betweenGraphics;
+	      front: pedalNearGraphics;
+	    };
     attachments:
     {
       seat: frameResult.seat;

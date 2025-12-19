@@ -16,7 +16,7 @@ const { buildBootstrapPayload } = require('./package-snapshot');
 const DEFAULT_SERVER = 'https://funcdraw.com';
 
 async function sharePackage(cwd, argvInput, options = {}) {
-  const argv = yargs(hideBin(argvInput || process.argv))
+  const argv = parseArgv(argvInput)
     .option('server', {
       type: 'string',
       describe: 'FuncDraw share server base URL',
@@ -143,7 +143,7 @@ async function sharePackage(cwd, argvInput, options = {}) {
 }
 
 async function login(argvInput) {
-  const argv = yargs(hideBin(argvInput || process.argv))
+  const argv = parseArgv(argvInput)
     .option('server', {
       type: 'string',
       describe: 'FuncDraw share server base URL',
@@ -198,6 +198,13 @@ module.exports = {
   sharePackage,
   login
 };
+
+function parseArgv(argvInput) {
+  if (argvInput) {
+    return yargs(argvInput);
+  }
+  return yargs(hideBin(process.argv));
+}
 
 function normalizeServerBase(value) {
   const raw = typeof value === 'string' ? value.trim() : '';

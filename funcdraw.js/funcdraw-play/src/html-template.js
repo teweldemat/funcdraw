@@ -1,13 +1,19 @@
 'use strict';
 
-function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncDraw Play', embed = false } = {}) {
+function createHtmlTemplate({
+  initialTime = null,
+  baseHref = '/',
+  title = 'FuncDraw Play',
+  embed = false,
+  showDebug = true
+} = {}) {
   const initialTimeLiteral = initialTime === null ? 'null' : String(initialTime);
   let safeBaseHref = typeof baseHref === 'string' && baseHref.trim().length > 0 ? baseHref.trim() : '/';
   if (!safeBaseHref.endsWith('/')) {
     safeBaseHref += '/';
   }
   const safeTitle = typeof title === 'string' && title.trim().length > 0 ? title.trim() : 'FuncDraw Play';
-  const bodyClass = embed ? 'fd-embed' : '';
+  const bodyClass = [embed ? 'fd-embed' : '', showDebug ? 'fd-debug' : 'fd-clean'].filter(Boolean).join(' ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -87,20 +93,8 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       width: 160px;
       accent-color: #38bdf8;
     }
-    #fd-time-max {
-      width: 84px;
-      background: rgba(2, 6, 23, 0.55);
-      color: #e2e8f0;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 10px;
-      padding: 4px 8px;
-      font-variant-numeric: tabular-nums;
-      outline: none;
-    }
-    #fd-time-max:focus {
-      border-color: rgba(56, 189, 248, 0.75);
-    }
-    #fd-time-label {
+    #fd-time-current,
+    #fd-time-max-label {
       font-variant-numeric: tabular-nums;
       color: #94a3b8;
       font-weight: 500;
@@ -125,6 +119,11 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
     }
     #fd-warning {
       color: #fbbf24;
+    }
+    body.fd-clean #fd-stats,
+    body.fd-clean #fd-warning,
+    body.fd-clean #fd-frame-time-label {
+      display: none;
     }
     main {
       flex: 1;
@@ -157,8 +156,8 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       <span id="fd-stats">loading…</span>
       <span id="fd-warning"></span>
       <div id="fd-time-controls">
-        <button id="fd-play-toggle">Play</button>
-        <button id="fd-reset-timeline">Reset</button>
+        <button id="fd-play-toggle" title="Play" aria-label="Play">▶</button>
+        <button id="fd-reset-timeline" title="Reset" aria-label="Reset">⏮</button>
         <select id="fd-time-speed" title="Playback speed">
           <option value="2">2×</option>
           <option value="1" selected>1×</option>
@@ -166,12 +165,11 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
           <option value="0.25">1/4×</option>
           <option value="0.125">1/8×</option>
         </select>
+        <span id="fd-time-current">0.00s</span>
         <input id="fd-time-scrub" type="range" min="0" max="10" step="0.01" value="0" />
-        <input id="fd-time-max" type="number" min="0" step="1" value="10" title="Timeline max (seconds)" />
-        <span id="fd-time-label">t=0.00s</span>
+        <span id="fd-time-max-label">10.00s</span>
         <span id="fd-frame-time-label">avg10=—</span>
       </div>
-      <button id="fd-refresh">Refresh</button>
     </div>
   </header>
   <main id="fd-stage">
@@ -186,15 +184,14 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
     const ctx = canvas.getContext('2d');
     const stats = document.getElementById('fd-stats');
     const warningsEl = document.getElementById('fd-warning');
-    const refreshButton = document.getElementById('fd-refresh');
     const animationControls = {
       container: document.getElementById('fd-time-controls'),
       toggle: document.getElementById('fd-play-toggle'),
       reset: document.getElementById('fd-reset-timeline'),
       speed: document.getElementById('fd-time-speed'),
       scrub: document.getElementById('fd-time-scrub'),
-      max: document.getElementById('fd-time-max'),
-      label: document.getElementById('fd-time-label'),
+      currentLabel: document.getElementById('fd-time-current'),
+      maxLabel: document.getElementById('fd-time-max-label'),
       frameTimeLabel: document.getElementById('fd-frame-time-label')
     };
     const animationState = {
@@ -204,6 +201,8 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       pendingInitialTime: INITIAL_TIME,
       speed: 1,
       scrubMax: 10,
+      modelMaxT: null,
+      maxSeenT: INITIAL_TIME === null ? 0 : INITIAL_TIME,
       scrubTimer: null,
       raf: null,
       lastTick: null,
@@ -313,8 +312,12 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
         return payload;
       } catch (error) {
         logError('Scene load failed', error);
-        stats.textContent = error.message;
-        warningsEl.textContent = 'Load error';
+        if (stats) {
+          stats.textContent = error.message;
+        }
+        if (warningsEl) {
+          warningsEl.textContent = 'Load error';
+        }
         stopAnimation();
         return null;
       }
@@ -325,6 +328,7 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
         return;
       }
       syncContextUsageFromPayload(scene);
+      syncMaxTimeFromPayload(scene);
       logDebug('Rendering scene', {
         view: scene.view,
         warnings: Array.isArray(scene.warnings) ? scene.warnings.length : 0,
@@ -337,15 +341,19 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       const raw = scene.raw || {};
       drawNodes(raw.graphics || []);
       const primitiveCount = countPrimitives(raw.graphics || []);
-      stats.textContent =
-        primitiveCount + ' primitives · view ' + viewBox.width + '×' + viewBox.height;
+      if (stats) {
+        stats.textContent =
+          primitiveCount + ' primitives · view ' + viewBox.width + '×' + viewBox.height;
+      }
       const warnings = scene.warnings || [];
-      if (warnings.length > 0) {
-        warningsEl.textContent = warnings.length + ' warning(s)';
-        logWarn('Scene warnings', warnings);
-      } else {
-        warningsEl.textContent = '';
-        logDebug('No warnings reported for scene');
+      if (warningsEl) {
+        if (warnings.length > 0) {
+          warningsEl.textContent = warnings.length + ' warning(s)';
+          logWarn('Scene warnings', warnings);
+        } else {
+          warningsEl.textContent = '';
+          logDebug('No warnings reported for scene');
+        }
       }
     }
 
@@ -799,11 +807,6 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       };
     }
 
-    refreshButton.addEventListener('click', () => {
-      logInfo('Refresh button clicked');
-      runtime = null;
-      loadScene('button');
-    });
     window.addEventListener('keydown', (event) => {
       if (event.key === 'r') {
         logInfo('Keyboard refresh triggered');
@@ -953,28 +956,10 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       }
       animationState.time = Math.max(0, parsed);
       if (animationState.time > max) {
-        // Let updateAnimationUi expand the max as needed.
-        animationState.scrubMax = resolveScrubMax(animationState.time, animationState.scrubMax);
+        animationState.maxSeenT = Math.max(animationState.maxSeenT, animationState.time);
       }
       updateAnimationUi();
       scheduleTimelineEvaluation('timeline-entry');
-    });
-
-    animationControls.max.addEventListener('change', () => {
-      if (!animationState.enabled) {
-        return;
-      }
-      const parsed = Number(animationControls.max.value);
-      if (!Number.isFinite(parsed)) {
-        return;
-      }
-      const nextMax = Math.max(0, parsed);
-      animationState.scrubMax = nextMax;
-      if (animationState.time > nextMax) {
-        animationState.time = nextMax;
-        scheduleTimelineEvaluation('timeline-max-clamp');
-      }
-      updateAnimationUi();
     });
 
     canvas.addEventListener('pointerdown', (event) => {
@@ -1011,20 +996,22 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       sendPointerEvent('rawupdate', event);
     });
 
-    const events = new EventSource('__funcdraw/events');
-    events.addEventListener('reload', () => {
-      logInfo('Reload event received from server');
-      stopAnimation();
-      runtime = null;
-      loadScene('server-reload');
-    });
-    events.addEventListener('open', () => {
-      logInfo('Connected to FuncDraw event stream');
-      loadScene('event-open');
-    });
-    events.addEventListener('error', (event) => {
-      logWarn('Event stream error', event);
-    });
+    if (document.body.classList.contains('fd-debug')) {
+      const events = new EventSource('__funcdraw/events');
+      events.addEventListener('reload', () => {
+        logInfo('Reload event received from server');
+        stopAnimation();
+        runtime = null;
+        loadScene('server-reload');
+      });
+      events.addEventListener('open', () => {
+        logInfo('Connected to FuncDraw event stream');
+        loadScene('event-open');
+      });
+      events.addEventListener('error', (event) => {
+        logWarn('Event stream error', event);
+      });
+    }
 
     window.addEventListener('resize', () => {
       resizeCanvasForView();
@@ -1046,6 +1033,39 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       syncCanvasUsageState(usage);
     }
 
+    function syncMaxTimeFromPayload(scene) {
+      const maxT = resolveMaxT(scene);
+      if (Number.isFinite(maxT)) {
+        animationState.modelMaxT = Math.max(0, maxT);
+      } else {
+        animationState.modelMaxT = null;
+      }
+    }
+
+    function resolveMaxT(scene) {
+      if (!scene) {
+        return null;
+      }
+      const direct = Number(scene.maxT);
+      if (Number.isFinite(direct)) {
+        return direct;
+      }
+      const rawMax = Number(scene.raw && scene.raw.maxT);
+      if (Number.isFinite(rawMax)) {
+        return rawMax;
+      }
+      const nested = Number(
+        scene.raw &&
+          scene.raw.raw &&
+          scene.raw.raw.scene &&
+          scene.raw.raw.scene.maxT
+      );
+      if (Number.isFinite(nested)) {
+        return nested;
+      }
+      return null;
+    }
+
     function syncAnimationFromContextUsage(usage, scene) {
       const timeUsage = usage.t;
       const usesTime = Boolean(timeUsage && timeUsage.used);
@@ -1062,6 +1082,7 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       animationControls.container.classList.add('active');
       if (scene.timeline && typeof scene.timeline.t === 'number' && Number.isFinite(scene.timeline.t)) {
         animationState.time = Number(scene.timeline.t);
+        animationState.maxSeenT = Math.max(animationState.maxSeenT, animationState.time);
       }
       updateAnimationUi();
     }
@@ -1179,6 +1200,7 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       animationState.lastTick = null;
       if (!preserveTime) {
         animationState.time = 0;
+        animationState.maxSeenT = 0;
       }
       updateAnimationUi();
     }
@@ -1194,6 +1216,7 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
       const delta = Math.max(0, timestamp - animationState.lastTick);
       animationState.lastTick = timestamp;
       animationState.time += (delta / 1000) * (animationState.speed || 1);
+      animationState.maxSeenT = Math.max(animationState.maxSeenT, animationState.time);
       updateAnimationUi();
       const frameStart = performance.now();
       const frameScene = await loadScene('animation', {
@@ -1214,36 +1237,42 @@ function createHtmlTemplate({ initialTime = null, baseHref = '/', title = 'FuncD
     function updateAnimationUi() {
       if (!animationState.enabled) {
         animationControls.container.classList.remove('active');
-        animationControls.frameTimeLabel.textContent = '';
+        if (animationControls.frameTimeLabel) {
+          animationControls.frameTimeLabel.textContent = '';
+        }
         return;
       }
       animationControls.container.classList.add('active');
-      animationControls.toggle.textContent = animationState.playing ? 'Pause' : 'Play';
+      animationControls.toggle.textContent = animationState.playing ? '⏸' : '▶';
+      animationControls.toggle.setAttribute('aria-label', animationState.playing ? 'Pause' : 'Play');
+      animationControls.toggle.setAttribute('title', animationState.playing ? 'Pause' : 'Play');
       animationControls.reset.disabled = animationState.time === 0 && !animationState.playing;
-      animationControls.label.textContent = 't=' + formatTimeDisplay(animationState.time);
-      const max = resolveScrubMax(animationState.time, animationState.scrubMax);
+      if (animationControls.currentLabel) {
+        animationControls.currentLabel.textContent = formatTimeDisplay(animationState.time);
+      }
+      const max = resolveMaxTime(animationState);
       animationState.scrubMax = max;
       if (animationControls.scrub) {
         animationControls.scrub.max = String(max);
         animationControls.scrub.value = String(Math.min(Math.max(0, animationState.time), max));
       }
-      if (animationControls.max) {
-        animationControls.max.value = String(max);
+      if (animationControls.maxLabel) {
+        animationControls.maxLabel.textContent = formatTimeDisplay(max);
       }
       const avgRenderTime = averageRenderFrameTime(animationState.renderFrameTimes);
-      animationControls.frameTimeLabel.textContent =
-        avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
+      if (animationControls.frameTimeLabel) {
+        animationControls.frameTimeLabel.textContent =
+          avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
+      }
     }
 
-    function resolveScrubMax(time, currentMax) {
-      const t = Number(time);
-      const m = Number(currentMax);
-      const base = Number.isFinite(m) && m > 0 ? m : 10;
-      if (!Number.isFinite(t) || t <= base) {
-        return base;
+    function resolveMaxTime(state) {
+      if (Number.isFinite(state.modelMaxT)) {
+        return Math.max(0, state.modelMaxT);
       }
-      const next = Math.ceil(t / 5) * 5;
-      return Math.max(base, next);
+      const seen = Number.isFinite(state.maxSeenT) ? state.maxSeenT : 0;
+      const current = Number.isFinite(state.time) ? state.time : 0;
+      return Math.max(0, seen, current);
     }
 
     function scheduleTimelineEvaluation(reason) {

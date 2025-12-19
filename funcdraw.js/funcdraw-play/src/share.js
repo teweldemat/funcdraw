@@ -68,7 +68,7 @@ async function sharePackage(cwd, argvInput, options = {}) {
       throw new Error('Invalid --name for publishing.');
     }
   }
-  const shouldPublish = Boolean(authToken || publishHandle || publishName);
+  const shouldPublish = Boolean(publishHandle || publishName);
   const toolName = options.toolName || 'funcdraw-share';
 
   const art = createArtResolver(cwd);
@@ -128,9 +128,9 @@ async function sharePackage(cwd, argvInput, options = {}) {
     meta,
     bootstrap,
     restrictList,
-    authToken,
-    publishHandle,
-    publishName
+    authToken: shouldPublish ? authToken : null,
+    publishHandle: shouldPublish ? publishHandle : null,
+    publishName: shouldPublish ? publishName : null
   });
 
   try {

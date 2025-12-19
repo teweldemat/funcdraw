@@ -24,7 +24,7 @@ async function sharePackage(cwd, argvInput, options = {}) {
     })
     .option('name', {
       type: 'string',
-      describe: 'Public name (slug) for publishing: funcdraw.com/<handle>/<name>'
+      describe: 'Public path for publishing: funcdraw.com/play/<handle>/<name>'
     })
     .option('slug', {
       type: 'string',
@@ -63,7 +63,7 @@ async function sharePackage(cwd, argvInput, options = {}) {
   let publishHandle = argv.handle || (authConfig && authConfig.serverBase === serverBase ? authConfig.handle : null);
   let publishName = argv.name || argv.slug || null;
   if (publishName) {
-    publishName = slugifyName(publishName);
+    publishName = normalizePublishPath(publishName);
     if (!publishName) {
       throw new Error('Invalid --name for publishing.');
     }
@@ -290,29 +290,11 @@ function writeAuthConfig(payload) {
   fs.writeFileSync(configPath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
 }
 
-function slugifyName(name) {
-  if (!name) {
-    return null;
-  }
-  const text = String(name).trim().toLowerCase();
-  if (!text) {
-    return null;
-  }
-  const slug = text
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  if (!slug) {
-    return null;
-  }
-  return slug;
-}
-
 async function promptForName(pkg) {
   if (!process.stdin.isTTY) {
     throw new Error('Missing --name for publishing (non-interactive shell)');
   }
-  const suggestion = slugifyName(pkg && pkg.name ? pkg.name : '') || '';
+  const suggestion = normalizePublishPath(pkg && pkg.name ? pkg.name : '') || '';
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const question = (prompt) =>
     new Promise((resolve) => {
@@ -320,11 +302,37 @@ async function promptForName(pkg) {
     });
   const answer = await question(`Choose a public name${suggestion ? ` (${suggestion})` : ''}: `);
   rl.close();
-  const slug = slugifyName(answer || suggestion);
+  const slug = normalizePublishPath(answer || suggestion);
   if (!slug) {
     throw new Error('Invalid name for publishing.');
   }
   return slug;
+}
+
+function normalizePublishPath(value) {
+  if (!value) {
+    return null;
+  }
+  const raw = String(value).trim().toLowerCase().replace(/^\/+|\/+$/g, '');
+  if (!raw) {
+    return null;
+  }
+  const parts = raw.split('/').filter(Boolean);
+  if (parts.length === 0) {
+    return null;
+  }
+  const normalized = parts
+    .map((part) =>
+      part
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '')
+    )
+    .filter(Boolean);
+  if (normalized.length !== parts.length) {
+    return null;
+  }
+  return normalized.join('/');
 }
 
 async function pollLoginStatus(serverBase, loginId) {

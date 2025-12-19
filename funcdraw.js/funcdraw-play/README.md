@@ -66,7 +66,7 @@ Use `--exp <expression>` to evaluate a FuncScript snippet with `art` bound to th
 
 ```bash
 npx fd-share login
-npx fd-share --name "my-first-scene"
+npx fd-share --name "collections/my-first-scene"
 ```
 
 Restrict access to specific Google account emails:

@@ -43,7 +43,7 @@ function createHtmlTemplate({
     }
     header {
       padding: 12px 20px;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(15, 23, 42, 0.92);
       border-bottom: 1px solid rgba(148, 163, 184, 0.2);
       display: flex;
       justify-content: space-between;
@@ -57,19 +57,44 @@ function createHtmlTemplate({
       display: none;
     }
     header h1 {
-      font-size: 16px;
+      font-size: 14px;
       margin: 0;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: #38bdf8;
     }
-    #fd-toolbar {
+    #fd-debug-row {
       display: flex;
-      gap: 12px;
-      font-size: 13px;
+      gap: 10px;
+      font-size: 12px;
       align-items: center;
+      color: #94a3b8;
     }
-    #fd-toolbar button {
+    #fd-controls-bar {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translate(-50%, 0);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 16px 32px rgba(2, 6, 23, 0.55);
+      transition: transform 0.35s ease, opacity 0.35s ease;
+      z-index: 20;
+    }
+    body.fd-embed #fd-controls-bar {
+      bottom: 8px;
+    }
+    body.fd-controls-hidden #fd-controls-bar {
+      transform: translate(-50%, 140%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #fd-controls-bar button {
       padding: 6px 14px;
       border-radius: 999px;
       border: none;
@@ -78,7 +103,7 @@ function createHtmlTemplate({
       font-weight: 600;
       cursor: pointer;
     }
-    #fd-toolbar button:hover {
+    #fd-controls-bar button:hover {
       filter: brightness(1.1);
     }
     #fd-time-controls {
@@ -152,26 +177,28 @@ function createHtmlTemplate({
 <body class="${bodyClass}">
   <header id="fd-header">
     <h1>${escapeHtml(safeTitle)}</h1>
-    <div id="fd-toolbar">
+    <div id="fd-debug-row">
       <span id="fd-stats">loading…</span>
       <span id="fd-warning"></span>
-      <div id="fd-time-controls">
-        <button id="fd-play-toggle" title="Play" aria-label="Play">▶</button>
-        <button id="fd-reset-timeline" title="Reset" aria-label="Reset">⏮</button>
-        <select id="fd-time-speed" title="Playback speed">
-          <option value="2">2×</option>
-          <option value="1" selected>1×</option>
-          <option value="0.5">1/2×</option>
-          <option value="0.25">1/4×</option>
-          <option value="0.125">1/8×</option>
-        </select>
-        <span id="fd-time-current">0.00s</span>
-        <input id="fd-time-scrub" type="range" min="0" max="10" step="0.01" value="0" />
-        <span id="fd-time-max-label">10.00s</span>
-        <span id="fd-frame-time-label">avg10=—</span>
-      </div>
     </div>
   </header>
+  <div id="fd-controls-bar">
+    <div id="fd-time-controls">
+      <button id="fd-play-toggle" title="Play" aria-label="Play">▶</button>
+      <button id="fd-reset-timeline" title="Reset" aria-label="Reset">⏮</button>
+      <select id="fd-time-speed" title="Playback speed">
+        <option value="2">2×</option>
+        <option value="1" selected>1×</option>
+        <option value="0.5">1/2×</option>
+        <option value="0.25">1/4×</option>
+        <option value="0.125">1/8×</option>
+      </select>
+      <span id="fd-time-current">0.00s</span>
+      <input id="fd-time-scrub" type="range" min="0" max="10" step="0.01" value="0" />
+      <span id="fd-time-max-label">10.00s</span>
+      <span id="fd-frame-time-label">avg10=—</span>
+    </div>
+  </div>
   <main id="fd-stage">
     <canvas id="fd-canvas" width="640" height="360"></canvas>
   </main>
@@ -184,6 +211,7 @@ function createHtmlTemplate({
     const ctx = canvas.getContext('2d');
     const stats = document.getElementById('fd-stats');
     const warningsEl = document.getElementById('fd-warning');
+    const controlsBar = document.getElementById('fd-controls-bar');
     const animationControls = {
       container: document.getElementById('fd-time-controls'),
       toggle: document.getElementById('fd-play-toggle'),
@@ -212,6 +240,7 @@ function createHtmlTemplate({
       active: false
     };
     const headerEl = document.getElementById('fd-header');
+    let controlsHideTimer = null;
     const logPrefix = '[FuncDraw]';
     const logDebug = (...args) => console.debug(logPrefix, ...args);
     const logInfo = (...args) => console.info(logPrefix, ...args);
@@ -813,6 +842,15 @@ function createHtmlTemplate({
         loadScene('keyboard');
       }
     });
+    ['mousemove', 'pointermove', 'touchstart', 'keydown'].forEach((eventName) => {
+      window.addEventListener(
+        eventName,
+        () => {
+          revealControls();
+        },
+        { passive: true }
+      );
+    });
 
     animationControls.toggle.addEventListener('click', () => {
       if (!animationState.enabled) {
@@ -1205,6 +1243,29 @@ function createHtmlTemplate({
       updateAnimationUi();
     }
 
+    function setControlsHidden(hidden) {
+      document.body.classList.toggle('fd-controls-hidden', hidden);
+    }
+
+    function scheduleControlsHide() {
+      if (controlsHideTimer) {
+        clearTimeout(controlsHideTimer);
+        controlsHideTimer = null;
+      }
+      if (!animationState.enabled || !animationState.playing) {
+        setControlsHidden(false);
+        return;
+      }
+      controlsHideTimer = setTimeout(() => {
+        setControlsHidden(true);
+      }, 1800);
+    }
+
+    function revealControls() {
+      setControlsHidden(false);
+      scheduleControlsHide();
+    }
+
     async function animationFrame(timestamp) {
       if (!animationState.playing) {
         animationState.raf = null;
@@ -1237,10 +1298,17 @@ function createHtmlTemplate({
     function updateAnimationUi() {
       if (!animationState.enabled) {
         animationControls.container.classList.remove('active');
+        if (controlsBar) {
+          controlsBar.hidden = true;
+        }
+        setControlsHidden(true);
         if (animationControls.frameTimeLabel) {
           animationControls.frameTimeLabel.textContent = '';
         }
         return;
+      }
+      if (controlsBar) {
+        controlsBar.hidden = false;
       }
       animationControls.container.classList.add('active');
       animationControls.toggle.textContent = animationState.playing ? '⏸' : '▶';
@@ -1264,6 +1332,7 @@ function createHtmlTemplate({
         animationControls.frameTimeLabel.textContent =
           avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
       }
+      scheduleControlsHide();
     }
 
     function resolveMaxTime(state) {

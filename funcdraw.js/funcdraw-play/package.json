@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "bin": {
     "funcdraw-play": "bin/funcdraw-play.js",
-    "funcdraw-share": "bin/funcdraw-share.js"
+    "funcdraw-share": "bin/funcdraw-share.js",
+    "fd-share": "bin/fd-share.js"
   },
   "files": [
     "src",

@@ -14,7 +14,7 @@ Add a script to your project:
 {
   "scripts": {
     "play": "funcdraw-play",
-    "share": "funcdraw-share"
+    "share": "npx fd-share"
   }
 }
 ```
@@ -62,22 +62,29 @@ Use `--exp <expression>` to evaluate a FuncScript snippet with `art` bound to th
 
 ## Sharing
 
-`funcdraw-share` uploads a zip snapshot of your package (plus a browser bootstrap payload) to a FuncDraw share server and prints a playable link.
+`fd-share` uploads a zip snapshot of your package (plus a browser bootstrap payload) to a FuncDraw share server and prints a playable link.
 
 ```bash
-FUNCDRAW_SHARE_SERVER=http://localhost:8787 npm run share
+npx fd-share login
+npx fd-share --name "my-first-scene"
 ```
 
 Restrict access to specific Google account emails:
 
 ```bash
-npm run share -- --restrict alice@gmail.com,bob@gmail.com
+npx fd-share --restrict alice@gmail.com,bob@gmail.com
 ```
 
 Share a specific expression (with `art` bound to the loaded package):
 
 ```bash
-npm run share -- --exp "art.ui.badge"
+npx fd-share --exp "art.ui.badge"
+```
+
+You can still run the legacy CLI:
+
+```bash
+funcdraw-share --server http://localhost:8787
 ```
 
 ## Time (`t`) & animation

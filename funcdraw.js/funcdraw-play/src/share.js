@@ -8,15 +8,35 @@ const picocolors = require('picocolors');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const archiver = require('archiver');
+const open = require('open');
+const readline = require('readline');
 const { createArtResolver } = require('./art-resolver');
 const { buildBootstrapPayload } = require('./package-snapshot');
 
-async function sharePackage(cwd, argvInput) {
+const DEFAULT_SERVER = 'https://funcdraw.com';
+
+async function sharePackage(cwd, argvInput, options = {}) {
   const argv = yargs(hideBin(argvInput || process.argv))
     .option('server', {
       type: 'string',
       describe: 'FuncDraw share server base URL',
-      default: process.env.FUNCDRAW_SHARE_SERVER || 'http://localhost:3040'
+      default: process.env.FUNCDRAW_SHARE_SERVER || DEFAULT_SERVER
+    })
+    .option('name', {
+      type: 'string',
+      describe: 'Public name (slug) for publishing: funcdraw.com/<handle>/<name>'
+    })
+    .option('slug', {
+      type: 'string',
+      describe: 'Alias for --name'
+    })
+    .option('handle', {
+      type: 'string',
+      describe: 'Override handle for publishing'
+    })
+    .option('token', {
+      type: 'string',
+      describe: 'Auth token for publishing'
     })
     .option('restrict', {
       type: 'array',
@@ -35,6 +55,21 @@ async function sharePackage(cwd, argvInput) {
   const expressionOverride = resolveExpressionOverride(argv);
   const pkg = readPackageManifest(cwd);
   const toolPkg = readOwnPackageManifest();
+  const authConfig = readAuthConfig();
+  const authToken =
+    argv.token ||
+    process.env.FUNCDRAW_SHARE_TOKEN ||
+    (authConfig && authConfig.serverBase === serverBase ? authConfig.token : null);
+  let publishHandle = argv.handle || (authConfig && authConfig.serverBase === serverBase ? authConfig.handle : null);
+  let publishName = argv.name || argv.slug || null;
+  if (publishName) {
+    publishName = slugifyName(publishName);
+    if (!publishName) {
+      throw new Error('Invalid --name for publishing.');
+    }
+  }
+  const shouldPublish = Boolean(authToken || publishHandle || publishName);
+  const toolName = options.toolName || 'funcdraw-share';
 
   const art = createArtResolver(cwd);
   if (!art) {
@@ -62,7 +97,7 @@ async function sharePackage(cwd, argvInput) {
       version: pkg.version || null
     },
     client: {
-      tool: 'funcdraw-share',
+      tool: toolName,
       toolVersion: toolPkg.version || null,
       node: process.version,
       platform: process.platform,
@@ -79,12 +114,23 @@ async function sharePackage(cwd, argvInput) {
     }
   };
 
+  if (shouldPublish && !authToken) {
+    throw new Error('Publishing requires login. Run `fd-share login` first.');
+  }
+
+  if (shouldPublish && !publishName) {
+    publishName = await promptForName(pkg);
+  }
+
   const playUrl = await uploadModel({
     serverBase,
     zipPath,
     meta,
     bootstrap,
-    restrictList
+    restrictList,
+    authToken,
+    publishHandle,
+    publishName
   });
 
   try {
@@ -96,8 +142,61 @@ async function sharePackage(cwd, argvInput) {
   process.stdout.write(playUrl + '\n');
 }
 
+async function login(argvInput) {
+  const argv = yargs(hideBin(argvInput || process.argv))
+    .option('server', {
+      type: 'string',
+      describe: 'FuncDraw share server base URL',
+      default: process.env.FUNCDRAW_SHARE_SERVER || DEFAULT_SERVER
+    })
+    .option('open', {
+      type: 'boolean',
+      describe: 'Open the browser to complete login',
+      default: true
+    })
+    .help()
+    .alias('help', 'h')
+    .parseSync();
+
+  const serverBase = normalizeServerBase(argv.server);
+  const startUrl = new URL('/api/cli/login/start', serverBase);
+  const res = await fetch(startUrl, { method: 'POST' });
+  if (!res.ok) {
+    const text = await safeReadText(res);
+    throw new Error(`Login start failed (${res.status} ${res.statusText}): ${text || 'no body'}`);
+  }
+  const payload = await res.json();
+  const loginUrl = payload.loginUrl;
+  const loginId = payload.loginId;
+  if (!loginUrl || !loginId) {
+    throw new Error('Login response missing loginUrl/loginId');
+  }
+
+  if (argv.open === false) {
+    process.stdout.write(`${loginUrl}\n`);
+  } else {
+    await open(loginUrl);
+    process.stdout.write(`Opened ${loginUrl}\n`);
+  }
+
+  const status = await pollLoginStatus(serverBase, loginId);
+  if (status.status !== 'complete') {
+    throw new Error(`Login did not complete (status: ${status.status})`);
+  }
+
+  writeAuthConfig({
+    serverBase,
+    token: status.token || null,
+    handle: status.handle || null,
+    email: status.email || null
+  });
+
+  process.stdout.write(`Logged in as ${status.handle || status.email}\n`);
+}
+
 module.exports = {
-  sharePackage
+  sharePackage,
+  login
 };
 
 function normalizeServerBase(value) {
@@ -155,6 +254,96 @@ function readOwnPackageManifest() {
   } catch {
     return {};
   }
+}
+
+function getAuthConfigPath() {
+  const home = os.homedir();
+  const base =
+    process.env.XDG_CONFIG_HOME && process.env.XDG_CONFIG_HOME.trim()
+      ? process.env.XDG_CONFIG_HOME.trim()
+      : path.join(home, '.config');
+  return path.join(base, 'funcdraw', 'share.json');
+}
+
+function readAuthConfig() {
+  try {
+    const configPath = getAuthConfigPath();
+    if (!fs.existsSync(configPath)) {
+      return null;
+    }
+    const payload = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+    if (!payload.serverBase || !payload.token) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthConfig(payload) {
+  const configPath = getAuthConfigPath();
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+}
+
+function slugifyName(name) {
+  if (!name) {
+    return null;
+  }
+  const text = String(name).trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+  const slug = text
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!slug) {
+    return null;
+  }
+  return slug;
+}
+
+async function promptForName(pkg) {
+  if (!process.stdin.isTTY) {
+    throw new Error('Missing --name for publishing (non-interactive shell)');
+  }
+  const suggestion = slugifyName(pkg && pkg.name ? pkg.name : '') || '';
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const question = (prompt) =>
+    new Promise((resolve) => {
+      rl.question(prompt, (answer) => resolve(answer));
+    });
+  const answer = await question(`Choose a public name${suggestion ? ` (${suggestion})` : ''}: `);
+  rl.close();
+  const slug = slugifyName(answer || suggestion);
+  if (!slug) {
+    throw new Error('Invalid name for publishing.');
+  }
+  return slug;
+}
+
+async function pollLoginStatus(serverBase, loginId) {
+  const statusUrl = new URL(`/api/cli/login/status/${loginId}`, serverBase);
+  const timeoutMs = 5 * 60 * 1000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const res = await fetch(statusUrl);
+    if (!res.ok) {
+      const text = await safeReadText(res);
+      throw new Error(`Login status failed (${res.status} ${res.statusText}): ${text || 'no body'}`);
+    }
+    const payload = await res.json();
+    if (payload.status && payload.status !== 'pending') {
+      return payload;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  return { status: 'timeout' };
 }
 
 async function createPackageZip(cwd, pkg, { onLog } = {}) {
@@ -223,7 +412,7 @@ async function sha256File(filePath) {
   return hash.digest('hex');
 }
 
-async function uploadModel({ serverBase, zipPath, meta, bootstrap, restrictList }) {
+async function uploadModel({ serverBase, zipPath, meta, bootstrap, restrictList, authToken, publishHandle, publishName }) {
   const url = new URL('/api/models', serverBase);
   const zipBuffer = fs.readFileSync(zipPath);
   const form = new FormData();
@@ -233,8 +422,18 @@ async function uploadModel({ serverBase, zipPath, meta, bootstrap, restrictList 
   if (Array.isArray(restrictList) && restrictList.length > 0) {
     form.append('restrict', restrictList.join(','));
   }
+  if (publishHandle) {
+    form.append('handle', publishHandle);
+  }
+  if (publishName) {
+    form.append('name', publishName);
+  }
 
-  const res = await fetch(url, { method: 'POST', body: form });
+  const headers = {};
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+  const res = await fetch(url, { method: 'POST', body: form, headers });
   if (!res.ok) {
     const text = await safeReadText(res);
     throw new Error(`Share upload failed (${res.status} ${res.statusText}): ${text || 'no body'}`);

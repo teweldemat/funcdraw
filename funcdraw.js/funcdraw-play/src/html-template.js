@@ -77,14 +77,17 @@ function createHtmlTemplate({
       transform: translate(-50%, 0);
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 8px 14px;
+      gap: 10px;
+      padding: 8px 12px;
       border-radius: 999px;
       background: rgba(15, 23, 42, 0.92);
       border: 1px solid rgba(148, 163, 184, 0.18);
       box-shadow: 0 16px 32px rgba(2, 6, 23, 0.55);
       transition: transform 0.35s ease, opacity 0.35s ease;
       z-index: 20;
+      max-width: calc(100% - 24px);
+      flex-wrap: wrap;
+      justify-content: center;
     }
     body.fd-embed #fd-controls-bar {
       bottom: 8px;
@@ -110,6 +113,8 @@ function createHtmlTemplate({
       display: none;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     #fd-time-controls.active {
       display: flex;
@@ -117,6 +122,13 @@ function createHtmlTemplate({
     #fd-time-scrub {
       width: 160px;
       accent-color: #38bdf8;
+    }
+    #fd-controls-title {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      white-space: nowrap;
     }
     #fd-time-current,
     #fd-time-max-label {
@@ -150,6 +162,9 @@ function createHtmlTemplate({
     body.fd-clean #fd-frame-time-label {
       display: none;
     }
+    body.fd-clean header {
+      display: none;
+    }
     main {
       flex: 1;
       display: flex;
@@ -172,6 +187,22 @@ function createHtmlTemplate({
       max-height: 100vh;
       box-shadow: none;
     }
+    @media (max-width: 640px) {
+      #fd-controls-bar {
+        bottom: 10px;
+        padding: 8px 10px;
+      }
+      #fd-time-scrub {
+        width: 110px;
+      }
+      #fd-time-speed {
+        font-size: 11px;
+      }
+      #fd-controls-title {
+        width: 100%;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body class="${bodyClass}">
@@ -183,6 +214,7 @@ function createHtmlTemplate({
     </div>
   </header>
   <div id="fd-controls-bar">
+    <div id="fd-controls-title">${escapeHtml(safeTitle)}</div>
     <div id="fd-time-controls">
       <button id="fd-play-toggle" title="Play" aria-label="Play">▶</button>
       <button id="fd-reset-timeline" title="Reset" aria-label="Reset">⏮</button>
@@ -240,6 +272,7 @@ function createHtmlTemplate({
       active: false
     };
     const headerEl = document.getElementById('fd-header');
+    const controlsTitle = document.getElementById('fd-controls-title');
     let controlsHideTimer = null;
     const logPrefix = '[FuncDraw]';
     const logDebug = (...args) => console.debug(logPrefix, ...args);
@@ -1223,6 +1256,7 @@ function createHtmlTemplate({
       animationState.lastTick = null;
       animationState.raf = requestAnimationFrame(animationFrame);
       updateAnimationUi();
+      scheduleControlsHide();
     }
 
     function stopAnimation(options = {}) {
@@ -1241,6 +1275,7 @@ function createHtmlTemplate({
         animationState.maxSeenT = 0;
       }
       updateAnimationUi();
+      setControlsHidden(false);
     }
 
     function setControlsHidden(hidden) {
@@ -1252,7 +1287,7 @@ function createHtmlTemplate({
         clearTimeout(controlsHideTimer);
         controlsHideTimer = null;
       }
-      if (!animationState.enabled || !animationState.playing) {
+      if (!animationState.enabled) {
         setControlsHidden(false);
         return;
       }
@@ -1302,6 +1337,9 @@ function createHtmlTemplate({
           controlsBar.hidden = true;
         }
         setControlsHidden(true);
+        if (controlsTitle) {
+          controlsTitle.hidden = true;
+        }
         if (animationControls.frameTimeLabel) {
           animationControls.frameTimeLabel.textContent = '';
         }
@@ -1309,6 +1347,9 @@ function createHtmlTemplate({
       }
       if (controlsBar) {
         controlsBar.hidden = false;
+      }
+      if (controlsTitle) {
+        controlsTitle.hidden = false;
       }
       animationControls.container.classList.add('active');
       animationControls.toggle.textContent = animationState.playing ? '⏸' : '▶';
@@ -1332,7 +1373,6 @@ function createHtmlTemplate({
         animationControls.frameTimeLabel.textContent =
           avgRenderTime === null ? 'avg10=—' : 'avg10=' + formatRenderTime(avgRenderTime);
       }
-      scheduleControlsHide();
     }
 
     function resolveMaxTime(state) {
